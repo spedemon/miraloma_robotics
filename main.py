@@ -668,7 +668,7 @@ ui.add_head_html("""
     height: 100%;
     min-height: 380px;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
   }
   .robot-face-wrapper {
     position: relative;
@@ -683,7 +683,7 @@ ui.add_head_html("""
   .face-glow {
     position: absolute;
     top: 50%; left: 50%;
-    width: 280px; height: 280px;
+    width: 240px; height: 240px;
     transform: translate(-50%, -50%);
     border-radius: 50%;
     background: radial-gradient(circle, rgba(78,205,196,0.15) 0%, transparent 70%);
@@ -707,13 +707,13 @@ ui.add_head_html("""
 
   /* === Listening State === */
   .robot-face-listening .face-glow {
-    width: 340px; height: 340px;
+    width: 280px; height: 280px;
     background: radial-gradient(circle, rgba(255,107,53,0.3) 0%, rgba(255,71,87,0.1) 50%, transparent 70%);
     animation: glow-pulse 1.2s ease-in-out infinite;
   }
   @keyframes glow-pulse {
     0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
-    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.10); }
   }
   .robot-face-listening .robot-eye-pupil {
     animation: eyes-widen 0.4s ease forwards;
@@ -742,8 +742,8 @@ ui.add_head_html("""
     transition: opacity 0.3s ease;
   }
   @keyframes wave-ripple {
-    0% { r: 120; opacity: 0.6; stroke-width: 3; }
-    100% { r: 160; opacity: 0; stroke-width: 0.5; }
+    0% { r: 100; opacity: 0.6; stroke-width: 3; }
+    100% { r: 145; opacity: 0; stroke-width: 0.5; }
   }
   .robot-face-listening .sound-wave:nth-child(2) {
     animation-delay: 0.3s;
@@ -766,7 +766,7 @@ ui.add_head_html("""
 
   /* === Thinking State === */
   .robot-face-thinking .face-glow {
-    width: 310px; height: 310px;
+    width: 260px; height: 260px;
     background: radial-gradient(circle, rgba(168,85,247,0.25) 0%, rgba(192,132,252,0.1) 50%, transparent 70%);
     animation: glow-think 2s ease-in-out infinite;
   }
@@ -1040,11 +1040,11 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                       <div class="robot-face-container">
                         <div class="face-glow"></div>
                         <div class="robot-face-wrapper">
-                          <svg viewBox="0 0 260 280" width="280" height="300" xmlns="http://www.w3.org/2000/svg">
+                          <svg viewBox="-50 -50 360 380" width="280" height="300" xmlns="http://www.w3.org/2000/svg">
                             <!-- Sound waves (visible when listening) -->
-                            <circle class="sound-wave" cx="130" cy="120" r="130" fill="none" stroke="#FF6B35" stroke-width="2"/>
-                            <circle class="sound-wave" cx="130" cy="120" r="130" fill="none" stroke="#FF6B35" stroke-width="2"/>
-                            <circle class="sound-wave" cx="130" cy="120" r="130" fill="none" stroke="#FF6B35" stroke-width="2"/>
+                            <circle class="sound-wave" cx="130" cy="120" r="100" fill="none" stroke="#FF6B35" stroke-width="2"/>
+                            <circle class="sound-wave" cx="130" cy="120" r="100" fill="none" stroke="#FF6B35" stroke-width="2"/>
+                            <circle class="sound-wave" cx="130" cy="120" r="100" fill="none" stroke="#FF6B35" stroke-width="2"/>
 
                             <!-- Antenna -->
                             <line x1="130" y1="28" x2="130" y2="8" stroke="#B0B8C4" stroke-width="4" stroke-linecap="round"/>
