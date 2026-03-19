@@ -834,6 +834,115 @@ ui.add_head_html("""
     animation: fade-in-out 2s ease-in-out infinite;
   }
 
+  /* === Progress animation container === */
+  .progress-anim-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    overflow: hidden;
+    transition: min-height 0.4s ease, opacity 0.4s ease;
+    opacity: 0;
+  }
+  .progress-anim-container.progress-visible {
+    min-height: 100px;
+    opacity: 1;
+  }
+
+  /* Determinate circular progress ring */
+  .progress-ring-wrap {
+    display: none;
+    align-items: center;
+    gap: 16px;
+  }
+  .progress-ring-wrap.active { display: flex; }
+  .progress-ring {
+    transform: rotate(-90deg);
+    filter: drop-shadow(0 0 8px rgba(255,107,53,0.4));
+  }
+  .progress-ring-bg {
+    fill: none;
+    stroke: #F0E6D8;
+    stroke-width: 8;
+  }
+  .progress-ring-fill {
+    fill: none;
+    stroke: url(#progressGrad);
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.15s ease;
+  }
+  .progress-ring-pct {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--primary);
+    min-width: 3.5ch;
+    text-align: right;
+  }
+  .progress-ring-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-medium);
+  }
+
+  /* Indeterminate orbital spinner */
+  .progress-orbit-wrap {
+    display: none;
+    align-items: center;
+    gap: 14px;
+  }
+  .progress-orbit-wrap.active { display: flex; }
+  .orbit-container {
+    position: relative;
+    width: 80px; height: 80px;
+  }
+  .orbit-track {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 3px dashed rgba(168,85,247,0.2);
+    animation: orbit-spin 6s linear infinite;
+  }
+  @keyframes orbit-spin {
+    to { transform: rotate(360deg); }
+  }
+  .orbit-dot {
+    position: absolute;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    top: 50%; left: 50%;
+    margin: -7px 0 0 -7px;
+    animation: orbit-move 2s ease-in-out infinite;
+  }
+  .orbit-dot:nth-child(2) { animation-delay: -0.66s; }
+  .orbit-dot:nth-child(3) { animation-delay: -1.33s; }
+  .orbit-dot-1 { background: var(--primary); box-shadow: 0 0 8px var(--primary); }
+  .orbit-dot-2 { background: var(--accent-purple); box-shadow: 0 0 8px var(--accent-purple); }
+  .orbit-dot-3 { background: var(--secondary); box-shadow: 0 0 8px var(--secondary); }
+  @keyframes orbit-move {
+    0%   { transform: translate(30px, 0)   scale(1); }
+    25%  { transform: translate(0, 30px)   scale(0.7); }
+    50%  { transform: translate(-30px, 0)  scale(1); }
+    75%  { transform: translate(0, -30px)  scale(0.7); }
+    100% { transform: translate(30px, 0)   scale(1); }
+  }
+  .orbit-center-icon {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem;
+    animation: orbit-pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes orbit-pulse {
+    0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    50%      { opacity: 0.6; transform: translate(-50%, -50%) scale(0.85); }
+  }
+  .orbit-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent-purple);
+    animation: fade-in-out 2s ease-in-out infinite;
+  }
+
   /* === Collapsible code viewer === */
   .code-expansion .q-expansion-item__container {
     background: var(--bg-card);
@@ -865,6 +974,7 @@ ui.add_head_html("""
 <script>
 let _voiceRecognition = null;
 let _voiceIsListening = false;
+let _voiceGotResult = false;
 
 function setRobotFaceState(state) {
     const container = document.getElementById('robot-face-outer');
@@ -896,9 +1006,11 @@ function toggleVoiceInput() {
     _voiceRecognition.interimResults = false;
     _voiceRecognition.maxAlternatives = 1;
     _voiceRecognition.continuous = false;
+    _voiceGotResult = false;
 
     _voiceRecognition.onstart = function() {
         _voiceIsListening = true;
+        _voiceGotResult = false;
         const btn = document.getElementById('mic-toggle-btn');
         if (btn) btn.classList.add('mic-btn-recording');
         const status = document.getElementById('voice-status-label');
@@ -908,20 +1020,17 @@ function toggleVoiceInput() {
 
     _voiceRecognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript;
-        const inputEl = document.querySelector('#voice-chat-input input, #voice-chat-input textarea');
-        if (inputEl) {
-            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-            nativeInputValueSetter.call(inputEl, transcript);
-            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-            setTimeout(() => {
-                inputEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-            }, 150);
-        }
+        _voiceGotResult = true;
+        // Store transcript and click hidden button to notify Python
+        window._voiceTranscript = transcript;
+        const btn = document.getElementById('voice-hidden-submit');
+        if (btn) btn.click();
     };
 
     _voiceRecognition.onerror = function(event) {
         console.warn('Speech recognition error:', event.error);
         _voiceIsListening = false;
+        _voiceGotResult = false;
         const btn = document.getElementById('mic-toggle-btn');
         if (btn) btn.classList.remove('mic-btn-recording');
         const status = document.getElementById('voice-status-label');
@@ -935,11 +1044,72 @@ function toggleVoiceInput() {
         if (btn) btn.classList.remove('mic-btn-recording');
         const status = document.getElementById('voice-status-label');
         if (status) { status.textContent = ''; status.style.display = 'none'; }
-        // Don't reset to idle here — send_chat_message will set thinking then idle
+        // If we got a result, transition to thinking (send_chat_message handles idle).
+        // Otherwise (manual cancel / no speech detected), go back to idle.
+        if (_voiceGotResult) {
+            setRobotFaceState('thinking');
+        } else {
+            setRobotFaceState('idle');
+        }
     };
 
     _voiceRecognition.start();
     return 'started';
+}
+// ── Progress Animation Control ─────────────────────────────────
+let _progressTimer = null;
+let _progressStart = 0;
+let _progressDuration = 0;
+
+function startDeterminateProgress(durationSec) {
+    stopProgressAnimation();
+    _progressDuration = durationSec * 1000;
+    _progressStart = performance.now();
+    const container = document.getElementById('progress-anim');
+    const ring = document.getElementById('progress-ring-wrap');
+    const orbit = document.getElementById('progress-orbit-wrap');
+    if (!container || !ring) return;
+    orbit && orbit.classList.remove('active');
+    ring.classList.add('active');
+    container.classList.add('progress-visible');
+    const circle = document.getElementById('progress-ring-fill');
+    const pct = document.getElementById('progress-ring-pct');
+    const circumference = 2 * Math.PI * 36;
+    circle.style.strokeDasharray = circumference;
+    circle.style.strokeDashoffset = circumference;
+    _progressTimer = setInterval(() => {
+        const elapsed = performance.now() - _progressStart;
+        const ratio = Math.min(elapsed / _progressDuration, 1);
+        circle.style.strokeDashoffset = circumference * (1 - ratio);
+        if (pct) pct.textContent = Math.round(ratio * 100) + '%';
+        if (ratio >= 1) clearInterval(_progressTimer);
+    }, 50);
+}
+
+function startIndeterminateProgress() {
+    stopProgressAnimation();
+    const container = document.getElementById('progress-anim');
+    const ring = document.getElementById('progress-ring-wrap');
+    const orbit = document.getElementById('progress-orbit-wrap');
+    if (!container || !orbit) return;
+    ring && ring.classList.remove('active');
+    orbit.classList.add('active');
+    container.classList.add('progress-visible');
+}
+
+function stopProgressAnimation() {
+    if (_progressTimer) { clearInterval(_progressTimer); _progressTimer = null; }
+    const container = document.getElementById('progress-anim');
+    const ring = document.getElementById('progress-ring-wrap');
+    const orbit = document.getElementById('progress-orbit-wrap');
+    if (container) container.classList.remove('progress-visible');
+    if (ring) ring.classList.remove('active');
+    if (orbit) orbit.classList.remove('active');
+    // Reset ring
+    const circle = document.getElementById('progress-ring-fill');
+    const pct = document.getElementById('progress-ring-pct');
+    if (circle) { circle.style.strokeDashoffset = 2 * Math.PI * 36; }
+    if (pct) pct.textContent = '0%';
 }
 </script>
 """)
@@ -950,8 +1120,8 @@ with ui.row().classes("app-header w-full items-center justify-between"):
     with ui.row().classes("items-center gap-3"):
         ui.html(f'<img src="{LOGO_URL}" class="mascot-img" alt="Robot Logo">')
         with ui.column().classes("gap-0"):
-            ui.html('<span class="app-title">Robot Command Center!</span>')
-            ui.html('<span class="app-subtitle">Miraloma Robotics</span>')
+            ui.html('<span class="app-title">Miraloma Robots</span>')
+            ui.html('<span class="app-subtitle">Robot Brain Designer</span>')
 
     with ui.row().classes("items-center gap-3"):
         robot_badge = ui.html(
@@ -1031,6 +1201,13 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                     # Voice status indicator
                     voice_status = ui.html(
                         '<span id="voice-status-label" class="voice-status" style="display: none;"></span>'
+                    )
+
+                    # Hidden button for JS→Python voice transcript delivery
+                    voice_hidden_btn = ui.button(
+                        '', on_click=lambda: _on_voice_hidden_click(),
+                    ).props('id=voice-hidden-submit').style(
+                        'position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden;'
                     )
 
                 # ── Robot Face column ─────────────────────────────
@@ -1137,12 +1314,46 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
 
             # ── Action buttons (always visible) ─────────────────────
             with ui.row().classes("gap-2 w-full items-center"):
-                ui.button(
-                    "🚀 Go!", on_click=lambda: execute_code(),
-                ).classes("fun-btn fun-btn-primary").props("flat no-caps")
+                go_stop_button = ui.button(
+                    "🚀 Go!", on_click=lambda: toggle_go_stop(),
+                ).classes("fun-btn fun-btn-primary").props("flat no-caps").style("min-width: 130px;")
                 ui.button(
                     "🧹 Start Over", on_click=lambda: clear_code(),
                 ).classes("fun-btn fun-btn-ghost").props("flat no-caps")
+
+            # ── Progress animation ────────────────────────────────
+            progress_anim = ui.html('''
+            <div id="progress-anim" class="progress-anim-container">
+              <!-- Determinate: circular progress ring -->
+              <div id="progress-ring-wrap" class="progress-ring-wrap">
+                <svg class="progress-ring" width="80" height="80" viewBox="0 0 80 80">
+                  <defs>
+                    <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" style="stop-color:#FF6B35"/>
+                      <stop offset="100%" style="stop-color:#FF6B9D"/>
+                    </linearGradient>
+                  </defs>
+                  <circle class="progress-ring-bg" cx="40" cy="40" r="36"/>
+                  <circle id="progress-ring-fill" class="progress-ring-fill" cx="40" cy="40" r="36"/>
+                </svg>
+                <div>
+                  <div id="progress-ring-pct" class="progress-ring-pct">0%</div>
+                  <div class="progress-ring-label">Running action…</div>
+                </div>
+              </div>
+              <!-- Indeterminate: orbital spinner -->
+              <div id="progress-orbit-wrap" class="progress-orbit-wrap">
+                <div class="orbit-container">
+                  <div class="orbit-track"></div>
+                  <div class="orbit-dot orbit-dot-1"></div>
+                  <div class="orbit-dot orbit-dot-2"></div>
+                  <div class="orbit-dot orbit-dot-3"></div>
+                  <div class="orbit-center-icon">🤖</div>
+                </div>
+                <div class="orbit-label">Navigating…</div>
+              </div>
+            </div>
+            ''')
 
             # ── Collapsible code viewer ───────────────────────────
             with ui.expansion(
@@ -1457,6 +1668,7 @@ def handle_emergency_stop() -> None:
     """Send emergency stop, kill running code, and update UI."""
     # Stop any running navigation code
     stop_execution()
+    _reset_play_ui()
     try:
         robot.stop()
         ui.notify("🛑 Robot stopped!", type="negative", position="top")
@@ -1516,6 +1728,24 @@ async def handle_voice_toggle() -> None:
             type="warning",
             position="top",
         )
+
+
+async def _on_voice_hidden_click() -> None:
+    """Hidden button click handler — retrieves transcript from JS global."""
+    transcript = await ui.run_javascript(
+        "(() => { const t = window._voiceTranscript || ''; window._voiceTranscript = ''; return t; })()"
+    )
+    if transcript:
+        await handle_voice_result(transcript)
+
+
+async def handle_voice_result(text: str) -> None:
+    """Handle a voice transcript received from the browser."""
+    if not text:
+        return
+    # Set the chat input so send_chat_message can read it
+    chat_input.value = text
+    await send_chat_message()
 
 def handle_model_change(label: str) -> None:
     """Handle switching the AI model."""
@@ -1621,7 +1851,7 @@ async def send_chat_message() -> None:
             # Auto-execute action commands immediately
             await ui.run_javascript("setRobotFaceState('idle')")
             status_label.set_text("🚀 Running action…")
-            await _execute_code_async(parsed.code)
+            await _execute_code_async(parsed.code, mode="action")
         elif parsed.response_type == ResponseType.NAVIGATION:
             # Wait for Go! button
             await ui.run_javascript("setRobotFaceState('idle')")
@@ -1635,7 +1865,42 @@ async def send_chat_message() -> None:
         status_label.set_text("✨ Ready to play!")
 
 
-async def _execute_code_async(code: str) -> None:
+def _estimate_duration(code: str) -> float | None:
+    """Estimate total duration of an ACTION script by summing wait() calls.
+
+    Returns None for NAVIGATION scripts (contain while is_running()).
+    """
+    import re
+    if "while" in code and "is_running()" in code:
+        return None
+    total = 0.0
+    for m in re.finditer(r'wait\s*\(\s*([\d.]+)\s*\)', code):
+        total += float(m.group(1))
+    return total if total > 0 else None
+
+
+def _set_go_stop_button(running: bool) -> None:
+    """Toggle Go!/Stop button appearance."""
+    if running:
+        go_stop_button.set_text("🛑 Stop")
+        go_stop_button._classes = [c for c in go_stop_button._classes if c != 'fun-btn-primary']
+        go_stop_button._classes.append('stop-btn')
+        go_stop_button.update()
+    else:
+        go_stop_button.set_text("🚀 Go!")
+        go_stop_button._classes = [c for c in go_stop_button._classes if c != 'stop-btn']
+        if 'fun-btn-primary' not in go_stop_button._classes:
+            go_stop_button._classes.append('fun-btn-primary')
+        go_stop_button.update()
+
+
+def _reset_play_ui() -> None:
+    """Reset progress animation and Go/Stop button."""
+    _set_go_stop_button(False)
+    ui.run_javascript("stopProgressAnimation()")
+
+
+async def _execute_code_async(code: str, mode: str = "action") -> None:
     """Execute generated Python code in a background task."""
     global _running_task
 
@@ -1644,6 +1909,18 @@ async def _execute_code_async(code: str) -> None:
 
     # Set up the runtime
     nav_runtime.running = True
+    _set_go_stop_button(True)
+
+    # Start the appropriate animation
+    if mode == "navigation":
+        await ui.run_javascript("startIndeterminateProgress()")
+    else:
+        duration = _estimate_duration(code)
+        if duration and duration > 0:
+            await ui.run_javascript(f"startDeterminateProgress({duration})")
+        else:
+            # Fallback: treat unknown duration as indeterminate
+            await ui.run_javascript("startIndeterminateProgress()")
 
     async def _run():
         try:
@@ -1662,6 +1939,7 @@ async def _execute_code_async(code: str) -> None:
             ui.notify(f"⚠️ Script error: {exc}", type="negative")
         finally:
             nav_runtime.running = False
+            _reset_play_ui()
             status_label.set_text("✨ Ready to play!")
 
     _running_task = asyncio.create_task(_run())
@@ -1676,19 +1954,39 @@ def stop_execution() -> None:
     _running_task = None
 
 
+def toggle_go_stop() -> None:
+    """Toggle between Go! and Stop based on execution state."""
+    if nav_runtime.running:
+        # Currently running → stop
+        stop_execution()
+        _reset_play_ui()
+        try:
+            robot.stop()
+        except ConnectionError:
+            pass
+        status_label.set_text("🛑 Stopped!")
+        ui.notify("🛑 Script stopped!", type="negative")
+    else:
+        # Not running → execute
+        execute_code()
+
+
 def execute_code() -> None:
     """Execute the current navigation script (triggered by Go! button)."""
     if "No navigation script" in current_code:
         ui.notify("Tell the robot what to do first! 💬", type="warning")
         return
+    # Determine mode from the code content
+    mode = "navigation" if ("while" in current_code and "is_running()" in current_code) else "action"
     status_label.set_text("🚀 Running…")
-    asyncio.ensure_future(_execute_code_async(current_code))
+    asyncio.ensure_future(_execute_code_async(current_code, mode=mode))
 
 
 def clear_code() -> None:
     """Clear the current navigation script and stop execution."""
     global current_code
     stop_execution()
+    _reset_play_ui()
     try:
         robot.stop()
     except ConnectionError:
@@ -1704,7 +2002,7 @@ def clear_code() -> None:
 #  LAUNCH
 # ══════════════════════════════════════════════════════════════════
 ui.run(
-    title="Robot Command Center! — Miraloma Robotics",
+    title="Miraloma Robots — Miraloma Robotics",
     favicon=str(BASE_DIR / 'static' / 'logo.png'),
     host="0.0.0.0",
     port=8080,

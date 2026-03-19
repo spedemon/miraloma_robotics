@@ -351,9 +351,19 @@ stop()
 
     @staticmethod
     def clean_message_for_display(text: str) -> str:
-        """Remove classification tags from the message for display."""
-        text = re.sub(r'\[ACTION\]', '', text, flags=re.IGNORECASE).strip()
-        text = re.sub(r'\[NAVIGATION\]', '', text, flags=re.IGNORECASE).strip()
+        """Remove classification tags and code blocks for chat display.
+
+        The generated Python code is already shown in the collapsible
+        Navigation Script panel, so we strip it from the chat bubble to
+        keep responses concise and kid-friendly.
+        """
+        # Remove classification tags
+        text = re.sub(r'\[ACTION\]', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'\[NAVIGATION\]', '', text, flags=re.IGNORECASE)
+        # Remove fenced code blocks (```...```)
+        text = re.sub(r'```[\s\S]*?```', '', text)
+        # Collapse excess whitespace left behind
+        text = re.sub(r'\n{3,}', '\n\n', text).strip()
         return text
 
     # ── Helpers ───────────────────────────────────────────────────

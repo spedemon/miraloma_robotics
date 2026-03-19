@@ -1,4 +1,4 @@
-# 🤖 Miraloma Bots — Robot Command Center
+# 🤖 Miraloma Bots — Miraloma Robots
 
 > **Talk to your robot, and watch it move!**
 > A voice & chat-powered robotics platform built for kids at [Miraloma Elementary School](https://www.sfsud.edu/school/miraloma-elementary).
@@ -23,18 +23,18 @@ Miraloma Bots is an **AI-powered robot control center** that lets kids talk to t
 
 ## 🎮 Features
 
-| Feature | Description |
-|---|---|
-| 🗣️ **Voice Chat** | Talk to your robot using the microphone (Web Speech API) |
-| 💬 **Text Chat** | Type commands in natural language |
-| 🧠 **AI Code Gen** | Gemini generates & classifies Python code (action vs navigation) |
-| 🚀 **Auto-Execute** | Simple commands run immediately; complex navigation waits for "Go!" |
-| 🤖 **Multi-Robot** | Switch between different robots (Mecanum car, Spider walker) |
-| 📟 **Firmware View** | View and copy firmware source code for flashing |
-| 📖 **Command Book** | Auto-generated protocol reference from YAML definitions |
-| 🛑 **Emergency Stop** | One-click stop button halts all motors instantly |
-| 🎨 **Animated Robot Face** | SVG robot face that reacts to listening/thinking states |
-| ⚙️ **Calibration** | Tune speed-per-foot and motor defaults per robot |
+| Feature                   | Description                                                         |
+| ------------------------- | ------------------------------------------------------------------- |
+| 🗣️ **Voice Chat**          | Talk to your robot using the microphone (Web Speech API)            |
+| 💬 **Text Chat**           | Type commands in natural language                                   |
+| 🧠 **AI Code Gen**         | Gemini generates & classifies Python code (action vs navigation)    |
+| 🚀 **Auto-Execute**        | Simple commands run immediately; complex navigation waits for "Go!" |
+| 🤖 **Multi-Robot**         | Switch between different robots (Mecanum car, Spider walker)        |
+| 📟 **Firmware View**       | View and copy firmware source code for flashing                     |
+| 📖 **Command Book**        | Auto-generated protocol reference from YAML definitions             |
+| 🛑 **Emergency Stop**      | One-click stop button halts all motors instantly                    |
+| 🎨 **Animated Robot Face** | SVG robot face that reacts to listening/thinking states             |
+| ⚙️ **Calibration**         | Tune speed-per-foot and motor defaults per robot                    |
 
 ---
 

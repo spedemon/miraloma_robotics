@@ -1,4 +1,4 @@
-# 🗺️ Roadmap: Miraloma Bots — Robot Command Center
+# 🗺️ Roadmap: Miraloma Bots — Miraloma Robots
 
 > AI-powered voice & chat robot control — NiceGUI + Google Gemini + Serial UART
 
@@ -8,92 +8,92 @@
 
 ### Phase 1 — Foundation & UI
 
-| Deliverable | Status |
-|---|---|
-| NiceGUI 4-tab app (Play, Robot Code, Command Book, Setup) | ✅ |
-| Custom CSS design system (colors, gradients, animations, typography) | ✅ |
-| App header with animated robot logo, robot badge, connection badge, STOP button | ✅ |
-| Status bar with version indicator | ✅ |
-| `requirements.txt` with all dependencies | ✅ |
-| `.gitignore` for Python/dev artifacts | ✅ |
-| `MASTER_PLAN.md` technical specification | ✅ |
-| `ROADMAP.md` (this file) | ✅ |
-| Static assets served (`/static/logo.png`) | ✅ |
+| Deliverable                                                                     | Status |
+| ------------------------------------------------------------------------------- | ------ |
+| NiceGUI 4-tab app (Play, Robot Code, Command Book, Setup)                       | ✅      |
+| Custom CSS design system (colors, gradients, animations, typography)            | ✅      |
+| App header with animated robot logo, robot badge, connection badge, STOP button | ✅      |
+| Status bar with version indicator                                               | ✅      |
+| `requirements.txt` with all dependencies                                        | ✅      |
+| `.gitignore` for Python/dev artifacts                                           | ✅      |
+| `MASTER_PLAN.md` technical specification                                        | ✅      |
+| `ROADMAP.md` (this file)                                                        | ✅      |
+| Static assets served (`/static/logo.png`)                                       | ✅      |
 
 ### Phase 2 — Multi-Robot Support
 
-| Deliverable | Status |
-|---|---|
-| YAML-based protocol definitions (`protocol.yaml` per robot) | ✅ |
-| Robot architecture markdown files (identity, capabilities, limitations) | ✅ |
-| Auto-discovery of robots from `robots_firmware/` subdirectories | ✅ |
-| Robot selector in Setup tab with dynamic UI updates | ✅ |
-| **Mecanum Car** — Micro:bit V2, MakeCode STS firmware, omnidirectional, ultrasonic sensor, line tracker | ✅ |
-| **Spider Walker** — ESP8266, ACECode/Arduino firmware, 9 preset actions/animations | ✅ |
-| Platform-aware firmware tab (MakeCode vs Arduino IDE, copy/open buttons) | ✅ |
-| Auto-generated Protocol Docs table from YAML | ✅ |
-| Legacy `protocol_map.json` removed (replaced by per-robot YAML) | ✅ |
+| Deliverable                                                                                             | Status |
+| ------------------------------------------------------------------------------------------------------- | ------ |
+| YAML-based protocol definitions (`protocol.yaml` per robot)                                             | ✅      |
+| Robot architecture markdown files (identity, capabilities, limitations)                                 | ✅      |
+| Auto-discovery of robots from `robots_firmware/` subdirectories                                         | ✅      |
+| Robot selector in Setup tab with dynamic UI updates                                                     | ✅      |
+| **Mecanum Car** — Micro:bit V2, MakeCode STS firmware, omnidirectional, ultrasonic sensor, line tracker | ✅      |
+| **Spider Walker** — ESP8266, ACECode/Arduino firmware, 9 preset actions/animations                      | ✅      |
+| Platform-aware firmware tab (MakeCode vs Arduino IDE, copy/open buttons)                                | ✅      |
+| Auto-generated Protocol Docs table from YAML                                                            | ✅      |
+| Legacy `protocol_map.json` removed (replaced by per-robot YAML)                                         | ✅      |
 
 ### Phase 3 — Hardware Abstraction Layer
 
-| Deliverable | Status |
-|---|---|
-| `robot_hal.py` — thread-safe pyserial wrapper | ✅ |
-| Dynamic protocol loading from YAML (setters/getters by ID) | ✅ |
-| Generic `send_command()` and `read_sensor()` with template substitution | ✅ |
-| Emergency `stop()` with fallback | ✅ |
-| Serial port auto-detection (`list_ports`) | ✅ |
-| Connect/disconnect lifecycle with UI status updates | ✅ |
-| Convenience methods: `drive()`, `set_servo()`, `read_distance()`, `display_text()`, `play_tone()` | ✅ |
+| Deliverable                                                                                       | Status |
+| ------------------------------------------------------------------------------------------------- | ------ |
+| `robot_hal.py` — thread-safe pyserial wrapper                                                     | ✅      |
+| Dynamic protocol loading from YAML (setters/getters by ID)                                        | ✅      |
+| Generic `send_command()` and `read_sensor()` with template substitution                           | ✅      |
+| Emergency `stop()` with fallback                                                                  | ✅      |
+| Serial port auto-detection (`list_ports`)                                                         | ✅      |
+| Connect/disconnect lifecycle with UI status updates                                               | ✅      |
+| Convenience methods: `drive()`, `set_servo()`, `read_distance()`, `display_text()`, `play_tone()` | ✅      |
 
 ### Phase 4 — Google Gemini AI Integration
 
-| Deliverable | Status |
-|---|---|
-| `gemini_client.py` — official `google-genai` SDK wrapper | ✅ |
-| Multi-turn chat with conversation history | ✅ |
-| Model selector (Gemini 2.5 Flash, Pro, Flash-Lite) | ✅ |
-| API key configuration with "Save & Test" flow | ✅ |
-| Dynamic system prompt with robot identity, architecture, protocol, and calibration | ✅ |
-| Response classification: `[ACTION]` (auto-execute), `[NAVIGATION]` (confirm first), conversation | ✅ |
-| Code extraction from fenced code blocks | ✅ |
-| Friendly error handling (invalid key, rate limits) | ✅ |
+| Deliverable                                                                                      | Status |
+| ------------------------------------------------------------------------------------------------ | ------ |
+| `gemini_client.py` — official `google-genai` SDK wrapper                                         | ✅      |
+| Multi-turn chat with conversation history                                                        | ✅      |
+| Model selector (Gemini 2.5 Flash, Pro, Flash-Lite)                                               | ✅      |
+| API key configuration with "Save & Test" flow                                                    | ✅      |
+| Dynamic system prompt with robot identity, architecture, protocol, and calibration               | ✅      |
+| Response classification: `[ACTION]` (auto-execute), `[NAVIGATION]` (confirm first), conversation | ✅      |
+| Code extraction from fenced code blocks                                                          | ✅      |
+| Friendly error handling (invalid key, rate limits)                                               | ✅      |
 
 ### Phase 5 — Voice Chat & Animated UI
 
-| Deliverable | Status |
-|---|---|
-| Voice input via browser Web Speech API (Chrome/Edge) | ✅ |
-| Microphone toggle button with recording state animation | ✅ |
-| Animated SVG robot face (idle, listening, thinking states) | ✅ |
-| Eye blink, pupil tracking, antenna glow, sound wave animations | ✅ |
-| Thinking dots and gear icon during AI processing | ✅ |
-| Face state transitions driven by voice/chat lifecycle | ✅ |
+| Deliverable                                                    | Status |
+| -------------------------------------------------------------- | ------ |
+| Voice input via browser Web Speech API (Chrome/Edge)           | ✅      |
+| Microphone toggle button with recording state animation        | ✅      |
+| Animated SVG robot face (idle, listening, thinking states)     | ✅      |
+| Eye blink, pupil tracking, antenna glow, sound wave animations | ✅      |
+| Thinking dots and gear icon during AI processing               | ✅      |
+| Face state transitions driven by voice/chat lifecycle          | ✅      |
 
 ### Phase 6 — Code Generation & Execution Engine
 
-| Deliverable | Status |
-|---|---|
-| `nav_runtime.py` — sandboxed API for LLM-generated scripts | ✅ |
-| Runtime functions: `send()`, `read()`, `stop()`, `wait()`, `is_running()` | ✅ |
-| Interruptible `wait()` (checks `running` flag at 100ms intervals) | ✅ |
-| Background execution via `asyncio.to_thread(exec, ...)` | ✅ |
-| Auto-execute for `[ACTION]` commands | ✅ |
-| "Go!" button for `[NAVIGATION]` confirmation flow | ✅ |
-| "Start Over" button to clear script + stop execution | ✅ |
-| Collapsible code viewer panel (auto-expands when code is generated) | ✅ |
-| Emergency stop kills running script + sends motor halt | ✅ |
+| Deliverable                                                               | Status |
+| ------------------------------------------------------------------------- | ------ |
+| `nav_runtime.py` — sandboxed API for LLM-generated scripts                | ✅      |
+| Runtime functions: `send()`, `read()`, `stop()`, `wait()`, `is_running()` | ✅      |
+| Interruptible `wait()` (checks `running` flag at 100ms intervals)         | ✅      |
+| Background execution via `asyncio.to_thread(exec, ...)`                   | ✅      |
+| Auto-execute for `[ACTION]` commands                                      | ✅      |
+| "Go!" button for `[NAVIGATION]` confirmation flow                         | ✅      |
+| "Start Over" button to clear script + stop execution                      | ✅      |
+| Collapsible code viewer panel (auto-expands when code is generated)       | ✅      |
+| Emergency stop kills running script + sends motor halt                    | ✅      |
 
 ### Phase 7 — Setup & Calibration
 
-| Deliverable | Status |
-|---|---|
-| Speed calibration (seconds per foot) | ✅ |
-| Default motor speed calibration | ✅ |
-| Calibration values injected into AI system prompt | ✅ |
-| Baud rate selection (auto-set per robot protocol) | ✅ |
-| Serial port refresh button | ✅ |
-| Link to Google AI Studio for API key | ✅ |
+| Deliverable                                       | Status |
+| ------------------------------------------------- | ------ |
+| Speed calibration (seconds per foot)              | ✅      |
+| Default motor speed calibration                   | ✅      |
+| Calibration values injected into AI system prompt | ✅      |
+| Baud rate selection (auto-set per robot protocol) | ✅      |
+| Serial port refresh button                        | ✅      |
+| Link to Google AI Studio for API key              | ✅      |
 
 ---
 
