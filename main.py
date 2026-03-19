@@ -534,7 +534,7 @@ ui.add_head_html("""
   }
   .mascot {
     display: inline-block;
-    font-size: 2rem;
+    font-size: 3rem;
     animation: bounce-wiggle 3s ease-in-out infinite;
     cursor: default;
   }
@@ -544,8 +544,120 @@ ui.add_head_html("""
   .q-field--dark .q-field__control { background: var(--bg-input) !important; }
   .q-field--dark .q-field__native { color: var(--text-dark) !important; }
 
+  /* === Voice / Mic button === */
+  .mic-btn {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    border-radius: 50% !important;
+    transition: all 0.25s ease !important;
+    color: var(--primary) !important;
+    font-size: 1.25rem !important;
+  }
+  .mic-btn:hover {
+    background: var(--bg-input) !important;
+    transform: scale(1.1);
+  }
+  .mic-btn-recording {
+    color: white !important;
+    background: var(--danger) !important;
+    box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.6);
+    animation: mic-pulse 1.2s ease-in-out infinite;
+  }
+  .mic-btn-recording:hover {
+    background: #e8414f !important;
+  }
+  @keyframes mic-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.6); }
+    70% { box-shadow: 0 0 0 12px rgba(255, 71, 87, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+  }
+  .voice-status {
+    font-size: 0.8rem;
+    color: var(--danger);
+    font-weight: 600;
+    min-height: 1.2em;
+    animation: fade-in-out 1.5s ease-in-out infinite;
+  }
+  @keyframes fade-in-out {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+""")
+
+# ── Voice input JavaScript (Web Speech API) ──────────────────────
+ui.add_head_html("""
+<script>
+let _voiceRecognition = null;
+let _voiceIsListening = false;
+
+function toggleVoiceInput() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        // Browser does not support speech recognition
+        window.__voiceNotSupported = true;
+        return 'unsupported';
+    }
+
+    if (_voiceIsListening && _voiceRecognition) {
+        _voiceRecognition.stop();
+        return 'stopped';
+    }
+
+    _voiceRecognition = new SpeechRecognition();
+    _voiceRecognition.lang = 'en-US';
+    _voiceRecognition.interimResults = false;
+    _voiceRecognition.maxAlternatives = 1;
+    _voiceRecognition.continuous = false;
+
+    _voiceRecognition.onstart = function() {
+        _voiceIsListening = true;
+        const btn = document.getElementById('mic-toggle-btn');
+        if (btn) btn.classList.add('mic-btn-recording');
+        const status = document.getElementById('voice-status-label');
+        if (status) { status.textContent = '🎙️ Listening…'; status.style.display = 'block'; }
+    };
+
+    _voiceRecognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        // Find NiceGUI's input element and set its value
+        const inputEl = document.querySelector('#voice-chat-input input, #voice-chat-input textarea');
+        if (inputEl) {
+            // Use NiceGUI's Quasar input — set native value and trigger input event
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            nativeInputValueSetter.call(inputEl, transcript);
+            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            // Brief delay then simulate Enter to submit
+            setTimeout(() => {
+                inputEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+            }, 150);
+        }
+    };
+
+    _voiceRecognition.onerror = function(event) {
+        console.warn('Speech recognition error:', event.error);
+        _voiceIsListening = false;
+        const btn = document.getElementById('mic-toggle-btn');
+        if (btn) btn.classList.remove('mic-btn-recording');
+        const status = document.getElementById('voice-status-label');
+        if (status) { status.textContent = ''; status.style.display = 'none'; }
+    };
+
+    _voiceRecognition.onend = function() {
+        _voiceIsListening = false;
+        const btn = document.getElementById('mic-toggle-btn');
+        if (btn) btn.classList.remove('mic-btn-recording');
+        const status = document.getElementById('voice-status-label');
+        if (status) { status.textContent = ''; status.style.display = 'none'; }
+    };
+
+    _voiceRecognition.start();
+    return 'started';
+}
+</script>
 """)
 
 
@@ -572,10 +684,10 @@ with ui.row().classes("app-header w-full items-center justify-between"):
 
 # ── Tabs ──────────────────────────────────────────────────────────
 with ui.tabs().classes("w-full") as tabs:
-    tab_workspace = ui.tab("🎮 Play", icon="sports_esports")
-    tab_firmware = ui.tab("📝 Robot Code", icon="code")
-    tab_protocol = ui.tab("📖 Command Book", icon="auto_stories")
-    tab_settings = ui.tab("⚙️ Setup", icon="tune")
+    tab_workspace = ui.tab("Play", icon="sports_esports")
+    tab_firmware = ui.tab("Robot Code", icon="code")
+    tab_protocol = ui.tab("Command Book", icon="auto_stories")
+    tab_settings = ui.tab("Setup", icon="tune")
 
 
 with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
@@ -614,13 +726,26 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                     chat_input = ui.input(
                         placeholder="What should the robot do? 🤔"
                     ).classes("nicegui-input flex-grow").props(
-                        'outlined dense'
+                        'outlined dense id=voice-chat-input'
                     ).on("keydown.enter", lambda: send_chat_message())
+
+                    # Microphone button (Web Speech API)
+                    mic_button = ui.button(
+                        icon="mic",
+                        on_click=lambda: handle_voice_toggle(),
+                    ).props("flat round").classes("mic-btn").props(
+                        'id=mic-toggle-btn'
+                    )
 
                     ui.button(
                         icon="send",
                         on_click=lambda: send_chat_message(),
                     ).props("flat round").style("color: var(--primary); font-size: 1.2rem;")
+
+                # Voice status indicator
+                voice_status = ui.html(
+                    '<span id="voice-status-label" class="voice-status" style="display: none;"></span>'
+                )
 
             # ── Code viewer column ────────────────────────────────
             with ui.column().classes("flex-1"):
@@ -914,6 +1039,16 @@ def refresh_ports() -> None:
     port_select.update()
     ui.notify(f"Found {len(ports)} robot(s)! 🔍", type="info")
 
+
+async def handle_voice_toggle() -> None:
+    """Toggle voice input on/off via browser Web Speech API."""
+    result = await ui.run_javascript("toggleVoiceInput()")
+    if result == "unsupported":
+        ui.notify(
+            "🎤 Voice input is not supported in this browser. Try Chrome or Edge!",
+            type="warning",
+            position="top",
+        )
 
 def save_api_key() -> None:
     """Save the Gemini API key."""
