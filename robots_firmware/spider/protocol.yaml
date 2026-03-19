@@ -1,0 +1,49 @@
+name: Spider
+firmware_platform: acecode   # ACECode (Arduino IDE)
+baud_rate: 115200
+command_format: "VERB:ACTION:VALUE\n"
+flash_instructions: >
+  Open the firmware code in Arduino IDE with the ACB_Spider_ESP8266 library
+  installed, select your board, and flash via USB.
+
+setters:
+  - id: STP
+    command: "S:STP:0"
+    description: "Emergency stop — halts all leg movement"
+
+  - id: MFW
+    command: "S:MFW:0"
+    description: "Walk forward"
+
+  - id: MBW
+    command: "S:MBW:0"
+    description: "Walk backward"
+
+  - id: MSL
+    command: "S:MSL:0"
+    description: "Move (strafe) left"
+
+  - id: MSR
+    command: "S:MSR:0"
+    description: "Move (strafe) right"
+
+  - id: RTL
+    command: "S:RTL:0"
+    description: "Turn left"
+
+  - id: RTR
+    command: "S:RTR:0"
+    description: "Turn right"
+
+  - id: ACT
+    command: "S:ACT:<action_id>"
+    description: "Trigger a preset action/animation by ID"
+    parameters:
+      - name: action_id
+        type: int
+        range: [1, 9]
+        description: >
+          1=Standby, 2=Lying, 3=Sleep, 4=Greet, 5=Pushup,
+          6=Fighting, 7=Dancing, 8=Swing, 9=Handsome
+
+getters: []

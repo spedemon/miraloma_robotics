@@ -1,0 +1,131 @@
+name: Mecanum
+firmware_platform: microbit   # Micro:bit MakeCode (Static TypeScript)
+baud_rate: 115200
+command_format: "VERB:ACTION:VALUE\n"
+flash_instructions: >
+  Copy the firmware code, paste it into MakeCode (makecode.microbit.org),
+  and flash your Micro:bit V2 via USB.
+
+setters:
+  - id: STP
+    command: "S:STP:0"
+    description: "Emergency stop — halts all motors"
+
+  - id: MFW
+    command: "S:MFW:<speed>"
+    description: "Move forward at given speed (0–255)"
+    parameters:
+      - name: speed
+        type: int
+        range: [0, 255]
+
+  - id: MBW
+    command: "S:MBW:<speed>"
+    description: "Move backward at given speed (0–255)"
+    parameters:
+      - name: speed
+        type: int
+        range: [0, 255]
+
+  - id: MSR
+    command: "S:MSR:<speed>"
+    description: "Strafe right at given speed (0–255)"
+    parameters:
+      - name: speed
+        type: int
+        range: [0, 255]
+
+  - id: MSL
+    command: "S:MSL:<speed>"
+    description: "Strafe left at given speed (0–255)"
+    parameters:
+      - name: speed
+        type: int
+        range: [0, 255]
+
+  - id: RTL
+    command: "S:RTL:<speed>"
+    description: "Rotate left (counter-clockwise) at given speed"
+    parameters:
+      - name: speed
+        type: int
+        range: [0, 255]
+
+  - id: RTR
+    command: "S:RTR:<speed>"
+    description: "Rotate right (clockwise) at given speed"
+    parameters:
+      - name: speed
+        type: int
+        range: [0, 255]
+
+  - id: WFL
+    command: "S:WFL:<speed>"
+    description: "Set front-left wheel speed (-100 to 100, negative = reverse)"
+    parameters:
+      - name: speed
+        type: int
+        range: [-100, 100]
+
+  - id: WFR
+    command: "S:WFR:<speed>"
+    description: "Set front-right wheel speed (-100 to 100, negative = reverse)"
+    parameters:
+      - name: speed
+        type: int
+        range: [-100, 100]
+
+  - id: WBL
+    command: "S:WBL:<speed>"
+    description: "Set back-left wheel speed (-100 to 100, negative = reverse)"
+    parameters:
+      - name: speed
+        type: int
+        range: [-100, 100]
+
+  - id: WBR
+    command: "S:WBR:<speed>"
+    description: "Set back-right wheel speed (-100 to 100, negative = reverse)"
+    parameters:
+      - name: speed
+        type: int
+        range: [-100, 100]
+
+  - id: ULA
+    command: "S:ULA:<angle>"
+    description: "Set ultrasonic sensor servo angle (0–180°)"
+    parameters:
+      - name: angle
+        type: int
+        range: [0, 180]
+
+  - id: LDL
+    command: "S:LDL:<state>"
+    description: "Set left LED on (1) or off (0)"
+    parameters:
+      - name: state
+        type: int
+        range: [0, 1]
+
+  - id: DIC
+    command: "S:DIC:0"
+    description: "Clear the micro:bit 5×5 dot matrix display"
+
+getters:
+  - id: ULD
+    command: "G:ULD:0"
+    description: "Read ultrasonic distance (returns cm)"
+    returns:
+      type: float
+      unit: cm
+
+  - id: LTR
+    command: "G:LTR:<sensor>"
+    description: "Read line tracker sensor (0=Left, 1=Center, 2=Right)"
+    parameters:
+      - name: sensor
+        type: int
+        range: [0, 2]
+    returns:
+      type: int
+      description: "0 or 1 (line detected)"

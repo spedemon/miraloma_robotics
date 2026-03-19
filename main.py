@@ -4,13 +4,14 @@ main.py — Robot Mind: Mission Control UI
 
 NiceGUI application with 4 tabs:
   1. Workspace  — Chat + live code viewer + emergency stop
-  2. Firmware   — Read-only STS code + copy button
-  3. Protocol   — Auto-generated command reference table
-  4. Settings   — Serial port, baud rate, API key
+  2. Firmware   — Read-only firmware source (loaded from selected robot)
+  3. Protocol   — Auto-generated command reference (from robot's protocol.yaml)
+  4. Settings   — Robot type, serial port, baud rate, API key
 """
 
 import json
 import asyncio
+import yaml
 from datetime import datetime
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from gemini_client import GeminiClient
 
 # ── Globals ───────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
+ROBOTS_DIR = BASE_DIR / "robots_firmware"
 robot = RobotHAL()
 gemini = GeminiClient()
 
@@ -29,51 +31,43 @@ chat_history: list[dict] = []
 # Currently displayed navigation code
 current_code: str = "# No navigation script loaded yet."
 
-# ── Default STS Firmware ─────────────────────────────────────────
-DEFAULT_STS_CODE = r"""
-let parts: string[] = []
-let action = ""
-let value = 0
-// Listen for commands from the Python Bridge
-serial.onDataReceived(serial.delimiters(Delimiters.NewLine), function () {
-    let cmd = serial.readString().trim()
-parts = cmd.split(":")
-    // e.g., "FW" (Forward)
-    action = parts[0]
-    // e.g., 1000 (ms) or 90 (deg)
-    value = parseInt(parts[1])
-    // Logic for turning right
-    // ...
-    // Activate Line Follower loop
-    if (action == "FW") {
-        // Use your robot extension functions here
-        mecanumRobotV2.Motor(LR.Upper_left, MD.Forward, 50)
-        mecanumRobotV2.Motor(LR.Lower_left, MD.Forward, 50)
-        mecanumRobotV2.Motor(LR.Upper_right, MD.Forward, 50)
-        mecanumRobotV2.Motor(LR.Lower_right, MD.Forward, 50)
-        basic.pause(mecanumRobotV2.ultra())
-        // Stop
-        mecanumRobotV2.state()
-    } else if (action == "RT") {
-    	
-    } else if (action == "LF") {
-    	
-    }
-})
-""".strip()
-
 
 # ══════════════════════════════════════════════════════════════════
-#  LOAD PROTOCOL MAP
+#  ROBOT DISCOVERY & LOADING
 # ══════════════════════════════════════════════════════════════════
-def load_protocol_map() -> list[dict]:
-    """Load command definitions from protocol_map.json."""
-    path = BASE_DIR / "protocol_map.json"
+
+def discover_robots() -> list[str]:
+    """Scan robots_firmware/ for subdirectories that contain a protocol.yaml."""
+    robots = []
+    if ROBOTS_DIR.is_dir():
+        for child in sorted(ROBOTS_DIR.iterdir()):
+            if child.is_dir() and (child / "protocol.yaml").exists():
+                robots.append(child.name)
+    return robots
+
+
+def load_robot_config(robot_name: str) -> dict:
+    """Load and return the protocol.yaml for the given robot."""
+    path = ROBOTS_DIR / robot_name / "protocol.yaml"
     if path.exists():
         with open(path) as f:
-            data = json.load(f)
-        return data.get("commands", [])
-    return []
+            return yaml.safe_load(f)
+    return {}
+
+
+def load_robot_firmware(robot_name: str) -> tuple[str, str]:
+    """Load the main firmware source file for the given robot.
+
+    Returns (source_code, filename).
+    Looks for common firmware file extensions.
+    """
+    robot_dir = ROBOTS_DIR / robot_name
+    for ext in (".ts", ".c", ".cpp", ".ino", ".py"):
+        for fpath in robot_dir.glob(f"*{ext}"):
+            if fpath.name.startswith("protocol"):
+                continue
+            return fpath.read_text(), fpath.name
+    return "// No firmware source file found.", "unknown"
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -90,38 +84,99 @@ def _escape_html(text: str) -> str:
     )
 
 
-def _build_protocol_table(commands: list[dict]) -> str:
-    """Build an HTML table from the protocol map commands."""
+def _build_protocol_table(config: dict) -> str:
+    """Build an HTML table from a robot's protocol.yaml setters and getters."""
     rows = ""
-    for cmd in commands:
+
+    for cmd in config.get("setters", []):
         params = ", ".join(
             f'{p["name"]}: {p["type"]}' for p in cmd.get("parameters", [])
         )
         rows += f"""
         <tr>
             <td><code>{_escape_html(cmd.get('id', ''))}</code></td>
-            <td><code>{_escape_html(cmd.get('uart_command', ''))}</code></td>
-            <td><code>{_escape_html(cmd.get('uart_example', ''))}</code></td>
-            <td><code>{_escape_html(cmd.get('python_method', ''))}</code></td>
+            <td><code>{_escape_html(cmd.get('command', ''))}</code></td>
             <td>{_escape_html(cmd.get('description', ''))}</td>
+            <td><span class="cmd-type cmd-setter">Setter</span></td>
             <td>{_escape_html(params) if params else '—'}</td>
         </tr>
         """
+
+    for cmd in config.get("getters", []):
+        params = ", ".join(
+            f'{p["name"]}: {p["type"]}' for p in cmd.get("parameters", [])
+        )
+        returns = cmd.get("returns", {})
+        ret_str = f' → {returns.get("type", "")}' if returns else ""
+        rows += f"""
+        <tr>
+            <td><code>{_escape_html(cmd.get('id', ''))}</code></td>
+            <td><code>{_escape_html(cmd.get('command', ''))}</code></td>
+            <td>{_escape_html(cmd.get('description', ''))}{_escape_html(ret_str)}</td>
+            <td><span class="cmd-type cmd-getter">Getter</span></td>
+            <td>{_escape_html(params) if params else '—'}</td>
+        </tr>
+        """
+
     return f"""
     <table class="protocol-table">
         <thead>
             <tr>
                 <th>ID</th>
                 <th>UART Command</th>
-                <th>Example</th>
-                <th>Python Method</th>
                 <th>Description</th>
+                <th>Type</th>
                 <th>Parameters</th>
             </tr>
         </thead>
         <tbody>{rows}</tbody>
     </table>
     """
+
+
+# ══════════════════════════════════════════════════════════════════
+#  PLATFORM INFO
+# ══════════════════════════════════════════════════════════════════
+
+PLATFORM_INFO = {
+    "microbit": {
+        "label": "Micro:bit MakeCode (STS)",
+        "icon": "📟",
+        "copy_instructions": "Copy this code into MakeCode (makecode.microbit.org) and flash your Micro:bit V2.",
+        "open_label": "🔗 Open MakeCode",
+        "open_url": "https://makecode.microbit.org/",
+        "language": "typescript",
+    },
+    "acecode": {
+        "label": "ACECode (Arduino IDE)",
+        "icon": "🕷️",
+        "copy_instructions": "Open this code in Arduino IDE with the ACB_Spider_ESP8266 library installed, select your board, and flash via USB.",
+        "open_label": "🔗 Open Arduino IDE",
+        "open_url": "https://www.arduino.cc/en/software",
+        "language": "c",
+    },
+}
+
+
+# ══════════════════════════════════════════════════════════════════
+#  SELECTED ROBOT STATE
+# ══════════════════════════════════════════════════════════════════
+
+available_robots = discover_robots()
+selected_robot: str = available_robots[0] if available_robots else ""
+
+# Pre-load initial robot data
+_initial_config = load_robot_config(selected_robot) if selected_robot else {}
+_initial_firmware, _initial_filename = load_robot_firmware(selected_robot) if selected_robot else ("", "")
+_initial_platform = PLATFORM_INFO.get(
+    _initial_config.get("firmware_platform", ""), PLATFORM_INFO.get("microbit")
+)
+
+# Mutable state dict so button lambdas always read current values
+_firmware_state = {
+    "source": _initial_firmware,
+    "open_url": _initial_platform["open_url"] if _initial_platform else "",
+}
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -248,6 +303,27 @@ ui.add_head_html("""
     font-size: 0.85rem;
   }
 
+  /* Command type badges */
+  .cmd-type {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .cmd-setter {
+    background: rgba(124, 77, 255, 0.15);
+    color: #b388ff;
+    border: 1px solid rgba(124, 77, 255, 0.3);
+  }
+  .cmd-getter {
+    background: rgba(0, 229, 255, 0.12);
+    color: #00e5ff;
+    border: 1px solid rgba(0, 229, 255, 0.3);
+  }
+
   /* Connection badge */
   .conn-badge {
     display: inline-flex;
@@ -267,6 +343,21 @@ ui.add_head_html("""
     background: rgba(255, 68, 68, 0.1);
     color: #ff6b6b;
     border: 1px solid rgba(255, 68, 68, 0.3);
+  }
+
+  /* Robot badge */
+  .robot-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: rgba(124, 77, 255, 0.15);
+    color: #b388ff;
+    border: 1px solid rgba(124, 77, 255, 0.3);
+    text-transform: capitalize;
   }
 
   /* Status bar */
@@ -318,11 +409,14 @@ with ui.row().classes("app-header w-full items-center justify-between"):
         ui.label("Mission Control").style("color: var(--text-muted); font-size: 0.85rem; margin-left: 4px;")
 
     with ui.row().classes("items-center gap-3"):
+        robot_badge = ui.html(
+            f'<span class="robot-badge">🤖 {selected_robot.capitalize() if selected_robot else "No Robot"}</span>'
+        )
         connection_badge = ui.html(
             '<span class="conn-badge conn-offline">● Disconnected</span>'
         )
         stop_button = ui.button(
-            "🛑 EMERGENCY STOP",
+            "🛑 STOP",
             on_click=lambda: handle_emergency_stop(),
         ).classes("stop-btn").props('flat no-caps')
 
@@ -330,7 +424,7 @@ with ui.row().classes("app-header w-full items-center justify-between"):
 # ── Tabs ──────────────────────────────────────────────────────────
 with ui.tabs().classes("w-full") as tabs:
     tab_workspace = ui.tab("Workspace", icon="terminal")
-    tab_firmware = ui.tab("Firmware (STS)", icon="memory")
+    tab_firmware = ui.tab("Firmware", icon="memory")
     tab_protocol = ui.tab("Protocol Docs", icon="description")
     tab_settings = ui.tab("Settings", icon="settings")
 
@@ -360,7 +454,7 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                     ui.html(
                         '<div class="chat-msg chat-assistant">'
                         "👋 <b>Welcome to Miraloma Robotics!</b><br>"
-                        "Connect your robot in <b>Settings</b>, then tell me what to do.<br>"
+                        "Select your robot in <b>Settings</b>, connect it, then tell me what to do.<br>"
                         '<span class="chat-time">System</span></div>'
                     )
 
@@ -400,59 +494,70 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
 
 
     # ══════════════════════════════════════════════════════════════
-    #  TAB 2: FIRMWARE (STS)
+    #  TAB 2: FIRMWARE
     # ══════════════════════════════════════════════════════════════
     with ui.tab_panel(tab_firmware):
-        with ui.column().classes("w-full gap-3"):
-            ui.label("📟 Micro:bit Firmware (Static TypeScript)").style(
+        firmware_container = ui.column().classes("w-full gap-3")
+        with firmware_container:
+            firmware_title = ui.label(
+                f"{_initial_platform['icon']} {_initial_platform['label']} Firmware"
+            ).style(
                 "font-weight: 700; font-size: 1.1rem; color: var(--accent);"
             )
-            ui.label(
-                "Copy this code into MakeCode (makecode.microbit.org) and flash your Micro:bit V2."
+            firmware_instructions = ui.label(
+                _initial_platform["copy_instructions"]
             ).style("color: var(--text-muted); font-size: 0.9rem;")
 
             with ui.row().classes("gap-2"):
-                ui.button(
+                firmware_copy_btn = ui.button(
                     "📋 Copy to Clipboard",
                     on_click=lambda: ui.run_javascript(
-                        f"navigator.clipboard.writeText({json.dumps(DEFAULT_STS_CODE)})"
+                        f"navigator.clipboard.writeText({json.dumps(_firmware_state['source'])})"
                         ".then(() => {{ }})"
                     ),
                 ).props("flat no-caps").style(
                     "background: rgba(0,229,255,0.1); color: var(--accent); font-weight: 600;"
                 )
-                ui.button(
-                    "🔗 Open MakeCode",
+                firmware_open_btn = ui.button(
+                    _initial_platform["open_label"],
                     on_click=lambda: ui.run_javascript(
-                        "window.open('https://makecode.microbit.org/', '_blank')"
+                        f"window.open('{_firmware_state['open_url']}', '_blank')"
                     ),
                 ).props("flat no-caps").style(
                     "color: var(--accent2); font-weight: 600;"
                 )
 
-            ui.html(
+            firmware_code_display = ui.html(
                 f'<pre class="code-viewer" style="max-height: 500px;">'
-                f'{_escape_html(DEFAULT_STS_CODE)}</pre>'
+                f'{_escape_html(_initial_firmware)}</pre>'
             )
+            firmware_filename_label = ui.label(
+                f"📄 {_initial_filename}"
+            ).style("color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;")
 
 
     # ══════════════════════════════════════════════════════════════
     #  TAB 3: PROTOCOL DOCS
     # ══════════════════════════════════════════════════════════════
     with ui.tab_panel(tab_protocol):
-        ui.label("📖 UART Protocol Reference").style(
-            "font-weight: 700; font-size: 1.1rem; color: var(--accent); margin-bottom: 12px;"
-        )
-        ui.label(
-            f"Baud rate: 115200 · Format: CMD:VAL1:VAL2\\n"
-        ).style("color: var(--text-muted); font-size: 0.9rem; margin-bottom: 16px;")
+        protocol_container = ui.column().classes("w-full gap-3")
+        with protocol_container:
+            protocol_title = ui.label("📖 UART Protocol Reference").style(
+                "font-weight: 700; font-size: 1.1rem; color: var(--accent); margin-bottom: 4px;"
+            )
+            protocol_meta = ui.label(
+                f"Robot: {selected_robot.capitalize()} · "
+                f"Platform: {_initial_config.get('firmware_platform', '?')} · "
+                f"Baud: {_initial_config.get('baud_rate', '?')} · "
+                f"Format: {_initial_config.get('command_format', '?')}"
+            ).style("color: var(--text-muted); font-size: 0.9rem; margin-bottom: 12px;")
 
-        commands = load_protocol_map()
-        if commands:
-            table_html = _build_protocol_table(commands)
-            ui.html(table_html)
-        else:
-            ui.label("⚠ protocol_map.json not found.").style("color: var(--danger);")
+            if _initial_config:
+                protocol_table_html = ui.html(_build_protocol_table(_initial_config))
+            else:
+                protocol_table_html = ui.html(
+                    '<span style="color: var(--danger);">⚠ No protocol.yaml found for this robot.</span>'
+                )
 
 
     # ══════════════════════════════════════════════════════════════
@@ -461,9 +566,31 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
     with ui.tab_panel(tab_settings):
         with ui.column().classes("w-full gap-6").style("max-width: 600px;"):
 
+            # Robot type section
+            ui.label("🤖 Robot Type").style(
+                "font-weight: 700; font-size: 1.1rem; color: var(--accent2);"
+            )
+            with ui.column().classes("settings-card gap-4"):
+                ui.label(
+                    "Select your robot platform. New robots are auto-discovered "
+                    "from the robots_firmware/ directory."
+                ).style("color: var(--text-muted); font-size: 0.85rem;")
+
+                robot_options = {r: r.capitalize() for r in available_robots}
+                robot_select = ui.select(
+                    options=robot_options,
+                    label="Robot Type",
+                    value=selected_robot,
+                    on_change=lambda e: handle_robot_change(e.value),
+                ).classes("nicegui-select w-full")
+
+                robot_platform_label = ui.label(
+                    f"Platform: {_initial_config.get('firmware_platform', '').upper()}"
+                ).style("color: var(--text-muted); font-size: 0.85rem;")
+
             # Serial section
             ui.label("🔌 Serial Connection").style(
-                "font-weight: 700; font-size: 1.1rem; color: var(--accent);"
+                "font-weight: 700; font-size: 1.1rem; color: var(--accent); margin-top: 8px;"
             )
             with ui.column().classes("settings-card gap-4"):
                 ports = robot.list_ports()
@@ -529,7 +656,7 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
 
 # ── Status Bar ────────────────────────────────────────────────────
 with ui.row().classes("status-bar w-full items-center justify-between"):
-    ui.label("Miraloma Robotics v1.0 — Phase 1 Foundation").style("font-size: 0.8rem;")
+    ui.label("Miraloma Robotics v1.1 — Multi-Robot Support").style("font-size: 0.8rem;")
     status_label = ui.label("Ready").style("font-size: 0.8rem; color: var(--accent);")
 
 
@@ -538,14 +665,74 @@ with ui.row().classes("status-bar w-full items-center justify-between"):
 # ══════════════════════════════════════════════════════════════════
 
 
+def handle_robot_change(robot_name: str) -> None:
+    """Handle switching to a different robot type."""
+    global selected_robot
+    selected_robot = robot_name
+
+    config = load_robot_config(robot_name)
+    firmware_src, firmware_file = load_robot_firmware(robot_name)
+    platform = PLATFORM_INFO.get(
+        config.get("firmware_platform", ""), PLATFORM_INFO.get("microbit")
+    )
+
+    # Update header badge
+    robot_badge.set_content(
+        f'<span class="robot-badge">🤖 {robot_name.capitalize()}</span>'
+    )
+
+    # Update settings platform label
+    robot_platform_label.set_text(
+        f"Platform: {config.get('firmware_platform', '').upper()}"
+    )
+
+    # Update Firmware tab
+    firmware_title.set_text(f"{platform['icon']} {platform['label']} Firmware")
+    firmware_instructions.set_text(platform["copy_instructions"])
+    firmware_code_display.set_content(
+        f'<pre class="code-viewer" style="max-height: 500px;">'
+        f'{_escape_html(firmware_src)}</pre>'
+    )
+    firmware_filename_label.set_text(f"📄 {firmware_file}")
+
+    # Update mutable state so existing button lambdas read new values
+    _firmware_state["source"] = firmware_src
+    _firmware_state["open_url"] = platform["open_url"]
+
+    # Update open-IDE button text
+    firmware_open_btn.set_text(platform["open_label"])
+
+    # Update Protocol Docs tab
+    protocol_meta.set_text(
+        f"Robot: {robot_name.capitalize()} · "
+        f"Platform: {config.get('firmware_platform', '?')} · "
+        f"Baud: {config.get('baud_rate', '?')} · "
+        f"Format: {config.get('command_format', '?')}"
+    )
+    if config:
+        protocol_table_html.set_content(_build_protocol_table(config))
+    else:
+        protocol_table_html.set_content(
+            '<span style="color: var(--danger);">⚠ No protocol.yaml found for this robot.</span>'
+        )
+
+    # Update baud rate to match robot config
+    if config.get("baud_rate"):
+        baud_select.value = config["baud_rate"]
+        baud_select.update()
+
+    status_label.set_text(f"Switched to {robot_name.capitalize()}")
+    ui.notify(f"🤖 Switched to {robot_name.capitalize()}", type="positive")
+
+
 def handle_emergency_stop() -> None:
     """Send emergency stop and update UI."""
     try:
         robot.stop()
-        ui.notify("🛑 EMERGENCY STOP sent!", type="negative", position="top")
+        ui.notify("🛑 STOP sent!", type="negative", position="top")
     except ConnectionError:
         ui.notify("⚠ Robot not connected — stop command not sent", type="warning", position="top")
-    status_label.set_text("⚠ EMERGENCY STOP")
+    status_label.set_text("⚠ STOP")
 
 
 def handle_connect() -> None:
