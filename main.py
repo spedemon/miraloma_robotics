@@ -48,6 +48,8 @@ current_code: str = "# No navigation script loaded yet."
 # Execution state
 _running_task: asyncio.Task | None = None
 _execution_lock = threading.Lock()
+# Track whether the current chat was initiated by voice
+_voice_initiated: bool = False
 
 # ── Load cached settings ─────────────────────────────────────────
 _saved = load_settings()
@@ -834,6 +836,41 @@ ui.add_head_html("""
     animation: fade-in-out 2s ease-in-out infinite;
   }
 
+  /* === Talking State === */
+  .robot-face-talking .face-glow {
+    width: 260px; height: 260px;
+    background: radial-gradient(circle, rgba(46,213,115,0.3) 0%, rgba(78,205,196,0.15) 50%, transparent 70%);
+    animation: glow-talk 0.8s ease-in-out infinite;
+  }
+  @keyframes glow-talk {
+    0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  }
+  .robot-face-talking .robot-eye-pupil {
+    animation: blink 4s ease-in-out infinite;
+  }
+  .robot-face-talking .robot-mouth {
+    animation: mouth-talk 0.4s ease-in-out infinite;
+  }
+  @keyframes mouth-talk {
+    0%, 100% { ry: 6; rx: 14; }
+    50% { ry: 12; rx: 18; }
+  }
+  .robot-face-talking .antenna-tip {
+    animation: antenna-talk 1s ease-in-out infinite alternate;
+  }
+  @keyframes antenna-talk {
+    0% { fill: #2ED573; filter: drop-shadow(0 0 4px #2ED573); }
+    100% { fill: #4ECDC4; filter: drop-shadow(0 0 10px #4ECDC4); }
+  }
+  .robot-face-talking .robot-face-wrapper {
+    animation: face-float 3s ease-in-out infinite;
+  }
+  .robot-face-talking .face-state-label {
+    color: var(--success);
+    animation: fade-in-out 1.2s ease-in-out infinite;
+  }
+
   /* === Progress animation container === */
   .progress-anim-container {
     display: flex;
@@ -979,12 +1016,13 @@ let _voiceGotResult = false;
 function setRobotFaceState(state) {
     const container = document.getElementById('robot-face-outer');
     if (!container) return;
-    container.classList.remove('robot-face-idle', 'robot-face-listening', 'robot-face-thinking');
+    container.classList.remove('robot-face-idle', 'robot-face-listening', 'robot-face-thinking', 'robot-face-talking');
     container.classList.add('robot-face-' + state);
     const label = document.getElementById('face-state-text');
     if (label) {
         if (state === 'listening') label.textContent = '🎙️ Listening…';
         else if (state === 'thinking') label.textContent = '🧠 Thinking…';
+        else if (state === 'talking') label.textContent = '🔊 Speaking…';
         else label.textContent = '😊 Ready to chat!';
     }
 }
@@ -1056,6 +1094,62 @@ function toggleVoiceInput() {
     _voiceRecognition.start();
     return 'started';
 }
+
+// ── Text-to-Speech (SpeechSynthesis API) ───────────────────────
+let _ttsUtterance = null;
+
+function speakText(text) {
+    if (!window.speechSynthesis) return;
+    // Cancel any in-progress speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    // Pick a nice English voice (prefer Google voices)
+    function pickVoice() {
+        const voices = window.speechSynthesis.getVoices();
+        // Prefer Google US English
+        let voice = voices.find(v => v.name.includes('Google US English'));
+        if (!voice) voice = voices.find(v => v.name.includes('Google') && v.lang.startsWith('en'));
+        if (!voice) voice = voices.find(v => v.lang.startsWith('en') && v.localService);
+        if (!voice) voice = voices.find(v => v.lang.startsWith('en'));
+        return voice || null;
+    }
+
+    const voice = pickVoice();
+    if (voice) utterance.voice = voice;
+
+    utterance.onstart = function() {
+        setRobotFaceState('talking');
+    };
+    utterance.onend = function() {
+        setRobotFaceState('idle');
+    };
+    utterance.onerror = function() {
+        setRobotFaceState('idle');
+    };
+
+    _ttsUtterance = utterance;
+    window.speechSynthesis.speak(utterance);
+}
+
+function stopSpeaking() {
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+}
+
+// Pre-load voices (some browsers load them async)
+if (window.speechSynthesis) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = function() {
+        window.speechSynthesis.getVoices();
+    };
+}
+
 // ── Progress Animation Control ─────────────────────────────────
 let _progressTimer = null;
 let _progressStart = 0;
@@ -1741,8 +1835,11 @@ async def _on_voice_hidden_click() -> None:
 
 async def handle_voice_result(text: str) -> None:
     """Handle a voice transcript received from the browser."""
+    global _voice_initiated
     if not text:
         return
+    # Mark this interaction as voice-initiated (for TTS response)
+    _voice_initiated = True
     # Set the chat input so send_chat_message can read it
     chat_input.value = text
     await send_chat_message()
@@ -1802,7 +1899,7 @@ async def save_api_key() -> None:
 
 async def send_chat_message() -> None:
     """Handle sending a chat message with intent classification."""
-    global current_code
+    global current_code, _voice_initiated
     text = chat_input.value.strip()
     if not text:
         return
@@ -1821,48 +1918,59 @@ async def send_chat_message() -> None:
     status_label.set_text("🤖 Robot is thinking…")
     await ui.run_javascript("setRobotFaceState('thinking')")
 
-    # Get AI response
-    response = await gemini.send_message(text)
+    try:
+        # Get AI response
+        response = await gemini.send_message(text)
 
-    # Parse and classify
-    parsed = GeminiClient.parse_response(response)
-    display_text = GeminiClient.clean_message_for_display(response)
+        # Parse and classify
+        parsed = GeminiClient.parse_response(response)
+        display_text = GeminiClient.clean_message_for_display(response)
 
-    # Assistant message
-    with chat_container:
-        ui.html(
-            f'<div class="chat-msg chat-assistant">'
-            f"{_escape_html(display_text)}"
-            f'<div class="chat-time">{now}</div></div>'
-        )
-
-    # Handle code if present
-    if parsed.has_code:
-        current_code = parsed.code
-        code_display.set_content(
-            f'<pre class="code-viewer" style="margin: 0; border: none; '
-            f'border-radius: 0 0 var(--radius-md) var(--radius-md);">'
-            f'{_escape_html(parsed.code)}</pre>'
-        )
-        # Auto-expand the code panel
-        code_expansion.open()
-
-        if parsed.response_type == ResponseType.ACTION:
-            # Auto-execute action commands immediately
-            await ui.run_javascript("setRobotFaceState('idle')")
-            status_label.set_text("🚀 Running action…")
-            await _execute_code_async(parsed.code, mode="action")
-        elif parsed.response_type == ResponseType.NAVIGATION:
-            # Wait for Go! button
-            await ui.run_javascript("setRobotFaceState('idle')")
-            status_label.set_text("📋 Navigation ready — press Go! to start")
-            ui.notify(
-                "🧭 Navigation script ready! Press 🚀 Go! to start.",
-                type="info",
+        # Assistant message
+        with chat_container:
+            ui.html(
+                f'<div class="chat-msg chat-assistant">'
+                f"{_escape_html(display_text)}"
+                f'<div class="chat-time">{now}</div></div>'
             )
-    else:
+
+        # Speak the response aloud if this was a voice-initiated interaction
+        if _voice_initiated and display_text.strip():
+            _voice_initiated = False
+            # Use JS SpeechSynthesis to read the response aloud
+            await ui.run_javascript(f"speakText({json.dumps(display_text)})")
+
+        # Handle code if present
+        if parsed.has_code:
+            current_code = parsed.code
+            code_display.set_content(
+                f'<pre class="code-viewer" style="margin: 0; border: none; '
+                f'border-radius: 0 0 var(--radius-md) var(--radius-md);">'
+                f'{_escape_html(parsed.code)}</pre>'
+            )
+            # Auto-expand the code panel
+            code_expansion.open()
+
+            if parsed.response_type == ResponseType.ACTION:
+                # Auto-execute action commands immediately
+                status_label.set_text("🚀 Running action…")
+                await _execute_code_async(parsed.code, mode="action")
+            elif parsed.response_type == ResponseType.NAVIGATION:
+                # Wait for Go! button
+                status_label.set_text("📋 Navigation ready — press Go! to start")
+                ui.notify(
+                    "🧭 Navigation script ready! Press 🚀 Go! to start.",
+                    type="info",
+                )
+        else:
+            if not _voice_initiated:
+                await ui.run_javascript("setRobotFaceState('idle')")
+            status_label.set_text("✨ Ready to play!")
+    except Exception as exc:
+        # Ensure we always recover from the thinking state
         await ui.run_javascript("setRobotFaceState('idle')")
         status_label.set_text("✨ Ready to play!")
+        raise
 
 
 def _estimate_duration(code: str) -> float | None:
@@ -1946,12 +2054,14 @@ async def _execute_code_async(code: str, mode: str = "action") -> None:
 
 
 def stop_execution() -> None:
-    """Stop any running navigation code."""
+    """Stop any running navigation code and speech."""
     global _running_task
     nav_runtime.running = False
     if _running_task and not _running_task.done():
         _running_task.cancel()
     _running_task = None
+    # Stop any text-to-speech in progress
+    ui.run_javascript("stopSpeaking()")
 
 
 def toggle_go_stop() -> None:
@@ -1983,7 +2093,7 @@ def execute_code() -> None:
 
 
 def clear_code() -> None:
-    """Clear the current navigation script and stop execution."""
+    """Clear the current navigation script, stop execution, and stop speech."""
     global current_code
     stop_execution()
     _reset_play_ui()
@@ -1996,6 +2106,7 @@ def clear_code() -> None:
         f'<pre class="code-viewer">{current_code}</pre>'
     )
     status_label.set_text("✨ Ready to play!")
+    ui.run_javascript("stopSpeaking()")
 
 
 # ══════════════════════════════════════════════════════════════════

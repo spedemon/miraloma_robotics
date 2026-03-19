@@ -103,7 +103,6 @@
 
 - [ ] Use different animated robot graphics in the Play section based on the selected robot (Mecanum face vs Spider face)
 - [ ] Improve robot icon in header — remove gray background box and make it transparent
-- [ ] Mobile-friendly responsive layout
 - [ ] Persistent settings (remember last port, API key, robot selection across sessions)
 
 ### Firmware Improvements
