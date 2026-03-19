@@ -187,233 +187,378 @@ _firmware_state = {
 ui.add_head_html("""
 <style>
   :root {
-    --accent: #00e5ff;
-    --accent2: #7c4dff;
-    --bg-dark: #0d1117;
-    --bg-card: #161b22;
-    --bg-input: #1c2333;
-    --text-primary: #e6edf3;
-    --text-muted: #8b949e;
-    --danger: #ff4444;
+    --primary: #FF6B35;
+    --primary-light: #FF8C5A;
+    --secondary: #4ECDC4;
+    --secondary-light: #7EDDD6;
+    --accent-pink: #FF6B9D;
+    --accent-yellow: #FFD93D;
+    --accent-purple: #A855F7;
+    --bg-main: #FFF8F0;
+    --bg-card: #FFFFFF;
+    --bg-input: #FFF0E6;
+    --text-dark: #2D3436;
+    --text-medium: #636E72;
+    --text-light: #B2BEC3;
+    --danger: #FF4757;
+    --success: #2ED573;
+    --shadow-soft: 0 4px 20px rgba(255, 107, 53, 0.12);
+    --shadow-card: 0 6px 24px rgba(0, 0, 0, 0.06);
+    --shadow-hover: 0 8px 32px rgba(255, 107, 53, 0.18);
+    --radius-lg: 20px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
   }
-  body {
-    background: var(--bg-dark) !important;
-    color: var(--text-primary) !important;
-    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif !important;
-  }
-  .q-tab-panel { background: var(--bg-dark) !important; }
-  .q-tab--active { color: var(--accent) !important; }
-  .q-tabs { background: var(--bg-card) !important; border-bottom: 1px solid #30363d; }
-  .q-tab { color: var(--text-muted) !important; font-weight: 600; }
 
-  /* Chat messages */
+  body {
+    background: var(--bg-main) !important;
+    color: var(--text-dark) !important;
+    font-family: 'Outfit', 'Segoe UI', system-ui, sans-serif !important;
+  }
+
+  /* === Tabs === */
+  .q-tab-panel { background: var(--bg-main) !important; }
+  .q-tab--active { color: var(--primary) !important; font-weight: 700 !important; }
+  .q-tabs {
+    background: var(--bg-card) !important;
+    border-bottom: 3px solid var(--accent-yellow) !important;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+  }
+  .q-tab {
+    color: var(--text-medium) !important;
+    font-weight: 600;
+    font-size: 1rem !important;
+    min-height: 56px !important;
+    transition: all 0.25s ease;
+  }
+  .q-tab:hover { color: var(--primary) !important; }
+  .q-tab__indicator { background: var(--primary) !important; height: 4px !important; border-radius: 2px; }
+
+  /* === Chat messages === */
   .chat-msg {
-    padding: 10px 14px;
-    border-radius: 12px;
-    margin: 4px 0;
+    padding: 14px 18px;
+    border-radius: var(--radius-md);
+    margin: 6px 0;
     max-width: 85%;
-    line-height: 1.5;
-    font-size: 0.95rem;
+    line-height: 1.6;
+    font-size: 1.05rem;
+    animation: pop-in 0.3s ease;
+  }
+  @keyframes pop-in {
+    0% { opacity: 0; transform: scale(0.9) translateY(8px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
   }
   .chat-user {
-    background: linear-gradient(135deg, #7c4dff 0%, #448aff 100%);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent-pink) 100%);
     color: white;
     margin-left: auto;
     border-bottom-right-radius: 4px;
+    box-shadow: 0 3px 12px rgba(255, 107, 53, 0.25);
   }
   .chat-assistant {
     background: var(--bg-card);
-    color: var(--text-primary);
-    border: 1px solid #30363d;
+    color: var(--text-dark);
+    border: 2px solid var(--secondary-light);
     border-bottom-left-radius: 4px;
+    box-shadow: var(--shadow-card);
   }
   .chat-time {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    margin-top: 2px;
+    font-size: 0.72rem;
+    color: var(--text-light);
+    margin-top: 4px;
   }
 
-  /* Code viewer */
+  /* === Code viewer === */
   .code-viewer {
-    background: var(--bg-card) !important;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    padding: 16px;
+    background: #2D2B55 !important;
+    border: 3px solid var(--accent-purple);
+    border-radius: var(--radius-md);
+    padding: 18px;
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 0.85rem;
+    font-size: 0.88rem;
     white-space: pre-wrap;
-    color: #79c0ff;
+    color: #A9FFA7;
     overflow-y: auto;
     max-height: 320px;
+    box-shadow: 0 4px 16px rgba(168, 85, 247, 0.15);
   }
 
-  /* Stop button */
+  /* === Stop button === */
   .stop-btn {
-    background: linear-gradient(135deg, #ff4444, #cc0000) !important;
+    background: linear-gradient(135deg, var(--danger), #FF2D2D) !important;
     color: white !important;
     font-weight: 800 !important;
-    font-size: 1rem !important;
-    border-radius: 12px !important;
+    font-size: 1.1rem !important;
+    border-radius: var(--radius-lg) !important;
     text-transform: uppercase;
     letter-spacing: 1px;
-    box-shadow: 0 4px 20px rgba(255, 68, 68, 0.4);
+    box-shadow: 0 6px 24px rgba(255, 71, 87, 0.4);
     transition: all 0.2s ease;
+    min-width: 120px !important;
+    padding: 8px 24px !important;
   }
   .stop-btn:hover {
-    box-shadow: 0 6px 28px rgba(255, 68, 68, 0.6);
-    transform: translateY(-1px);
+    box-shadow: 0 8px 32px rgba(255, 71, 87, 0.55);
+    transform: translateY(-2px) scale(1.05);
+  }
+  .stop-btn:active {
+    transform: scale(0.95);
   }
 
-  /* Settings card */
+  /* === Fun buttons === */
+  .fun-btn {
+    border-radius: var(--radius-sm) !important;
+    font-weight: 700 !important;
+    font-size: 0.95rem !important;
+    padding: 8px 20px !important;
+    transition: all 0.2s ease !important;
+    text-transform: none !important;
+    letter-spacing: 0.3px;
+  }
+  .fun-btn:hover {
+    transform: translateY(-2px) scale(1.03);
+  }
+  .fun-btn:active {
+    transform: scale(0.97);
+  }
+  .fun-btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-light)) !important;
+    color: white !important;
+    box-shadow: 0 4px 14px rgba(255, 107, 53, 0.3);
+  }
+  .fun-btn-secondary {
+    background: linear-gradient(135deg, var(--secondary), var(--secondary-light)) !important;
+    color: white !important;
+    box-shadow: 0 4px 14px rgba(78, 205, 196, 0.3);
+  }
+  .fun-btn-purple {
+    background: linear-gradient(135deg, var(--accent-purple), #C084FC) !important;
+    color: white !important;
+    box-shadow: 0 4px 14px rgba(168, 85, 247, 0.3);
+  }
+  .fun-btn-ghost {
+    background: var(--bg-input) !important;
+    color: var(--text-medium) !important;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* === Settings card === */
   .settings-card {
     background: var(--bg-card);
-    border: 1px solid #30363d;
-    border-radius: 12px;
+    border: 2px solid #F0E6D8;
+    border-radius: var(--radius-lg);
     padding: 24px;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.2s ease;
+  }
+  .settings-card:hover {
+    box-shadow: var(--shadow-hover);
   }
 
-  /* Protocol table */
+  /* === Protocol table === */
   .protocol-table {
     width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
+    border-collapse: separate;
+    border-spacing: 0 6px;
+    font-size: 0.95rem;
   }
   .protocol-table th {
-    background: var(--bg-card);
-    color: var(--accent);
-    padding: 12px 16px;
+    background: linear-gradient(135deg, var(--primary), var(--accent-pink));
+    color: white;
+    padding: 14px 18px;
     text-align: left;
-    border-bottom: 2px solid var(--accent);
     font-weight: 700;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
+  .protocol-table th:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+  .protocol-table th:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
   .protocol-table td {
-    padding: 10px 16px;
-    border-bottom: 1px solid #21262d;
-    color: var(--text-primary);
+    padding: 12px 18px;
+    background: var(--bg-card);
+    color: var(--text-dark);
+    border-top: 1px solid #F0E6D8;
+    border-bottom: 1px solid #F0E6D8;
+  }
+  .protocol-table tr td:first-child {
+    border-left: 1px solid #F0E6D8;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  }
+  .protocol-table tr td:last-child {
+    border-right: 1px solid #F0E6D8;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   }
   .protocol-table tr:hover td {
-    background: rgba(0, 229, 255, 0.04);
+    background: var(--bg-input);
+    transform: scale(1.005);
   }
   .protocol-table code {
-    background: var(--bg-input);
-    color: #79c0ff;
-    padding: 2px 6px;
-    border-radius: 4px;
+    background: #2D2B55;
+    color: #A9FFA7;
+    padding: 3px 8px;
+    border-radius: 8px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.85rem;
   }
 
-  /* Command type badges */
+  /* === Command type badges === */
   .cmd-type {
     display: inline-block;
-    padding: 2px 10px;
-    border-radius: 12px;
+    padding: 4px 14px;
+    border-radius: 20px;
     font-size: 0.78rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
   .cmd-setter {
-    background: rgba(124, 77, 255, 0.15);
-    color: #b388ff;
-    border: 1px solid rgba(124, 77, 255, 0.3);
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(192, 132, 252, 0.15));
+    color: #7C3AED;
+    border: 2px solid rgba(168, 85, 247, 0.3);
   }
   .cmd-getter {
-    background: rgba(0, 229, 255, 0.12);
-    color: #00e5ff;
-    border: 1px solid rgba(0, 229, 255, 0.3);
+    background: linear-gradient(135deg, rgba(78, 205, 196, 0.15), rgba(126, 221, 214, 0.15));
+    color: #0D946E;
+    border: 2px solid rgba(78, 205, 196, 0.4);
   }
 
-  /* Connection badge */
+  /* === Connection badge === */
   .conn-badge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
+    padding: 6px 16px;
+    border-radius: 24px;
+    font-size: 0.85rem;
+    font-weight: 700;
   }
   .conn-online {
-    background: rgba(0, 229, 255, 0.15);
-    color: var(--accent);
-    border: 1px solid rgba(0, 229, 255, 0.3);
+    background: linear-gradient(135deg, rgba(46, 213, 115, 0.15), rgba(46, 213, 115, 0.08));
+    color: #0D9E3F;
+    border: 2px solid rgba(46, 213, 115, 0.4);
+    animation: pulse-online 2s ease-in-out infinite;
+  }
+  @keyframes pulse-online {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(46, 213, 115, 0.3); }
+    50% { box-shadow: 0 0 0 6px rgba(46, 213, 115, 0); }
   }
   .conn-offline {
-    background: rgba(255, 68, 68, 0.1);
-    color: #ff6b6b;
-    border: 1px solid rgba(255, 68, 68, 0.3);
+    background: rgba(255, 71, 87, 0.08);
+    color: var(--danger);
+    border: 2px solid rgba(255, 71, 87, 0.3);
   }
 
-  /* Robot badge */
+  /* === Robot badge === */
   .robot-badge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    background: rgba(124, 77, 255, 0.15);
-    color: #b388ff;
-    border: 1px solid rgba(124, 77, 255, 0.3);
+    padding: 6px 16px;
+    border-radius: 24px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, rgba(255, 107, 53, 0.12), rgba(255, 217, 61, 0.12));
+    color: var(--primary);
+    border: 2px solid rgba(255, 107, 53, 0.3);
     text-transform: capitalize;
   }
 
-  /* Status bar */
+  /* === Status bar === */
   .status-bar {
     background: var(--bg-card);
-    border-top: 1px solid #30363d;
-    padding: 8px 20px;
-    font-size: 0.8rem;
-    color: var(--text-muted);
+    border-top: 3px solid var(--accent-yellow);
+    padding: 10px 24px;
+    font-size: 0.85rem;
+    color: var(--text-medium);
   }
 
-  /* Header */
+  /* === Header === */
   .app-header {
-    background: linear-gradient(90deg, var(--bg-card) 0%, #1a1f2e 100%);
-    border-bottom: 1px solid #30363d;
-    padding: 10px 24px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent-pink) 50%, var(--accent-purple) 100%);
+    padding: 14px 28px;
+    box-shadow: 0 4px 20px rgba(255, 107, 53, 0.25);
   }
   .app-title {
-    font-size: 1.3rem;
+    font-size: 1.5rem;
     font-weight: 800;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: white;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    letter-spacing: -0.3px;
+  }
+  .app-subtitle {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.9rem;
+    font-weight: 500;
   }
 
-  /* Input styling */
+  /* === Section titles === */
+  .section-title {
+    font-weight: 800;
+    font-size: 1.15rem;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* === Input styling === */
   .nicegui-input .q-field__control {
     background: var(--bg-input) !important;
-    border-radius: 8px !important;
+    border-radius: var(--radius-sm) !important;
+    border: 2px solid #F0E6D8 !important;
   }
   .nicegui-input .q-field__native,
   .nicegui-input .q-field__label {
-    color: var(--text-primary) !important;
+    color: var(--text-dark) !important;
+  }
+  .nicegui-input .q-field--focused .q-field__control {
+    border-color: var(--primary) !important;
   }
   .nicegui-select .q-field__control {
     background: var(--bg-input) !important;
-    border-radius: 8px !important;
+    border-radius: var(--radius-sm) !important;
+    border: 2px solid #F0E6D8 !important;
   }
+
+  /* === Bouncy wiggle animation for mascot === */
+  @keyframes bounce-wiggle {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    25% { transform: rotate(-5deg) scale(1.1); }
+    50% { transform: rotate(5deg) scale(1.05); }
+    75% { transform: rotate(-3deg) scale(1.08); }
+  }
+  .mascot {
+    display: inline-block;
+    font-size: 2rem;
+    animation: bounce-wiggle 3s ease-in-out infinite;
+    cursor: default;
+  }
+
+  /* === Quasar overrides for light mode === */
+  .q-dark { background: var(--bg-main) !important; }
+  .q-field--dark .q-field__control { background: var(--bg-input) !important; }
+  .q-field--dark .q-field__native { color: var(--text-dark) !important; }
+
 </style>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 """)
 
 
 # ── Header (always visible) ──────────────────────────────────────
 with ui.row().classes("app-header w-full items-center justify-between"):
     with ui.row().classes("items-center gap-3"):
-        ui.icon("smart_toy", size="28px").style("color: #00e5ff")
-        ui.html('<span class="app-title">Miraloma Robotics</span>')
-        ui.label("Mission Control").style("color: var(--text-muted); font-size: 0.85rem; margin-left: 4px;")
+        ui.html('<span class="mascot">🤖</span>')
+        with ui.column().classes("gap-0"):
+            ui.html('<span class="app-title">Robot Command Center!</span>')
+            ui.html('<span class="app-subtitle">Miraloma Robotics</span>')
 
     with ui.row().classes("items-center gap-3"):
         robot_badge = ui.html(
             f'<span class="robot-badge">🤖 {selected_robot.capitalize() if selected_robot else "No Robot"}</span>'
         )
         connection_badge = ui.html(
-            '<span class="conn-badge conn-offline">● Disconnected</span>'
+            '<span class="conn-badge conn-offline">😴 Robot is sleeping</span>'
         )
         stop_button = ui.button(
             "🛑 STOP",
@@ -423,10 +568,10 @@ with ui.row().classes("app-header w-full items-center justify-between"):
 
 # ── Tabs ──────────────────────────────────────────────────────────
 with ui.tabs().classes("w-full") as tabs:
-    tab_workspace = ui.tab("Workspace", icon="terminal")
-    tab_firmware = ui.tab("Firmware", icon="memory")
-    tab_protocol = ui.tab("Protocol Docs", icon="description")
-    tab_settings = ui.tab("Settings", icon="settings")
+    tab_workspace = ui.tab("🎮 Play", icon="sports_esports")
+    tab_firmware = ui.tab("📝 Robot Code", icon="code")
+    tab_protocol = ui.tab("📖 Command Book", icon="auto_stories")
+    tab_settings = ui.tab("⚙️ Setup", icon="tune")
 
 
 with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
@@ -439,29 +584,31 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
 
             # ── Chat column ───────────────────────────────────────
             with ui.column().classes("flex-1"):
-                ui.label("💬 Chat").style(
-                    "font-weight: 700; font-size: 1rem; color: var(--accent); margin-bottom: 8px;"
+                ui.html(
+                    '<div class="section-title" style="color: var(--primary);">'
+                    '💬 Talk to Your Robot!</div>'
                 )
                 chat_container = ui.column().classes(
                     "w-full flex-grow gap-1"
                 ).style(
-                    "overflow-y: auto; max-height: 400px; padding: 8px; "
-                    "background: var(--bg-card); border-radius: 12px; border: 1px solid #30363d;"
+                    "overflow-y: auto; max-height: 400px; padding: 12px; "
+                    "background: var(--bg-card); border-radius: var(--radius-lg); "
+                    "border: 2px solid #F0E6D8; box-shadow: var(--shadow-card);"
                 )
 
                 # Welcome message
                 with chat_container:
                     ui.html(
                         '<div class="chat-msg chat-assistant">'
-                        "👋 <b>Welcome to Miraloma Robotics!</b><br>"
-                        "Select your robot in <b>Settings</b>, connect it, then tell me what to do.<br>"
-                        '<span class="chat-time">System</span></div>'
+                        "👋 <b>Hey there, Robot Commander!</b><br>"
+                        "Pick your robot in <b>⚙️ Setup</b>, plug it in, then tell me what cool things to do!<br>"
+                        '<span class="chat-time">Robot Brain</span></div>'
                     )
 
                 # Input row
                 with ui.row().classes("w-full items-center gap-2 mt-2"):
                     chat_input = ui.input(
-                        placeholder="Tell the robot what to do…"
+                        placeholder="What should the robot do? 🤔"
                     ).classes("nicegui-input flex-grow").props(
                         'outlined dense'
                     ).on("keydown.enter", lambda: send_chat_message())
@@ -469,12 +616,13 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                     ui.button(
                         icon="send",
                         on_click=lambda: send_chat_message(),
-                    ).props("flat round").style("color: var(--accent);")
+                    ).props("flat round").style("color: var(--primary); font-size: 1.2rem;")
 
             # ── Code viewer column ────────────────────────────────
             with ui.column().classes("flex-1"):
-                ui.label("🧠 Live Navigation Script").style(
-                    "font-weight: 700; font-size: 1rem; color: var(--accent2); margin-bottom: 8px;"
+                ui.html(
+                    '<div class="section-title" style="color: var(--accent-purple);">'
+                    '🧠 Robot\'s Brain</div>'
                 )
                 code_display = ui.html(
                     f'<pre class="code-viewer">{current_code}</pre>'
@@ -482,15 +630,11 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
 
                 with ui.row().classes("gap-2 mt-2"):
                     ui.button(
-                        "▶ Execute", on_click=lambda: execute_code(),
-                    ).props("flat no-caps").style(
-                        "background: rgba(0,229,255,0.1); color: var(--accent); font-weight: 600;"
-                    )
+                        "🚀 Go!", on_click=lambda: execute_code(),
+                    ).classes("fun-btn fun-btn-primary").props("flat no-caps")
                     ui.button(
-                        "🗑 Clear", on_click=lambda: clear_code(),
-                    ).props("flat no-caps").style(
-                        "color: var(--text-muted);"
-                    )
+                        "🧹 Start Over", on_click=lambda: clear_code(),
+                    ).classes("fun-btn fun-btn-ghost").props("flat no-caps")
 
 
     # ══════════════════════════════════════════════════════════════
@@ -499,33 +643,28 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
     with ui.tab_panel(tab_firmware):
         firmware_container = ui.column().classes("w-full gap-3")
         with firmware_container:
-            firmware_title = ui.label(
-                f"{_initial_platform['icon']} {_initial_platform['label']} Firmware"
-            ).style(
-                "font-weight: 700; font-size: 1.1rem; color: var(--accent);"
+            firmware_title = ui.html(
+                f'<div class="section-title" style="color: var(--primary);">'
+                f'{_initial_platform["icon"]} {_initial_platform["label"]} Code</div>'
             )
             firmware_instructions = ui.label(
                 _initial_platform["copy_instructions"]
-            ).style("color: var(--text-muted); font-size: 0.9rem;")
+            ).style("color: var(--text-medium); font-size: 0.95rem;")
 
             with ui.row().classes("gap-2"):
                 firmware_copy_btn = ui.button(
-                    "📋 Copy to Clipboard",
+                    "📋 Copy Code",
                     on_click=lambda: ui.run_javascript(
                         f"navigator.clipboard.writeText({json.dumps(_firmware_state['source'])})"
                         ".then(() => {{ }})"
                     ),
-                ).props("flat no-caps").style(
-                    "background: rgba(0,229,255,0.1); color: var(--accent); font-weight: 600;"
-                )
+                ).classes("fun-btn fun-btn-secondary").props("flat no-caps")
                 firmware_open_btn = ui.button(
                     _initial_platform["open_label"],
                     on_click=lambda: ui.run_javascript(
                         f"window.open('{_firmware_state['open_url']}', '_blank')"
                     ),
-                ).props("flat no-caps").style(
-                    "color: var(--accent2); font-weight: 600;"
-                )
+                ).classes("fun-btn fun-btn-purple").props("flat no-caps")
 
             firmware_code_display = ui.html(
                 f'<pre class="code-viewer" style="max-height: 500px;">'
@@ -533,7 +672,7 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
             )
             firmware_filename_label = ui.label(
                 f"📄 {_initial_filename}"
-            ).style("color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;")
+            ).style("color: var(--text-medium); font-size: 0.85rem; margin-top: 4px;")
 
 
     # ══════════════════════════════════════════════════════════════
@@ -542,21 +681,21 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
     with ui.tab_panel(tab_protocol):
         protocol_container = ui.column().classes("w-full gap-3")
         with protocol_container:
-            protocol_title = ui.label("📖 UART Protocol Reference").style(
-                "font-weight: 700; font-size: 1.1rem; color: var(--accent); margin-bottom: 4px;"
+            protocol_title = ui.html(
+                '<div class="section-title" style="color: var(--primary);">'
+                '📖 Robot Command Book</div>'
             )
             protocol_meta = ui.label(
                 f"Robot: {selected_robot.capitalize()} · "
                 f"Platform: {_initial_config.get('firmware_platform', '?')} · "
-                f"Baud: {_initial_config.get('baud_rate', '?')} · "
-                f"Format: {_initial_config.get('command_format', '?')}"
-            ).style("color: var(--text-muted); font-size: 0.9rem; margin-bottom: 12px;")
+                f"Speed: {_initial_config.get('baud_rate', '?')}"
+            ).style("color: var(--text-medium); font-size: 0.95rem; margin-bottom: 12px;")
 
             if _initial_config:
                 protocol_table_html = ui.html(_build_protocol_table(_initial_config))
             else:
                 protocol_table_html = ui.html(
-                    '<span style="color: var(--danger);">⚠ No protocol.yaml found for this robot.</span>'
+                    '<span style="color: var(--danger); font-size: 1.1rem;">⚠️ No commands found for this robot.</span>'
                 )
 
 
@@ -567,97 +706,92 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
         with ui.column().classes("w-full gap-6").style("max-width: 600px;"):
 
             # Robot type section
-            ui.label("🤖 Robot Type").style(
-                "font-weight: 700; font-size: 1.1rem; color: var(--accent2);"
+            ui.html(
+                '<div class="section-title" style="color: var(--primary);">'
+                '🤖 Pick Your Robot!</div>'
             )
             with ui.column().classes("settings-card gap-4"):
                 ui.label(
-                    "Select your robot platform. New robots are auto-discovered "
-                    "from the robots_firmware/ directory."
-                ).style("color: var(--text-muted); font-size: 0.85rem;")
+                    "Choose which robot you want to talk to! "
+                    "New robots show up automatically."
+                ).style("color: var(--text-medium); font-size: 0.95rem;")
 
                 robot_options = {r: r.capitalize() for r in available_robots}
                 robot_select = ui.select(
                     options=robot_options,
-                    label="Robot Type",
+                    label="Which robot?",
                     value=selected_robot,
                     on_change=lambda e: handle_robot_change(e.value),
                 ).classes("nicegui-select w-full")
 
                 robot_platform_label = ui.label(
-                    f"Platform: {_initial_config.get('firmware_platform', '').upper()}"
-                ).style("color: var(--text-muted); font-size: 0.85rem;")
+                    f"Type: {_initial_config.get('firmware_platform', '').upper()}"
+                ).style("color: var(--text-medium); font-size: 0.9rem;")
 
             # Serial section
-            ui.label("🔌 Serial Connection").style(
-                "font-weight: 700; font-size: 1.1rem; color: var(--accent); margin-top: 8px;"
+            ui.html(
+                '<div class="section-title" style="color: var(--secondary);">'
+                '🔌 Connect Your Robot!</div>'
             )
             with ui.column().classes("settings-card gap-4"):
                 ports = robot.list_ports()
                 port_select = ui.select(
-                    options=ports if ports else ["(no ports detected)"],
-                    label="Serial Port",
-                    value=ports[0] if ports else "(no ports detected)",
+                    options=ports if ports else ["(no robot found)"],
+                    label="USB Port",
+                    value=ports[0] if ports else "(no robot found)",
                 ).classes("nicegui-select w-full")
 
                 baud_select = ui.select(
                     options=[9600, 19200, 38400, 57600, 115200],
-                    label="Baud Rate",
+                    label="Speed",
                     value=115200,
                 ).classes("nicegui-select w-full")
 
                 with ui.row().classes("gap-2"):
                     ui.button(
-                        "🔗 Connect",
+                        "🔌 Plug In!",
                         on_click=lambda: handle_connect(),
-                    ).props("flat no-caps").style(
-                        "background: rgba(0,229,255,0.1); color: var(--accent); font-weight: 600;"
-                    )
+                    ).classes("fun-btn fun-btn-secondary").props("flat no-caps")
                     ui.button(
-                        "⛓️‍💥 Disconnect",
+                        "🚫 Unplug",
                         on_click=lambda: handle_disconnect(),
-                    ).props("flat no-caps").style(
-                        "color: var(--text-muted); font-weight: 600;"
-                    )
+                    ).classes("fun-btn fun-btn-ghost").props("flat no-caps")
                     ui.button(
-                        "🔄 Refresh Ports",
+                        "🔄 Look Again",
                         on_click=lambda: refresh_ports(),
-                    ).props("flat no-caps").style(
-                        "color: var(--text-muted);"
-                    )
+                    ).classes("fun-btn fun-btn-ghost").props("flat no-caps")
 
-                serial_status = ui.label("Status: Disconnected").style(
-                    "color: var(--text-muted); font-size: 0.85rem;"
+                serial_status = ui.label("Not connected yet").style(
+                    "color: var(--text-medium); font-size: 0.9rem;"
                 )
 
             # Gemini section
-            ui.label("🤖 Gemini AI").style(
-                "font-weight: 700; font-size: 1.1rem; color: var(--accent2); margin-top: 8px;"
+            ui.html(
+                '<div class="section-title" style="color: var(--accent-purple);">'
+                '🧠 AI Brain</div>'
             )
             with ui.column().classes("settings-card gap-4"):
                 api_key_input = ui.input(
-                    label="Gemini API Key",
-                    placeholder="Enter your Gemini API key…",
+                    label="Secret AI Key",
+                    placeholder="Paste your AI key here…",
                     password=True,
                     password_toggle_button=True,
                 ).classes("nicegui-input w-full")
 
                 ui.button(
-                    "💾 Save API Key",
+                    "💾 Save Key",
                     on_click=lambda: save_api_key(),
-                ).props("flat no-caps").style(
-                    "background: rgba(124,77,255,0.1); color: var(--accent2); font-weight: 600;"
-                )
+                ).classes("fun-btn fun-btn-purple").props("flat no-caps")
 
                 gemini_status = ui.label(
-                    "Status: Stub mode (no API key)"
-                ).style("color: var(--text-muted); font-size: 0.85rem;")
+                    "AI brain is sleeping (no key yet)"
+                ).style("color: var(--text-medium); font-size: 0.9rem;")
 
 
 # ── Status Bar ────────────────────────────────────────────────────
 with ui.row().classes("status-bar w-full items-center justify-between"):
-    ui.label("Miraloma Robotics v1.1 — Multi-Robot Support").style("font-size: 0.8rem;")
-    status_label = ui.label("Ready").style("font-size: 0.8rem; color: var(--accent);")
+    ui.label("🤖 Miraloma Robotics v1.1").style("font-size: 0.85rem;")
+    status_label = ui.label("✨ Ready to play!").style("font-size: 0.85rem; color: var(--primary); font-weight: 600;")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -683,11 +817,14 @@ def handle_robot_change(robot_name: str) -> None:
 
     # Update settings platform label
     robot_platform_label.set_text(
-        f"Platform: {config.get('firmware_platform', '').upper()}"
+        f"Type: {config.get('firmware_platform', '').upper()}"
     )
 
     # Update Firmware tab
-    firmware_title.set_text(f"{platform['icon']} {platform['label']} Firmware")
+    firmware_title.set_content(
+        f'<div class="section-title" style="color: var(--primary);">'
+        f'{platform["icon"]} {platform["label"]} Code</div>'
+    )
     firmware_instructions.set_text(platform["copy_instructions"])
     firmware_code_display.set_content(
         f'<pre class="code-viewer" style="max-height: 500px;">'
@@ -706,14 +843,13 @@ def handle_robot_change(robot_name: str) -> None:
     protocol_meta.set_text(
         f"Robot: {robot_name.capitalize()} · "
         f"Platform: {config.get('firmware_platform', '?')} · "
-        f"Baud: {config.get('baud_rate', '?')} · "
-        f"Format: {config.get('command_format', '?')}"
+        f"Speed: {config.get('baud_rate', '?')}"
     )
     if config:
         protocol_table_html.set_content(_build_protocol_table(config))
     else:
         protocol_table_html.set_content(
-            '<span style="color: var(--danger);">⚠ No protocol.yaml found for this robot.</span>'
+            '<span style="color: var(--danger); font-size: 1.1rem;">⚠️ No commands found for this robot.</span>'
         )
 
     # Update baud rate to match robot config
@@ -721,69 +857,69 @@ def handle_robot_change(robot_name: str) -> None:
         baud_select.value = config["baud_rate"]
         baud_select.update()
 
-    status_label.set_text(f"Switched to {robot_name.capitalize()}")
-    ui.notify(f"🤖 Switched to {robot_name.capitalize()}", type="positive")
+    status_label.set_text(f"Switched to {robot_name.capitalize()}! 🎉")
+    ui.notify(f"🤖 Now talking to {robot_name.capitalize()}!", type="positive")
 
 
 def handle_emergency_stop() -> None:
     """Send emergency stop and update UI."""
     try:
         robot.stop()
-        ui.notify("🛑 STOP sent!", type="negative", position="top")
+        ui.notify("🛑 Robot stopped!", type="negative", position="top")
     except ConnectionError:
-        ui.notify("⚠ Robot not connected — stop command not sent", type="warning", position="top")
-    status_label.set_text("⚠ STOP")
+        ui.notify("⚠️ Robot not plugged in — can't stop!", type="warning", position="top")
+    status_label.set_text("🛑 STOPPED!")
 
 
 def handle_connect() -> None:
     """Connect to the selected serial port."""
     port = port_select.value
     baud = baud_select.value
-    if not port or port == "(no ports detected)":
-        ui.notify("No serial port selected", type="warning")
+    if not port or port == "(no robot found)":
+        ui.notify("Pick a USB port first!", type="warning")
         return
     try:
         robot.connect(port, baud)
-        serial_status.set_text(f"Status: Connected to {port} @ {baud}")
+        serial_status.set_text(f"✅ Plugged into {port}")
         connection_badge.set_content(
-            '<span class="conn-badge conn-online">● Connected</span>'
+            '<span class="conn-badge conn-online">🚀 Robot is ready!</span>'
         )
-        status_label.set_text(f"Connected to {port}")
-        ui.notify(f"✅ Connected to {port}", type="positive")
+        status_label.set_text(f"Robot plugged in! 🎉")
+        ui.notify(f"✅ Robot connected!", type="positive")
     except Exception as e:
-        serial_status.set_text(f"Status: Error — {e}")
-        ui.notify(f"❌ Connection failed: {e}", type="negative")
+        serial_status.set_text(f"Oops! Something went wrong: {e}")
+        ui.notify(f"❌ Couldn't connect: {e}", type="negative")
 
 
 def handle_disconnect() -> None:
     """Disconnect from serial port."""
     robot.disconnect()
-    serial_status.set_text("Status: Disconnected")
+    serial_status.set_text("Not connected yet")
     connection_badge.set_content(
-        '<span class="conn-badge conn-offline">● Disconnected</span>'
+        '<span class="conn-badge conn-offline">😴 Robot is sleeping</span>'
     )
-    status_label.set_text("Disconnected")
-    ui.notify("Disconnected", type="info")
+    status_label.set_text("Robot unplugged")
+    ui.notify("Robot unplugged 👋", type="info")
 
 
 def refresh_ports() -> None:
     """Refresh the list of available serial ports."""
     ports = robot.list_ports()
-    port_select.options = ports if ports else ["(no ports detected)"]
-    port_select.value = ports[0] if ports else "(no ports detected)"
+    port_select.options = ports if ports else ["(no robot found)"]
+    port_select.value = ports[0] if ports else "(no robot found)"
     port_select.update()
-    ui.notify(f"Found {len(ports)} port(s)", type="info")
+    ui.notify(f"Found {len(ports)} robot(s)! 🔍", type="info")
 
 
 def save_api_key() -> None:
     """Save the Gemini API key."""
     key = api_key_input.value.strip()
     if not key:
-        ui.notify("Please enter an API key", type="warning")
+        ui.notify("Type in your AI key first!", type="warning")
         return
     gemini.api_key = key
-    gemini_status.set_text("Status: API key saved (real AI coming in Phase 3)")
-    ui.notify("🔑 API key saved", type="positive")
+    gemini_status.set_text("✅ AI brain is awake!")
+    ui.notify("🧠 AI brain activated!", type="positive")
 
 
 async def send_chat_message() -> None:
@@ -804,7 +940,7 @@ async def send_chat_message() -> None:
             f'<div class="chat-time">{now}</div></div>'
         )
 
-    status_label.set_text("🤖 Thinking…")
+    status_label.set_text("🤖 Robot is thinking…")
 
     # Get AI response
     response = await gemini.send_message(text)
@@ -828,16 +964,16 @@ async def send_chat_message() -> None:
                 f'<pre class="code-viewer">{_escape_html(stub)}</pre>'
             )
 
-    status_label.set_text("Ready")
+    status_label.set_text("✨ Ready to play!")
 
 
 def execute_code() -> None:
     """Execute the current navigation script (stub — just notifies)."""
     if "No navigation script" in current_code:
-        ui.notify("No script to execute. Send a movement command first.", type="warning")
+        ui.notify("Tell the robot what to do first! 💬", type="warning")
         return
-    ui.notify("▶ Code execution coming in Phase 3!", type="info")
-    status_label.set_text("▶ Executing…")
+    ui.notify("🚀 Robot code will run soon! Coming in Phase 3", type="info")
+    status_label.set_text("🚀 Running…")
 
 
 def clear_code() -> None:
@@ -847,16 +983,17 @@ def clear_code() -> None:
     code_display.set_content(
         f'<pre class="code-viewer">{current_code}</pre>'
     )
-    status_label.set_text("Ready")
+    status_label.set_text("✨ Ready to play!")
 
 
 # ══════════════════════════════════════════════════════════════════
 #  LAUNCH
 # ══════════════════════════════════════════════════════════════════
 ui.run(
-    title="Miraloma Robotics — Mission Control",
+    title="Robot Command Center! — Miraloma Robotics",
     host="0.0.0.0",
     port=8080,
-    dark=True,
+    dark=False,
     reload=True,
 )
+
