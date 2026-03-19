@@ -28,6 +28,7 @@ from robot_hal import RobotHAL
 from gemini_client import GeminiClient, AVAILABLE_MODELS, DEFAULT_MODEL_LABEL
 from gemini_client import ResponseType, ParsedResponse
 import nav_runtime
+from settings import load_settings, save_settings
 
 # ── Globals ───────────────────────────────────────────────────────
 BASE_DIR = _BASE_DIR_EARLY
@@ -48,10 +49,13 @@ current_code: str = "# No navigation script loaded yet."
 _running_task: asyncio.Task | None = None
 _execution_lock = threading.Lock()
 
-# Calibration parameters
+# ── Load cached settings ─────────────────────────────────────────
+_saved = load_settings()
+
+# Calibration parameters (from cache)
 calibration = {
-    "speed_seconds_per_foot": 3.0,
-    "default_motor_speed": 150,
+    "speed_seconds_per_foot": _saved["speed_seconds_per_foot"],
+    "default_motor_speed": _saved["default_motor_speed"],
 }
 
 
@@ -212,7 +216,11 @@ PLATFORM_INFO = {
 # ══════════════════════════════════════════════════════════════════
 
 available_robots = discover_robots()
-selected_robot: str = available_robots[0] if available_robots else ""
+# Restore saved robot if it still exists, otherwise use first available
+selected_robot: str = (
+    _saved["robot"] if _saved["robot"] in available_robots
+    else (available_robots[0] if available_robots else "")
+)
 
 # Pre-load initial robot data
 _initial_config = load_robot_config(selected_robot) if selected_robot else {}
@@ -230,6 +238,17 @@ _firmware_state = {
 # Build initial system prompt for the selected robot
 if selected_robot:
     build_and_set_prompt(selected_robot)
+
+# Auto-configure Gemini if an API key was previously saved
+if _saved["api_key"]:
+    try:
+        gemini.configure(api_key=_saved["api_key"])
+        if _saved["model"] in AVAILABLE_MODELS:
+            gemini.model_label = _saved["model"]
+        if selected_robot:
+            build_and_set_prompt(selected_robot)
+    except Exception:
+        pass  # Key might be stale; user can re-enter
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1239,10 +1258,11 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                     value=ports[0] if ports else "(no robot found)",
                 ).classes("nicegui-select w-full")
 
+                _saved_baud = _saved["uart_baud"] if _saved["uart_baud"] in [9600, 19200, 38400, 57600, 115200] else 115200
                 baud_select = ui.select(
                     options=[9600, 19200, 38400, 57600, 115200],
                     label="Speed",
-                    value=115200,
+                    value=_saved_baud,
                 ).classes("nicegui-select w-full")
 
                 with ui.row().classes("gap-2"):
@@ -1277,15 +1297,17 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                 api_key_input = ui.input(
                     label="Gemini API Key",
                     placeholder="Paste your API key here (starts with AIza…)",
+                    value=_saved["api_key"],
                     password=True,
                     password_toggle_button=True,
                 ).classes("nicegui-input w-full")
 
                 model_options = {label: label for label in gemini.available_model_labels()}
+                _saved_model = _saved["model"] if _saved["model"] in model_options else DEFAULT_MODEL_LABEL
                 model_select = ui.select(
                     options=model_options,
                     label="AI Model",
-                    value=DEFAULT_MODEL_LABEL,
+                    value=_saved_model,
                     on_change=lambda e: handle_model_change(e.value),
                 ).classes("nicegui-select w-full")
 
@@ -1303,7 +1325,8 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                     ).classes("fun-btn fun-btn-ghost").props("flat no-caps")
 
                 gemini_status = ui.label(
-                    "AI brain is sleeping (no key yet)"
+                    f"✅ AI brain is awake — using {gemini.model_label}" if gemini.is_connected
+                    else "AI brain is sleeping (no key yet)"
                 ).style("color: var(--text-medium); font-size: 0.9rem;")
 
             # Calibration section
@@ -1347,6 +1370,19 @@ with ui.row().classes("status-bar w-full items-center justify-between"):
 # ══════════════════════════════════════════════════════════════════
 #  HANDLERS
 # ══════════════════════════════════════════════════════════════════
+
+
+def _save_current_settings() -> None:
+    """Persist all current settings to disk."""
+    save_settings({
+        "api_key": api_key_input.value.strip() if gemini.is_connected else _saved.get("api_key", ""),
+        "model": model_select.value,
+        "speed_seconds_per_foot": calibration["speed_seconds_per_foot"],
+        "default_motor_speed": calibration["default_motor_speed"],
+        "uart_port": port_select.value if port_select.value != "(no robot found)" else "",
+        "uart_baud": baud_select.value,
+        "robot": selected_robot,
+    })
 
 
 def handle_robot_change(robot_name: str) -> None:
@@ -1413,6 +1449,9 @@ def handle_robot_change(robot_name: str) -> None:
     # Rebuild the system prompt for the new robot
     build_and_set_prompt(robot_name)
 
+    # Persist
+    _save_current_settings()
+
 
 def handle_emergency_stop() -> None:
     """Send emergency stop, kill running code, and update UI."""
@@ -1441,6 +1480,7 @@ def handle_connect() -> None:
         )
         status_label.set_text(f"Robot plugged in! 🎉")
         ui.notify(f"✅ Robot connected!", type="positive")
+        _save_current_settings()
     except Exception as e:
         serial_status.set_text(f"Oops! Something went wrong: {e}")
         ui.notify(f"❌ Couldn't connect: {e}", type="negative")
@@ -1483,6 +1523,7 @@ def handle_model_change(label: str) -> None:
     ui.notify(f"🧠 Switched to {label}", type="info")
     if gemini.is_connected:
         gemini_status.set_text(f"✅ AI brain is awake — using {label}")
+    _save_current_settings()
 
 
 def handle_calibration_change(key: str, value) -> None:
@@ -1496,6 +1537,7 @@ def handle_calibration_change(key: str, value) -> None:
     if selected_robot:
         build_and_set_prompt(selected_robot)
     ui.notify("⚙️ Calibration updated!", type="info")
+    _save_current_settings()
 
 
 async def save_api_key() -> None:
@@ -1519,6 +1561,8 @@ async def save_api_key() -> None:
         )
         status_label.set_text("✨ AI brain activated!")
         ui.notify("🧠 AI brain activated! Connection works.", type="positive")
+        # Persist API key only after successful test
+        _save_current_settings()
     except Exception as exc:
         error = str(exc)
         gemini_status.set_text(f"❌ Connection failed: {error[:80]}")
