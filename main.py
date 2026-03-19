@@ -285,17 +285,18 @@ ui.add_head_html("""
 
   /* === Stop button === */
   .stop-btn {
-    background: linear-gradient(135deg, var(--danger), #FF2D2D) !important;
+    background: linear-gradient(135deg, #CC0000, #AA0000) !important;
     color: white !important;
     font-weight: 800 !important;
     font-size: 1.1rem !important;
     border-radius: var(--radius-lg) !important;
     text-transform: uppercase;
     letter-spacing: 1px;
-    box-shadow: 0 6px 24px rgba(255, 71, 87, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), 0 0 0 3px rgba(255, 255, 255, 0.5);
     transition: all 0.2s ease;
     min-width: 120px !important;
     padding: 8px 24px !important;
+    border: 3px solid rgba(255, 255, 255, 0.6) !important;
   }
   .stop-btn:hover {
     box-shadow: 0 8px 32px rgba(255, 71, 87, 0.55);
@@ -434,19 +435,21 @@ ui.add_head_html("""
     font-weight: 700;
   }
   .conn-online {
-    background: linear-gradient(135deg, rgba(46, 213, 115, 0.15), rgba(46, 213, 115, 0.08));
+    background: rgba(255, 255, 255, 0.92);
     color: #0D9E3F;
-    border: 2px solid rgba(46, 213, 115, 0.4);
+    border: 2px solid rgba(46, 213, 115, 0.5);
     animation: pulse-online 2s ease-in-out infinite;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
   @keyframes pulse-online {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(46, 213, 115, 0.3); }
-    50% { box-shadow: 0 0 0 6px rgba(46, 213, 115, 0); }
+    0%, 100% { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
+    50% { box-shadow: 0 2px 8px rgba(46, 213, 115, 0.3); }
   }
   .conn-offline {
-    background: rgba(255, 71, 87, 0.08);
+    background: rgba(255, 255, 255, 0.92);
     color: var(--danger);
-    border: 2px solid rgba(255, 71, 87, 0.3);
+    border: 2px solid rgba(255, 71, 87, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   /* === Robot badge === */
@@ -458,10 +461,11 @@ ui.add_head_html("""
     border-radius: 24px;
     font-size: 0.9rem;
     font-weight: 700;
-    background: linear-gradient(135deg, rgba(255, 107, 53, 0.12), rgba(255, 217, 61, 0.12));
+    background: rgba(255, 255, 255, 0.92);
     color: var(--primary);
-    border: 2px solid rgba(255, 107, 53, 0.3);
+    border: 2px solid rgba(255, 107, 53, 0.4);
     text-transform: capitalize;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   /* === Status bar === */
@@ -664,7 +668,7 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                     on_click=lambda: ui.run_javascript(
                         f"window.open('{_firmware_state['open_url']}', '_blank')"
                     ),
-                ).classes("fun-btn fun-btn-purple").props("flat no-caps")
+                ).classes("fun-btn fun-btn-purple").props("flat no-caps").style("color: white !important;")
 
             firmware_code_display = ui.html(
                 f'<pre class="code-viewer" style="max-height: 500px;">'
