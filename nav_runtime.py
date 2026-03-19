@@ -50,7 +50,10 @@ def send(action: str, value: int = 0) -> None:
         send('ULA', 90)    # Set servo (head/eyes) to 90 degrees (center)
         send('ACT', 7)     # Trigger dancing action (Spider)
     """
-    _get_robot().send_command(action, value)
+    try:
+        _get_robot().send_command(action, value)
+    except ConnectionError:
+        pass  # Robot not connected — allow script to continue
 
 
 def read(sensor: str, param: int = 0) -> str:
@@ -72,7 +75,10 @@ def read(sensor: str, param: int = 0) -> str:
 
 def stop() -> None:
     """Emergency stop — halt all motors immediately."""
-    _get_robot().stop()
+    try:
+        _get_robot().stop()
+    except ConnectionError:
+        pass  # Robot not connected — allow script to continue
 
 
 def wait(seconds: float) -> None:

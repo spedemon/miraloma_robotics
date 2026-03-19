@@ -871,113 +871,53 @@ ui.add_head_html("""
     animation: fade-in-out 1.2s ease-in-out infinite;
   }
 
-  /* === Progress animation container === */
-  .progress-anim-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 0;
-    overflow: hidden;
-    transition: min-height 0.4s ease, opacity 0.4s ease;
+  /* === Horizontal progress bar (under robot face) === */
+  .progress-bar-area {
+    width: 100%;
+    max-width: 280px;
+    margin: 0 auto;
     opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: opacity 0.4s ease, max-height 0.4s ease, margin 0.3s ease;
   }
-  .progress-anim-container.progress-visible {
-    min-height: 100px;
+  .progress-bar-area.progress-active {
     opacity: 1;
+    max-height: 60px;
+    margin: 8px auto 0;
   }
-
-  /* Determinate circular progress ring */
-  .progress-ring-wrap {
-    display: none;
-    align-items: center;
-    gap: 16px;
+  .progress-bar-track {
+    width: 100%;
+    height: 10px;
+    border-radius: 5px;
+    background: #F0E6D8;
+    overflow: hidden;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.08);
   }
-  .progress-ring-wrap.active { display: flex; }
-  .progress-ring {
-    transform: rotate(-90deg);
-    filter: drop-shadow(0 0 8px rgba(255,107,53,0.4));
+  .progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 5px;
+    background: linear-gradient(90deg, var(--primary), var(--accent-pink));
+    transition: width 0.15s ease;
+    box-shadow: 0 0 8px rgba(255,107,53,0.4);
   }
-  .progress-ring-bg {
-    fill: none;
-    stroke: #F0E6D8;
-    stroke-width: 8;
+  /* Indeterminate: sliding shuttle */
+  .progress-bar-fill.indeterminate {
+    width: 35%;
+    animation: shuttle 1.6s ease-in-out infinite;
   }
-  .progress-ring-fill {
-    fill: none;
-    stroke: url(#progressGrad);
-    stroke-width: 8;
-    stroke-linecap: round;
-    transition: stroke-dashoffset 0.15s ease;
+  @keyframes shuttle {
+    0%   { margin-left: 0;   }
+    50%  { margin-left: 65%; }
+    100% { margin-left: 0;   }
   }
-  .progress-ring-pct {
-    font-size: 1.3rem;
-    font-weight: 800;
-    color: var(--primary);
-    min-width: 3.5ch;
-    text-align: right;
-  }
-  .progress-ring-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-medium);
-  }
-
-  /* Indeterminate orbital spinner */
-  .progress-orbit-wrap {
-    display: none;
-    align-items: center;
-    gap: 14px;
-  }
-  .progress-orbit-wrap.active { display: flex; }
-  .orbit-container {
-    position: relative;
-    width: 80px; height: 80px;
-  }
-  .orbit-track {
-    position: absolute; inset: 0;
-    border-radius: 50%;
-    border: 3px dashed rgba(168,85,247,0.2);
-    animation: orbit-spin 6s linear infinite;
-  }
-  @keyframes orbit-spin {
-    to { transform: rotate(360deg); }
-  }
-  .orbit-dot {
-    position: absolute;
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    top: 50%; left: 50%;
-    margin: -7px 0 0 -7px;
-    animation: orbit-move 2s ease-in-out infinite;
-  }
-  .orbit-dot:nth-child(2) { animation-delay: -0.66s; }
-  .orbit-dot:nth-child(3) { animation-delay: -1.33s; }
-  .orbit-dot-1 { background: var(--primary); box-shadow: 0 0 8px var(--primary); }
-  .orbit-dot-2 { background: var(--accent-purple); box-shadow: 0 0 8px var(--accent-purple); }
-  .orbit-dot-3 { background: var(--secondary); box-shadow: 0 0 8px var(--secondary); }
-  @keyframes orbit-move {
-    0%   { transform: translate(30px, 0)   scale(1); }
-    25%  { transform: translate(0, 30px)   scale(0.7); }
-    50%  { transform: translate(-30px, 0)  scale(1); }
-    75%  { transform: translate(0, -30px)  scale(0.7); }
-    100% { transform: translate(30px, 0)   scale(1); }
-  }
-  .orbit-center-icon {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 1.5rem;
-    animation: orbit-pulse 1.5s ease-in-out infinite;
-  }
-  @keyframes orbit-pulse {
-    0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    50%      { opacity: 0.6; transform: translate(-50%, -50%) scale(0.85); }
-  }
-  .orbit-label {
-    font-size: 0.9rem;
+  .progress-bar-label {
+    text-align: center;
+    font-size: 0.82rem;
     font-weight: 700;
-    color: var(--accent-purple);
-    animation: fade-in-out 2s ease-in-out infinite;
+    color: var(--primary);
+    margin-top: 4px;
   }
 
   /* === Collapsible code viewer === */
@@ -1150,7 +1090,7 @@ if (window.speechSynthesis) {
     };
 }
 
-// ── Progress Animation Control ─────────────────────────────────
+// ── Progress Bar Control (horizontal bar under robot face) ─────
 let _progressTimer = null;
 let _progressStart = 0;
 let _progressDuration = 0;
@@ -1159,51 +1099,48 @@ function startDeterminateProgress(durationSec) {
     stopProgressAnimation();
     _progressDuration = durationSec * 1000;
     _progressStart = performance.now();
-    const container = document.getElementById('progress-anim');
-    const ring = document.getElementById('progress-ring-wrap');
-    const orbit = document.getElementById('progress-orbit-wrap');
-    if (!container || !ring) return;
-    orbit && orbit.classList.remove('active');
-    ring.classList.add('active');
-    container.classList.add('progress-visible');
-    const circle = document.getElementById('progress-ring-fill');
-    const pct = document.getElementById('progress-ring-pct');
-    const circumference = 2 * Math.PI * 36;
-    circle.style.strokeDasharray = circumference;
-    circle.style.strokeDashoffset = circumference;
+    const area = document.getElementById('progress-bar-area');
+    const fill = document.getElementById('progress-bar-fill');
+    const label = document.getElementById('progress-bar-label');
+    const stateText = document.getElementById('face-state-text');
+    if (!area || !fill) return;
+    fill.classList.remove('indeterminate');
+    fill.style.width = '0%';
+    area.classList.add('progress-active');
+    if (stateText) stateText.textContent = '🚀 Moving — Ready to Chat!';
     _progressTimer = setInterval(() => {
         const elapsed = performance.now() - _progressStart;
         const ratio = Math.min(elapsed / _progressDuration, 1);
-        circle.style.strokeDashoffset = circumference * (1 - ratio);
-        if (pct) pct.textContent = Math.round(ratio * 100) + '%';
+        fill.style.width = Math.round(ratio * 100) + '%';
+        if (label) label.textContent = Math.round(ratio * 100) + '%';
         if (ratio >= 1) clearInterval(_progressTimer);
     }, 50);
 }
 
 function startIndeterminateProgress() {
     stopProgressAnimation();
-    const container = document.getElementById('progress-anim');
-    const ring = document.getElementById('progress-ring-wrap');
-    const orbit = document.getElementById('progress-orbit-wrap');
-    if (!container || !orbit) return;
-    ring && ring.classList.remove('active');
-    orbit.classList.add('active');
-    container.classList.add('progress-visible');
+    const area = document.getElementById('progress-bar-area');
+    const fill = document.getElementById('progress-bar-fill');
+    const label = document.getElementById('progress-bar-label');
+    const stateText = document.getElementById('face-state-text');
+    if (!area || !fill) return;
+    fill.style.width = '';
+    fill.classList.add('indeterminate');
+    area.classList.add('progress-active');
+    if (label) label.textContent = '';
+    if (stateText) stateText.textContent = '🧭 Navigating — Ready to Chat!';
 }
 
 function stopProgressAnimation() {
     if (_progressTimer) { clearInterval(_progressTimer); _progressTimer = null; }
-    const container = document.getElementById('progress-anim');
-    const ring = document.getElementById('progress-ring-wrap');
-    const orbit = document.getElementById('progress-orbit-wrap');
-    if (container) container.classList.remove('progress-visible');
-    if (ring) ring.classList.remove('active');
-    if (orbit) orbit.classList.remove('active');
-    // Reset ring
-    const circle = document.getElementById('progress-ring-fill');
-    const pct = document.getElementById('progress-ring-pct');
-    if (circle) { circle.style.strokeDashoffset = 2 * Math.PI * 36; }
-    if (pct) pct.textContent = '0%';
+    const area = document.getElementById('progress-bar-area');
+    const fill = document.getElementById('progress-bar-fill');
+    const label = document.getElementById('progress-bar-label');
+    const stateText = document.getElementById('face-state-text');
+    if (area) area.classList.remove('progress-active');
+    if (fill) { fill.classList.remove('indeterminate'); fill.style.width = '0%'; }
+    if (label) label.textContent = '';
+    if (stateText) stateText.textContent = '😊 Ready to chat!';
 }
 </script>
 """)
@@ -1260,7 +1197,7 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                         "overflow-y: auto; max-height: 400px; padding: 12px; "
                         "background: var(--bg-card); border-radius: var(--radius-lg); "
                         "border: 2px solid #F0E6D8; box-shadow: var(--shadow-card);"
-                    )
+                    ).props('id=chat-scroll-container')
 
                     # Welcome message
                     with chat_container:
@@ -1403,6 +1340,12 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                         </div>
                       </div>
                       <div id="face-state-text" class="face-state-label">😊 Ready to chat!</div>
+                      <div id="progress-bar-area" class="progress-bar-area">
+                        <div class="progress-bar-track">
+                          <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                        </div>
+                        <div id="progress-bar-label" class="progress-bar-label"></div>
+                      </div>
                     </div>
                     ''')
 
@@ -1415,39 +1358,7 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                     "🧹 Start Over", on_click=lambda: clear_code(),
                 ).classes("fun-btn fun-btn-ghost").props("flat no-caps")
 
-            # ── Progress animation ────────────────────────────────
-            progress_anim = ui.html('''
-            <div id="progress-anim" class="progress-anim-container">
-              <!-- Determinate: circular progress ring -->
-              <div id="progress-ring-wrap" class="progress-ring-wrap">
-                <svg class="progress-ring" width="80" height="80" viewBox="0 0 80 80">
-                  <defs>
-                    <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" style="stop-color:#FF6B35"/>
-                      <stop offset="100%" style="stop-color:#FF6B9D"/>
-                    </linearGradient>
-                  </defs>
-                  <circle class="progress-ring-bg" cx="40" cy="40" r="36"/>
-                  <circle id="progress-ring-fill" class="progress-ring-fill" cx="40" cy="40" r="36"/>
-                </svg>
-                <div>
-                  <div id="progress-ring-pct" class="progress-ring-pct">0%</div>
-                  <div class="progress-ring-label">Running action…</div>
-                </div>
-              </div>
-              <!-- Indeterminate: orbital spinner -->
-              <div id="progress-orbit-wrap" class="progress-orbit-wrap">
-                <div class="orbit-container">
-                  <div class="orbit-track"></div>
-                  <div class="orbit-dot orbit-dot-1"></div>
-                  <div class="orbit-dot orbit-dot-2"></div>
-                  <div class="orbit-dot orbit-dot-3"></div>
-                  <div class="orbit-center-icon">🤖</div>
-                </div>
-                <div class="orbit-label">Navigating…</div>
-              </div>
-            </div>
-            ''')
+
 
             # ── Collapsible code viewer ───────────────────────────
             with ui.expansion(
@@ -1914,6 +1825,11 @@ async def send_chat_message() -> None:
             f"{_escape_html(text)}"
             f'<div class="chat-time">{now}</div></div>'
         )
+    # Auto-scroll chat to bottom
+    await ui.run_javascript(
+        "document.getElementById('chat-scroll-container').scrollTop = "
+        "document.getElementById('chat-scroll-container').scrollHeight"
+    )
 
     status_label.set_text("🤖 Robot is thinking…")
     await ui.run_javascript("setRobotFaceState('thinking')")
@@ -1933,6 +1849,11 @@ async def send_chat_message() -> None:
                 f"{_escape_html(display_text)}"
                 f'<div class="chat-time">{now}</div></div>'
             )
+        # Auto-scroll chat to bottom
+        await ui.run_javascript(
+            "document.getElementById('chat-scroll-container').scrollTop = "
+            "document.getElementById('chat-scroll-container').scrollHeight"
+        )
 
         # Speak the response aloud if this was a voice-initiated interaction
         if _voice_initiated and display_text.strip():
@@ -1952,10 +1873,14 @@ async def send_chat_message() -> None:
             code_expansion.open()
 
             if parsed.response_type == ResponseType.ACTION:
+                # Return face to idle after AI processing, before action
+                await ui.run_javascript("setRobotFaceState('idle')")
                 # Auto-execute action commands immediately
                 status_label.set_text("🚀 Running action…")
                 await _execute_code_async(parsed.code, mode="action")
             elif parsed.response_type == ResponseType.NAVIGATION:
+                # Return face to idle after AI processing
+                await ui.run_javascript("setRobotFaceState('idle')")
                 # Wait for Go! button
                 status_label.set_text("📋 Navigation ready — press Go! to start")
                 ui.notify(
@@ -2045,12 +1970,20 @@ async def _execute_code_async(code: str, mode: str = "action") -> None:
             await asyncio.to_thread(exec, code, exec_globals)
         except Exception as exc:
             ui.notify(f"⚠️ Script error: {exc}", type="negative")
-        finally:
-            nav_runtime.running = False
-            _reset_play_ui()
-            status_label.set_text("✨ Ready to play!")
 
     _running_task = asyncio.create_task(_run())
+
+    # Wait for task to finish, then clean up in the NiceGUI client context
+    try:
+        await _running_task
+    except asyncio.CancelledError:
+        pass  # Cancellation is handled by stop_execution
+    finally:
+        nav_runtime.running = False
+        _set_go_stop_button(False)
+        ui.run_javascript("stopProgressAnimation()")
+        ui.run_javascript("setRobotFaceState('idle')")
+        status_label.set_text("✨ Ready to play!")
 
 
 def stop_execution() -> None:
