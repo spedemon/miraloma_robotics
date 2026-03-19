@@ -12,6 +12,7 @@ NiceGUI application with 4 tabs:
 import json
 import asyncio
 import yaml
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -25,6 +26,8 @@ app.add_static_files('/static', str(_BASE_DIR_EARLY / 'static'))
 
 from robot_hal import RobotHAL
 from gemini_client import GeminiClient, AVAILABLE_MODELS, DEFAULT_MODEL_LABEL
+from gemini_client import ResponseType, ParsedResponse
+import nav_runtime
 
 # ── Globals ───────────────────────────────────────────────────────
 BASE_DIR = _BASE_DIR_EARLY
@@ -32,12 +35,24 @@ ROBOTS_DIR = BASE_DIR / "robots_firmware"
 robot = RobotHAL()
 gemini = GeminiClient()
 
+# Wire the nav_runtime to use the shared robot HAL
+nav_runtime._set_robot(robot)
+
 LOGO_URL = "/static/logo.png"
 
 # Chat history: list of {"role": "user"|"assistant", "text": str, "time": str}
 chat_history: list[dict] = []
 # Currently displayed navigation code
 current_code: str = "# No navigation script loaded yet."
+# Execution state
+_running_task: asyncio.Task | None = None
+_execution_lock = threading.Lock()
+
+# Calibration parameters
+calibration = {
+    "speed_seconds_per_foot": 3.0,
+    "default_motor_speed": 150,
+}
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -76,6 +91,32 @@ def load_robot_firmware(robot_name: str) -> tuple[str, str]:
                 continue
             return fpath.read_text(), fpath.name
     return "// No firmware source file found.", "unknown"
+
+
+def load_robot_architecture(robot_name: str) -> str:
+    """Load the robot_architecture.md file for context."""
+    path = ROBOTS_DIR / robot_name / "robot_architecture.md"
+    if path.exists():
+        return path.read_text()
+    return f"Robot: {robot_name}. No detailed architecture available."
+
+
+def build_and_set_prompt(robot_name: str) -> None:
+    """Build and set the system prompt for the selected robot."""
+    config = load_robot_config(robot_name)
+    architecture = load_robot_architecture(robot_name)
+    prompt = GeminiClient.build_system_prompt(
+        robot_name=config.get("name", robot_name.capitalize()),
+        architecture_md=architecture,
+        protocol_yaml=config,
+        calibration=calibration,
+    )
+    gemini.set_system_prompt(prompt)
+
+    # Also load protocol into HAL
+    protocol_path = ROBOTS_DIR / robot_name / "protocol.yaml"
+    if protocol_path.exists():
+        robot.load_protocol(protocol_path)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -185,6 +226,10 @@ _firmware_state = {
     "source": _initial_firmware,
     "open_url": _initial_platform["open_url"] if _initial_platform else "",
 }
+
+# Build initial system prompt for the selected robot
+if selected_robot:
+    build_and_set_prompt(selected_robot)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1261,6 +1306,37 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                     "AI brain is sleeping (no key yet)"
                 ).style("color: var(--text-medium); font-size: 0.9rem;")
 
+            # Calibration section
+            ui.html(
+                '<div class="section-title" style="color: var(--accent-yellow);">'
+                '⚙️ Calibration</div>'
+            )
+            with ui.column().classes("settings-card gap-4"):
+                ui.label(
+                    "Fine-tune how the robot moves. "
+                    "Adjust these based on your robot's actual speed."
+                ).style("color: var(--text-medium); font-size: 0.95rem;")
+
+                cal_speed_input = ui.number(
+                    label="Speed (seconds per foot)",
+                    value=calibration["speed_seconds_per_foot"],
+                    min=0.5, max=30.0, step=0.5,
+                    on_change=lambda e: handle_calibration_change("speed_seconds_per_foot", e.value),
+                ).classes("nicegui-input w-full")
+
+                cal_motor_input = ui.number(
+                    label="Default Motor Speed (0–255)",
+                    value=calibration["default_motor_speed"],
+                    min=0, max=255, step=10,
+                    on_change=lambda e: handle_calibration_change("default_motor_speed", int(e.value)),
+                ).classes("nicegui-input w-full")
+
+                cal_status = ui.label(
+                    f"📏 {calibration['speed_seconds_per_foot']} sec/foot · "
+                    f"🏎️ Motor speed: {calibration['default_motor_speed']}"
+                ).style("color: var(--text-medium); font-size: 0.9rem;")
+
+
 
 # ── Status Bar ────────────────────────────────────────────────────
 with ui.row().classes("status-bar w-full items-center justify-between"):
@@ -1334,9 +1410,14 @@ def handle_robot_change(robot_name: str) -> None:
     status_label.set_text(f"Switched to {robot_name.capitalize()}! 🎉")
     ui.notify(f"🤖 Now talking to {robot_name.capitalize()}!", type="positive")
 
+    # Rebuild the system prompt for the new robot
+    build_and_set_prompt(robot_name)
+
 
 def handle_emergency_stop() -> None:
-    """Send emergency stop and update UI."""
+    """Send emergency stop, kill running code, and update UI."""
+    # Stop any running navigation code
+    stop_execution()
     try:
         robot.stop()
         ui.notify("🛑 Robot stopped!", type="negative", position="top")
@@ -1367,6 +1448,7 @@ def handle_connect() -> None:
 
 def handle_disconnect() -> None:
     """Disconnect from serial port."""
+    stop_execution()
     robot.disconnect()
     serial_status.set_text("Not connected yet")
     connection_badge.set_content(
@@ -1403,6 +1485,19 @@ def handle_model_change(label: str) -> None:
         gemini_status.set_text(f"✅ AI brain is awake — using {label}")
 
 
+def handle_calibration_change(key: str, value) -> None:
+    """Handle calibration parameter change."""
+    calibration[key] = value
+    cal_status.set_text(
+        f"📏 {calibration['speed_seconds_per_foot']} sec/foot · "
+        f"🏎️ Motor speed: {calibration['default_motor_speed']}"
+    )
+    # Rebuild prompt with new calibration
+    if selected_robot:
+        build_and_set_prompt(selected_robot)
+    ui.notify("⚙️ Calibration updated!", type="info")
+
+
 async def save_api_key() -> None:
     """Save the Gemini API key and test the connection."""
     key = api_key_input.value.strip()
@@ -1415,6 +1510,9 @@ async def save_api_key() -> None:
 
     try:
         gemini.configure(api_key=key)
+        # Rebuild prompt after configuring (so chat session picks it up)
+        if selected_robot:
+            build_and_set_prompt(selected_robot)
         test_reply = await gemini.test_connection()
         gemini_status.set_text(
             f"✅ AI brain is awake! Model: {gemini.model_label}"
@@ -1429,7 +1527,7 @@ async def save_api_key() -> None:
 
 
 async def send_chat_message() -> None:
-    """Handle sending a chat message."""
+    """Handle sending a chat message with intent classification."""
     global current_code
     text = chat_input.value.strip()
     if not text:
@@ -1452,38 +1550,105 @@ async def send_chat_message() -> None:
     # Get AI response
     response = await gemini.send_message(text)
 
+    # Parse and classify
+    parsed = GeminiClient.parse_response(response)
+    display_text = GeminiClient.clean_message_for_display(response)
+
     # Assistant message
     with chat_container:
         ui.html(
             f'<div class="chat-msg chat-assistant">'
-            f"{_escape_html(response)}"
+            f"{_escape_html(display_text)}"
             f'<div class="chat-time">{now}</div></div>'
         )
 
-    # If the response contains a code block, show it in the code viewer
-    code_block = GeminiClient._extract_code(response)
-    if code_block:
-        current_code = code_block
+    # Handle code if present
+    if parsed.has_code:
+        current_code = parsed.code
         code_display.set_content(
-            f'<pre class="code-viewer" style="margin: 0; border: none; border-radius: 0 0 var(--radius-md) var(--radius-md);">{_escape_html(code_block)}</pre>'
+            f'<pre class="code-viewer" style="margin: 0; border: none; '
+            f'border-radius: 0 0 var(--radius-md) var(--radius-md);">'
+            f'{_escape_html(parsed.code)}</pre>'
         )
+        # Auto-expand the code panel
+        code_expansion.open()
 
-    await ui.run_javascript("setRobotFaceState('idle')")
-    status_label.set_text("✨ Ready to play!")
+        if parsed.response_type == ResponseType.ACTION:
+            # Auto-execute action commands immediately
+            await ui.run_javascript("setRobotFaceState('idle')")
+            status_label.set_text("🚀 Running action…")
+            await _execute_code_async(parsed.code)
+        elif parsed.response_type == ResponseType.NAVIGATION:
+            # Wait for Go! button
+            await ui.run_javascript("setRobotFaceState('idle')")
+            status_label.set_text("📋 Navigation ready — press Go! to start")
+            ui.notify(
+                "🧭 Navigation script ready! Press 🚀 Go! to start.",
+                type="info",
+            )
+    else:
+        await ui.run_javascript("setRobotFaceState('idle')")
+        status_label.set_text("✨ Ready to play!")
+
+
+async def _execute_code_async(code: str) -> None:
+    """Execute generated Python code in a background task."""
+    global _running_task
+
+    # Stop any currently running code
+    stop_execution()
+
+    # Set up the runtime
+    nav_runtime.running = True
+
+    async def _run():
+        try:
+            # Create a namespace with nav_runtime functions
+            exec_globals = {
+                "send": nav_runtime.send,
+                "read": nav_runtime.read,
+                "stop": nav_runtime.stop,
+                "wait": nav_runtime.wait,
+                "is_running": nav_runtime.is_running,
+                "__builtins__": __builtins__,
+            }
+            # Run the code in a thread so it doesn't block the UI
+            await asyncio.to_thread(exec, code, exec_globals)
+        except Exception as exc:
+            ui.notify(f"⚠️ Script error: {exc}", type="negative")
+        finally:
+            nav_runtime.running = False
+            status_label.set_text("✨ Ready to play!")
+
+    _running_task = asyncio.create_task(_run())
+
+
+def stop_execution() -> None:
+    """Stop any running navigation code."""
+    global _running_task
+    nav_runtime.running = False
+    if _running_task and not _running_task.done():
+        _running_task.cancel()
+    _running_task = None
 
 
 def execute_code() -> None:
-    """Execute the current navigation script (stub — just notifies)."""
+    """Execute the current navigation script (triggered by Go! button)."""
     if "No navigation script" in current_code:
         ui.notify("Tell the robot what to do first! 💬", type="warning")
         return
-    ui.notify("🚀 Robot code will run soon! Coming in Phase 3", type="info")
     status_label.set_text("🚀 Running…")
+    asyncio.ensure_future(_execute_code_async(current_code))
 
 
 def clear_code() -> None:
-    """Clear the current navigation script."""
+    """Clear the current navigation script and stop execution."""
     global current_code
+    stop_execution()
+    try:
+        robot.stop()
+    except ConnectionError:
+        pass
     current_code = "# No navigation script loaded yet."
     code_display.set_content(
         f'<pre class="code-viewer">{current_code}</pre>'

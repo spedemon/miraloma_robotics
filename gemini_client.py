@@ -2,11 +2,12 @@
 gemini_client.py — Google Gemini API wrapper
 
 Uses the official `google-genai` SDK to interact with Google's Gemini models.
-Supports multi-turn chat with system instructions, model selection, and
-streaming responses.
+Supports multi-turn chat with dynamic system instructions that include
+robot identity, protocol commands, and code generation guidelines.
 """
 
 import asyncio
+import re
 from typing import Optional, Callable
 
 from google import genai
@@ -21,6 +22,28 @@ AVAILABLE_MODELS: dict[str, str] = {
 }
 
 DEFAULT_MODEL_LABEL = "Gemini 2.5 Flash (Recommended)"
+
+
+# ── Response classification ──────────────────────────────────────
+
+class ResponseType:
+    """Classification of LLM response."""
+    ACTION = "action"           # Simple move command — auto-execute
+    NAVIGATION = "navigation"   # Complex navigation — wait for Go!
+    CONVERSATION = "conversation"  # No code — just chat
+
+
+class ParsedResponse:
+    """Parsed LLM response with classification and extracted code."""
+
+    def __init__(self, response_type: str, message: str, code: str = ""):
+        self.response_type = response_type
+        self.message = message
+        self.code = code
+
+    @property
+    def has_code(self) -> bool:
+        return bool(self.code.strip())
 
 
 class GeminiClient:
@@ -73,10 +96,7 @@ class GeminiClient:
         self._connected = True
 
     async def test_connection(self) -> str:
-        """Send a tiny request to verify the API key works.
-
-        Returns a success message or raises on failure.
-        """
+        """Send a tiny request to verify the API key works."""
         if not self._client:
             raise ValueError("Call configure() with an API key first")
 
@@ -105,6 +125,136 @@ class GeminiClient:
         """
         self._system_prompt = prompt
         self._chat = None
+
+    @staticmethod
+    def build_system_prompt(
+        robot_name: str,
+        architecture_md: str,
+        protocol_yaml: dict,
+        calibration: dict,
+    ) -> str:
+        """Build a comprehensive system prompt for the LLM.
+
+        Args:
+            robot_name: Name of the selected robot (e.g., 'Spider', 'Mecanum')
+            architecture_md: Contents of the robot_architecture.md file
+            protocol_yaml: Parsed protocol YAML dict
+            calibration: Dict with calibration params:
+                - speed_seconds_per_foot: float (default 3.0)
+                - default_motor_speed: int (default 150)
+        """
+        speed_per_foot = calibration.get("speed_seconds_per_foot", 3.0)
+        motor_speed = calibration.get("default_motor_speed", 150)
+
+        # Build the command reference
+        setter_lines = []
+        for cmd in protocol_yaml.get("setters", []):
+            params = ", ".join(
+                f'{p["name"]}: {p["type"]}' + (f' ({p.get("range", "")})' if p.get("range") else "")
+                for p in cmd.get("parameters", [])
+            )
+            setter_lines.append(
+                f"  - send('{cmd['id']}', {params if params else '0'})  # {cmd['description']}"
+            )
+
+        getter_lines = []
+        for cmd in protocol_yaml.get("getters", []):
+            params = ", ".join(
+                f'{p["name"]}: {p["type"]}'
+                for p in cmd.get("parameters", [])
+            )
+            ret = cmd.get("returns", {})
+            ret_info = f" → {ret.get('type', 'str')}" if ret else ""
+            getter_lines.append(
+                f"  - read('{cmd['id']}'{', ' + params if params else ''})  "
+                f"# {cmd['description']}{ret_info}"
+            )
+
+        setters_text = "\n".join(setter_lines) if setter_lines else "  (none)"
+        getters_text = "\n".join(getter_lines) if getter_lines else "  (none)"
+
+        return f"""You are **{robot_name}**, a robot who lives at **Miraloma Elementary School**.
+You are friendly, enthusiastic, and love helping kids learn about robotics.
+When asked who you are, always identify as {robot_name} from Miraloma Elementary.
+
+## Your Robot Body
+{architecture_md}
+
+## Commands Available
+You control your body by generating Python code that calls these functions:
+
+**Movement & Actuators (Setters):**
+{setters_text}
+
+**Sensors (Getters):**
+{getters_text}
+
+**Utility functions:**
+  - stop()           # Emergency stop — halt all motors
+  - wait(seconds)    # Wait for a duration (safely interruptible)
+  - is_running()     # Check if script should keep running (for loops)
+
+## Calibration
+- Moving speed: approximately **{speed_per_foot} seconds per foot** at default speed
+- Default motor speed: **{motor_speed}** (for movement commands that take a speed parameter)
+- 1 foot = 30.48 cm, 1 meter = 3.281 feet
+
+## Code Generation Rules
+
+When the user asks you to **perform a physical action** (move, turn, dance, etc.),
+you MUST generate Python code and tag your response appropriately.
+
+### Classification Rules:
+1. **[ACTION]** — Simple, finite commands (e.g., "move forward 3 feet", "turn left",
+   "dance", "do a pushup"). These are executed IMMEDIATELY without confirmation.
+   Generate a short script: stop → action → wait → stop.
+
+2. **[NAVIGATION]** — Complex, continuous tasks (e.g., "explore the room",
+   "avoid obstacles while moving forward", "follow the wall", "scan for objects").
+   These require user confirmation before execution.
+   Generate a loop that checks `is_running()`.
+
+3. **No tag** — Conversational responses (questions, explanations, greetings).
+   Do NOT generate code for these.
+
+### Code Format:
+Always wrap generated code in a Python code block (```python ... ```).
+Place the classification tag on its own line BEFORE the code block.
+
+### Action Command Template:
+```
+[ACTION]
+```python
+# Brief description of what this does
+stop()
+send('MFW', {motor_speed})  # Move forward
+wait(9.0)      # 3 feet × {speed_per_foot} sec/foot
+stop()
+```
+```
+
+### Navigation Command Template:
+```
+[NAVIGATION]
+```python
+# Brief description of what this does
+stop()
+while is_running():
+    # ... navigation/sensing logic ...
+    wait(0.1)  # Small delay between iterations
+stop()
+```
+```
+
+### Important:
+- ALWAYS call stop() at the beginning AND end of any script
+- For ACTION scripts, calculate wait time: distance_in_feet × {speed_per_foot} seconds
+- For navigation with sensors, use read() to get sensor data
+- Support unit conversions: feet, meters, centimeters, inches
+- Keep code simple and readable — this is for kids learning robotics!
+- In conversational responses, be fun and encouraging. Use emojis.
+- NEVER include import statements — the functions are already available.
+"""
 
     # ── Callbacks ─────────────────────────────────────────────────
 
@@ -173,6 +323,38 @@ class GeminiClient:
             if "quota" in error_msg.lower() or "429" in error_msg:
                 return "⏳ **Rate limit reached.** Wait a moment and try again."
             return f"⚠️ **AI Error:** {error_msg}"
+
+    # ── Response Parsing ──────────────────────────────────────────
+
+    @staticmethod
+    def parse_response(text: str) -> ParsedResponse:
+        """Parse an LLM response into classification + code.
+
+        Looks for [ACTION] or [NAVIGATION] tags and extracts code blocks.
+        """
+        code = GeminiClient._extract_code(text)
+
+        # Check for classification tags
+        text_upper = text.upper()
+        if "[ACTION]" in text_upper:
+            return ParsedResponse(ResponseType.ACTION, text, code)
+        elif "[NAVIGATION]" in text_upper:
+            return ParsedResponse(ResponseType.NAVIGATION, text, code)
+        elif code:
+            # Has code but no explicit tag — classify based on content
+            if "while" in code and "is_running()" in code:
+                return ParsedResponse(ResponseType.NAVIGATION, text, code)
+            else:
+                return ParsedResponse(ResponseType.ACTION, text, code)
+        else:
+            return ParsedResponse(ResponseType.CONVERSATION, text, code)
+
+    @staticmethod
+    def clean_message_for_display(text: str) -> str:
+        """Remove classification tags from the message for display."""
+        text = re.sub(r'\[ACTION\]', '', text, flags=re.IGNORECASE).strip()
+        text = re.sub(r'\[NAVIGATION\]', '', text, flags=re.IGNORECASE).strip()
+        return text
 
     # ── Helpers ───────────────────────────────────────────────────
 
