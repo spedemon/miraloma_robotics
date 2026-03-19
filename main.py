@@ -785,7 +785,7 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                 ui.button(
                     "💾 Save Key",
                     on_click=lambda: save_api_key(),
-                ).classes("fun-btn fun-btn-purple").props("flat no-caps")
+                ).classes("fun-btn fun-btn-purple").props("flat no-caps").style("color: white !important;")
 
                 gemini_status = ui.label(
                     "AI brain is sleeping (no key yet)"
