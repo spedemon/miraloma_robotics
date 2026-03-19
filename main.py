@@ -31,56 +31,33 @@ current_code: str = "# No navigation script loaded yet."
 
 # ── Default STS Firmware ─────────────────────────────────────────
 DEFAULT_STS_CODE = r"""
-// main.ts — Micro:bit V2 Peripheral Bridge
-// Flash via MakeCode: https://makecode.microbit.org/
-
-const WATCHDOG_TIMEOUT = 1000  // ms
-let lastCommandTime = input.runningTime()
-
-serial.redirect(SerialPin.USB_TX, SerialPin.USB_RX, BaudRate.BaudRate115200)
-
+let parts: string[] = []
+let action = ""
+let value = 0
+// Listen for commands from the Python Bridge
 serial.onDataReceived(serial.delimiters(Delimiters.NewLine), function () {
-    let line = serial.readUntil(serial.delimiters(Delimiters.NewLine))
-    lastCommandTime = input.runningTime()
-    let parts = line.split(":")
-    let cmd = parts[0]
-
-    if (cmd === "M" && parts.length >= 5) {
-        // Motor drive: M:L1:L2:R1:R2
-        mecanumRobotV2.controlMotor(
-            parseInt(parts[1]),
-            parseInt(parts[2]),
-            parseInt(parts[3]),
-            parseInt(parts[4])
-        )
-    } else if (cmd === "S" && parts.length >= 2) {
-        // Servo: S:ANGLE
-        mecanumRobotV2.setServo(parseInt(parts[1]))
-    } else if (cmd === "D") {
-        // Distance query: D:?
-        let dist = mecanumRobotV2.readDistance()
-        serial.writeLine("" + dist)
-    } else if (cmd === "I") {
-        // IMU query: I:?
-        let pitch = input.rotation(Rotation.Pitch)
-        let roll  = input.rotation(Rotation.Roll)
-        let head  = input.compassHeading()
-        serial.writeLine("" + pitch + ":" + roll + ":" + head)
-    } else if (cmd === "L" && parts.length >= 2) {
-        // LED text: L:TEXT
-        basic.showString(parts[1])
-    } else if (cmd === "B" && parts.length >= 2) {
-        // Buzzer: B:FREQ
-        music.ringTone(parseInt(parts[1]))
-        basic.pause(200)
-        music.rest(1)
-    }
-})
-
-// Safety watchdog
-basic.forever(function () {
-    if (input.runningTime() - lastCommandTime > WATCHDOG_TIMEOUT) {
-        mecanumRobotV2.state()  // All-stop
+    let cmd = serial.readString().trim()
+parts = cmd.split(":")
+    // e.g., "FW" (Forward)
+    action = parts[0]
+    // e.g., 1000 (ms) or 90 (deg)
+    value = parseInt(parts[1])
+    // Logic for turning right
+    // ...
+    // Activate Line Follower loop
+    if (action == "FW") {
+        // Use your robot extension functions here
+        mecanumRobotV2.Motor(LR.Upper_left, MD.Forward, 50)
+        mecanumRobotV2.Motor(LR.Lower_left, MD.Forward, 50)
+        mecanumRobotV2.Motor(LR.Upper_right, MD.Forward, 50)
+        mecanumRobotV2.Motor(LR.Lower_right, MD.Forward, 50)
+        basic.pause(mecanumRobotV2.ultra())
+        // Stop
+        mecanumRobotV2.state()
+    } else if (action == "RT") {
+    	
+    } else if (action == "LF") {
+    	
     }
 })
 """.strip()
