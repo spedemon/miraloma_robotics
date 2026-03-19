@@ -17,14 +17,22 @@ from pathlib import Path
 
 from nicegui import ui, app
 
+# BASE_DIR must be defined before mounting static files
+_BASE_DIR_EARLY = Path(__file__).parent
+
+# Serve static assets (logo, etc.)
+app.add_static_files('/static', str(_BASE_DIR_EARLY / 'static'))
+
 from robot_hal import RobotHAL
-from gemini_client import GeminiClient
+from gemini_client import GeminiClient, AVAILABLE_MODELS, DEFAULT_MODEL_LABEL
 
 # ── Globals ───────────────────────────────────────────────────────
-BASE_DIR = Path(__file__).parent
+BASE_DIR = _BASE_DIR_EARLY
 ROBOTS_DIR = BASE_DIR / "robots_firmware"
 robot = RobotHAL()
 gemini = GeminiClient()
+
+LOGO_URL = "/static/logo.png"
 
 # Chat history: list of {"role": "user"|"assistant", "text": str, "time": str}
 chat_history: list[dict] = []
@@ -532,11 +540,14 @@ ui.add_head_html("""
     50% { transform: rotate(5deg) scale(1.05); }
     75% { transform: rotate(-3deg) scale(1.08); }
   }
-  .mascot {
+  .mascot-img {
     display: inline-block;
-    font-size: 3rem;
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
     animation: bounce-wiggle 3s ease-in-out infinite;
     cursor: default;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.20));
   }
 
   /* === Quasar overrides for light mode === */
@@ -584,6 +595,203 @@ ui.add_head_html("""
     50% { opacity: 0.4; }
   }
 
+  /* === Robot Face === */
+  .robot-face-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    min-height: 380px;
+    position: relative;
+    overflow: hidden;
+  }
+  .robot-face-wrapper {
+    position: relative;
+    animation: face-float 4s ease-in-out infinite;
+  }
+  @keyframes face-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  /* Glow ring behind face */
+  .face-glow {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 280px; height: 280px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(78,205,196,0.15) 0%, transparent 70%);
+    transition: all 0.5s ease;
+    pointer-events: none;
+  }
+
+  /* Eye blink */
+  .robot-eye-pupil {
+    animation: blink 4s ease-in-out infinite;
+  }
+  @keyframes blink {
+    0%, 42%, 44%, 100% { transform: scaleY(1); }
+    43% { transform: scaleY(0.08); }
+  }
+
+  /* Mouth idle */
+  .robot-mouth {
+    transition: all 0.4s ease;
+  }
+
+  /* === Listening State === */
+  .robot-face-listening .face-glow {
+    width: 340px; height: 340px;
+    background: radial-gradient(circle, rgba(255,107,53,0.3) 0%, rgba(255,71,87,0.1) 50%, transparent 70%);
+    animation: glow-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes glow-pulse {
+    0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  }
+  .robot-face-listening .robot-eye-pupil {
+    animation: eyes-widen 0.4s ease forwards;
+  }
+  @keyframes eyes-widen {
+    0% { r: 10; }
+    100% { r: 14; }
+  }
+  .robot-face-listening .robot-eye-white {
+    animation: eye-pop 0.4s ease forwards;
+  }
+  @keyframes eye-pop {
+    0% { r: 22; }
+    100% { r: 26; }
+  }
+  .robot-face-listening .robot-mouth {
+    rx: 18;
+    ry: 8;
+  }
+  .robot-face-listening .sound-wave {
+    opacity: 1;
+    animation: wave-ripple 1s ease-in-out infinite;
+  }
+  .sound-wave {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  @keyframes wave-ripple {
+    0% { r: 120; opacity: 0.6; stroke-width: 3; }
+    100% { r: 160; opacity: 0; stroke-width: 0.5; }
+  }
+  .robot-face-listening .sound-wave:nth-child(2) {
+    animation-delay: 0.3s;
+  }
+  .robot-face-listening .sound-wave:nth-child(3) {
+    animation-delay: 0.6s;
+  }
+  .robot-face-listening .robot-face-wrapper {
+    animation: face-float 2s ease-in-out infinite;
+  }
+
+  /* Ear antenna glow when listening */
+  .robot-face-listening .antenna-tip {
+    animation: antenna-blink 0.6s ease-in-out infinite alternate;
+  }
+  @keyframes antenna-blink {
+    0% { fill: #FF6B35; filter: drop-shadow(0 0 4px #FF6B35); }
+    100% { fill: #FFD93D; filter: drop-shadow(0 0 10px #FFD93D); }
+  }
+
+  /* === Thinking State === */
+  .robot-face-thinking .face-glow {
+    width: 310px; height: 310px;
+    background: radial-gradient(circle, rgba(168,85,247,0.25) 0%, rgba(192,132,252,0.1) 50%, transparent 70%);
+    animation: glow-think 2s ease-in-out infinite;
+  }
+  @keyframes glow-think {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.9; }
+  }
+  .robot-face-thinking .robot-eye-pupil {
+    animation: think-look 2s ease-in-out infinite;
+  }
+  @keyframes think-look {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(6px); }
+    50% { transform: translateX(0); }
+    75% { transform: translateX(-6px); }
+  }
+  .robot-face-thinking .thinking-dots {
+    opacity: 1;
+  }
+  .thinking-dots {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .thinking-dot {
+    animation: dot-bounce 1.4s ease-in-out infinite;
+  }
+  .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dot-bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40% { transform: translateY(-8px); opacity: 1; }
+  }
+  .robot-face-thinking .gear-icon {
+    opacity: 0.7;
+    animation: spin-gear 3s linear infinite;
+  }
+  .gear-icon {
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  @keyframes spin-gear {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .robot-face-thinking .robot-face-wrapper {
+    animation: none;
+  }
+
+  /* Face label */
+  .face-state-label {
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-medium);
+    margin-top: 8px;
+    min-height: 1.4em;
+    transition: all 0.3s ease;
+  }
+  .robot-face-listening .face-state-label {
+    color: var(--danger);
+    animation: fade-in-out 1.5s ease-in-out infinite;
+  }
+  .robot-face-thinking .face-state-label {
+    color: var(--accent-purple);
+    animation: fade-in-out 2s ease-in-out infinite;
+  }
+
+  /* === Collapsible code viewer === */
+  .code-expansion .q-expansion-item__container {
+    background: var(--bg-card);
+    border: 2px solid var(--accent-purple);
+    border-radius: var(--radius-md) !important;
+    overflow: hidden;
+  }
+  .code-expansion .q-item {
+    background: linear-gradient(135deg, rgba(168,85,247,0.08), rgba(192,132,252,0.05));
+    min-height: 44px !important;
+    padding: 6px 16px !important;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+  }
+  .code-expansion .q-item__label {
+    font-weight: 700;
+    color: var(--accent-purple);
+    font-size: 0.95rem;
+  }
+  .code-expansion .q-expansion-item__content {
+    padding: 0 !important;
+  }
+
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 """)
@@ -594,10 +802,22 @@ ui.add_head_html("""
 let _voiceRecognition = null;
 let _voiceIsListening = false;
 
+function setRobotFaceState(state) {
+    const container = document.getElementById('robot-face-outer');
+    if (!container) return;
+    container.classList.remove('robot-face-idle', 'robot-face-listening', 'robot-face-thinking');
+    container.classList.add('robot-face-' + state);
+    const label = document.getElementById('face-state-text');
+    if (label) {
+        if (state === 'listening') label.textContent = '🎙️ Listening…';
+        else if (state === 'thinking') label.textContent = '🧠 Thinking…';
+        else label.textContent = '😊 Ready to chat!';
+    }
+}
+
 function toggleVoiceInput() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-        // Browser does not support speech recognition
         window.__voiceNotSupported = true;
         return 'unsupported';
     }
@@ -619,18 +839,16 @@ function toggleVoiceInput() {
         if (btn) btn.classList.add('mic-btn-recording');
         const status = document.getElementById('voice-status-label');
         if (status) { status.textContent = '🎙️ Listening…'; status.style.display = 'block'; }
+        setRobotFaceState('listening');
     };
 
     _voiceRecognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript;
-        // Find NiceGUI's input element and set its value
         const inputEl = document.querySelector('#voice-chat-input input, #voice-chat-input textarea');
         if (inputEl) {
-            // Use NiceGUI's Quasar input — set native value and trigger input event
             const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
             nativeInputValueSetter.call(inputEl, transcript);
             inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-            // Brief delay then simulate Enter to submit
             setTimeout(() => {
                 inputEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
             }, 150);
@@ -644,6 +862,7 @@ function toggleVoiceInput() {
         if (btn) btn.classList.remove('mic-btn-recording');
         const status = document.getElementById('voice-status-label');
         if (status) { status.textContent = ''; status.style.display = 'none'; }
+        setRobotFaceState('idle');
     };
 
     _voiceRecognition.onend = function() {
@@ -652,6 +871,7 @@ function toggleVoiceInput() {
         if (btn) btn.classList.remove('mic-btn-recording');
         const status = document.getElementById('voice-status-label');
         if (status) { status.textContent = ''; status.style.display = 'none'; }
+        // Don't reset to idle here — send_chat_message will set thinking then idle
     };
 
     _voiceRecognition.start();
@@ -664,7 +884,7 @@ function toggleVoiceInput() {
 # ── Header (always visible) ──────────────────────────────────────
 with ui.row().classes("app-header w-full items-center justify-between"):
     with ui.row().classes("items-center gap-3"):
-        ui.html('<span class="mascot">🤖</span>')
+        ui.html(f'<img src="{LOGO_URL}" class="mascot-img" alt="Robot Logo">')
         with ui.column().classes("gap-0"):
             ui.html('<span class="app-title">Robot Command Center!</span>')
             ui.html('<span class="app-subtitle">Miraloma Robotics</span>')
@@ -696,74 +916,178 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
     #  TAB 1: WORKSPACE
     # ══════════════════════════════════════════════════════════════
     with ui.tab_panel(tab_workspace):
-        with ui.row().classes("w-full gap-4").style("min-height: 520px;"):
+        with ui.column().classes("w-full gap-3"):
+            # ── Top row: Chat + Robot Face ──────────────────────
+            with ui.row().classes("w-full gap-4").style("min-height: 460px;"):
 
-            # ── Chat column ───────────────────────────────────────
-            with ui.column().classes("flex-1"):
-                ui.html(
-                    '<div class="section-title" style="color: var(--primary);">'
-                    '💬 Talk to Your Robot!</div>'
-                )
-                chat_container = ui.column().classes(
-                    "w-full flex-grow gap-1"
-                ).style(
-                    "overflow-y: auto; max-height: 400px; padding: 12px; "
-                    "background: var(--bg-card); border-radius: var(--radius-lg); "
-                    "border: 2px solid #F0E6D8; box-shadow: var(--shadow-card);"
-                )
-
-                # Welcome message
-                with chat_container:
+                # ── Chat column ───────────────────────────────────
+                with ui.column().classes("flex-1"):
                     ui.html(
-                        '<div class="chat-msg chat-assistant">'
-                        "👋 <b>Hey there, Robot Commander!</b><br>"
-                        "Pick your robot in <b>⚙️ Setup</b>, plug it in, then tell me what cool things to do!<br>"
-                        '<span class="chat-time">Robot Brain</span></div>'
+                        '<div class="section-title" style="color: var(--primary);">'
+                        '💬 Talk to Your Robot!</div>'
+                    )
+                    chat_container = ui.column().classes(
+                        "w-full flex-grow gap-1"
+                    ).style(
+                        "overflow-y: auto; max-height: 400px; padding: 12px; "
+                        "background: var(--bg-card); border-radius: var(--radius-lg); "
+                        "border: 2px solid #F0E6D8; box-shadow: var(--shadow-card);"
                     )
 
-                # Input row
-                with ui.row().classes("w-full items-center gap-2 mt-2"):
-                    chat_input = ui.input(
-                        placeholder="What should the robot do? 🤔"
-                    ).classes("nicegui-input flex-grow").props(
-                        'outlined dense id=voice-chat-input'
-                    ).on("keydown.enter", lambda: send_chat_message())
+                    # Welcome message
+                    with chat_container:
+                        ui.html(
+                            '<div class="chat-msg chat-assistant">'
+                            "👋 <b>Hey there, Robot Commander!</b><br>"
+                            "Pick your robot in <b>⚙️ Setup</b>, plug it in, then tell me what cool things to do!<br>"
+                            '<span class="chat-time">Robot Brain</span></div>'
+                        )
 
-                    # Microphone button (Web Speech API)
-                    mic_button = ui.button(
-                        icon="mic",
-                        on_click=lambda: handle_voice_toggle(),
-                    ).props("flat round").classes("mic-btn").props(
-                        'id=mic-toggle-btn'
+                    # Input row
+                    with ui.row().classes("w-full items-center gap-2 mt-2"):
+                        chat_input = ui.input(
+                            placeholder="What should the robot do? 🤔"
+                        ).classes("nicegui-input flex-grow").props(
+                            'outlined dense id=voice-chat-input'
+                        ).on("keydown.enter", lambda: send_chat_message())
+
+                        # Microphone button (Web Speech API)
+                        mic_button = ui.button(
+                            icon="mic",
+                            on_click=lambda: handle_voice_toggle(),
+                        ).props("flat round").classes("mic-btn").props(
+                            'id=mic-toggle-btn'
+                        )
+
+                        ui.button(
+                            icon="send",
+                            on_click=lambda: send_chat_message(),
+                        ).props("flat round").style("color: var(--primary); font-size: 1.2rem;")
+
+                    # Voice status indicator
+                    voice_status = ui.html(
+                        '<span id="voice-status-label" class="voice-status" style="display: none;"></span>'
                     )
 
-                    ui.button(
-                        icon="send",
-                        on_click=lambda: send_chat_message(),
-                    ).props("flat round").style("color: var(--primary); font-size: 1.2rem;")
+                # ── Robot Face column ─────────────────────────────
+                with ui.column().classes("flex-1 items-center justify-center"):
+                    robot_face_html = ui.html('''
+                    <div id="robot-face-outer" class="robot-face-idle">
+                      <div class="robot-face-container">
+                        <div class="face-glow"></div>
+                        <div class="robot-face-wrapper">
+                          <svg viewBox="0 0 260 280" width="280" height="300" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Sound waves (visible when listening) -->
+                            <circle class="sound-wave" cx="130" cy="120" r="130" fill="none" stroke="#FF6B35" stroke-width="2"/>
+                            <circle class="sound-wave" cx="130" cy="120" r="130" fill="none" stroke="#FF6B35" stroke-width="2"/>
+                            <circle class="sound-wave" cx="130" cy="120" r="130" fill="none" stroke="#FF6B35" stroke-width="2"/>
 
-                # Voice status indicator
-                voice_status = ui.html(
-                    '<span id="voice-status-label" class="voice-status" style="display: none;"></span>'
-                )
+                            <!-- Antenna -->
+                            <line x1="130" y1="28" x2="130" y2="8" stroke="#B0B8C4" stroke-width="4" stroke-linecap="round"/>
+                            <circle class="antenna-tip" cx="130" cy="6" r="6" fill="#FF6B35"/>
 
-            # ── Code viewer column ────────────────────────────────
-            with ui.column().classes("flex-1"):
-                ui.html(
-                    '<div class="section-title" style="color: var(--accent-purple);">'
-                    '🧠 Robot\'s Brain</div>'
-                )
+                            <!-- Head -->
+                            <rect x="40" y="28" width="180" height="160" rx="36" ry="36"
+                                  fill="url(#headGrad)" stroke="#B0B8C4" stroke-width="3"/>
+
+                            <!-- Gradients -->
+                            <defs>
+                              <linearGradient id="headGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#E8EDF2"/>
+                                <stop offset="100%" style="stop-color:#CDD5DE"/>
+                              </linearGradient>
+                              <radialGradient id="eyeGlowL">
+                                <stop offset="0%" style="stop-color:#4ECDC4; stop-opacity:0.3"/>
+                                <stop offset="100%" style="stop-color:#4ECDC4; stop-opacity:0"/>
+                              </radialGradient>
+                              <radialGradient id="eyeGlowR">
+                                <stop offset="0%" style="stop-color:#FF6B9D; stop-opacity:0.3"/>
+                                <stop offset="100%" style="stop-color:#FF6B9D; stop-opacity:0"/>
+                              </radialGradient>
+                            </defs>
+
+                            <!-- Eye glow -->
+                            <circle cx="90" cy="100" r="32" fill="url(#eyeGlowL)"/>
+                            <circle cx="170" cy="100" r="32" fill="url(#eyeGlowR)"/>
+
+                            <!-- Eyes whites -->
+                            <circle class="robot-eye-white" cx="90" cy="100" r="22" fill="white"
+                                    stroke="#B0B8C4" stroke-width="2"/>
+                            <circle class="robot-eye-white" cx="170" cy="100" r="22" fill="white"
+                                    stroke="#B0B8C4" stroke-width="2"/>
+
+                            <!-- Pupils -->
+                            <circle class="robot-eye-pupil" cx="90" cy="100" r="10" fill="#2D3436"/>
+                            <circle class="robot-eye-pupil" cx="170" cy="100" r="10" fill="#2D3436"/>
+
+                            <!-- Pupil highlights -->
+                            <circle cx="95" cy="95" r="3.5" fill="white" opacity="0.9"/>
+                            <circle cx="175" cy="95" r="3.5" fill="white" opacity="0.9"/>
+
+                            <!-- Cheek blush -->
+                            <ellipse cx="65" cy="128" rx="14" ry="8" fill="#FFB8C6" opacity="0.45"/>
+                            <ellipse cx="195" cy="128" rx="14" ry="8" fill="#FFB8C6" opacity="0.45"/>
+
+                            <!-- Mouth (smile) -->
+                            <ellipse class="robot-mouth" cx="130" cy="148" rx="22" ry="10"
+                                     fill="#FF6B9D" opacity="0.7"/>
+                            <ellipse cx="130" cy="146" rx="18" ry="5"
+                                     fill="white" opacity="0.25"/>
+
+                            <!-- Ears -->
+                            <rect x="20" y="78" width="16" height="44" rx="8" fill="#B0B8C4" stroke="#9CA8B4" stroke-width="1.5"/>
+                            <rect x="224" y="78" width="16" height="44" rx="8" fill="#B0B8C4" stroke="#9CA8B4" stroke-width="1.5"/>
+
+                            <!-- Neck -->
+                            <rect x="110" y="188" width="40" height="16" rx="4" fill="#CDD5DE" stroke="#B0B8C4" stroke-width="1.5"/>
+
+                            <!-- Body hint -->
+                            <rect x="70" y="204" width="120" height="56" rx="20" ry="20"
+                                  fill="url(#headGrad)" stroke="#B0B8C4" stroke-width="2.5"/>
+                            <!-- Body details -->
+                            <circle cx="110" cy="228" r="5" fill="#4ECDC4" opacity="0.6"/>
+                            <circle cx="130" cy="228" r="5" fill="#FF6B35" opacity="0.6"/>
+                            <circle cx="150" cy="228" r="5" fill="#A855F7" opacity="0.6"/>
+
+                            <!-- Thinking dots (visible when thinking) -->
+                            <g class="thinking-dots" transform="translate(130, 270)">
+                              <circle class="thinking-dot" cx="-16" cy="0" r="5" fill="#A855F7"/>
+                              <circle class="thinking-dot" cx="0" cy="0" r="5" fill="#A855F7"/>
+                              <circle class="thinking-dot" cx="16" cy="0" r="5" fill="#A855F7"/>
+                            </g>
+
+                            <!-- Gear icon (visible when thinking) -->
+                            <g class="gear-icon" transform="translate(210, 40)">
+                              <circle cx="0" cy="0" r="12" fill="none" stroke="#A855F7" stroke-width="3"/>
+                              <line x1="0" y1="-16" x2="0" y2="16" stroke="#A855F7" stroke-width="3" stroke-linecap="round"/>
+                              <line x1="-16" y1="0" x2="16" y2="0" stroke="#A855F7" stroke-width="3" stroke-linecap="round"/>
+                              <line x1="-11" y1="-11" x2="11" y2="11" stroke="#A855F7" stroke-width="3" stroke-linecap="round"/>
+                              <line x1="11" y1="-11" x2="-11" y2="11" stroke="#A855F7" stroke-width="3" stroke-linecap="round"/>
+                            </g>
+                          </svg>
+                        </div>
+                      </div>
+                      <div id="face-state-text" class="face-state-label">😊 Ready to chat!</div>
+                    </div>
+                    ''')
+
+            # ── Action buttons (always visible) ─────────────────────
+            with ui.row().classes("gap-2 w-full items-center"):
+                ui.button(
+                    "🚀 Go!", on_click=lambda: execute_code(),
+                ).classes("fun-btn fun-btn-primary").props("flat no-caps")
+                ui.button(
+                    "🧹 Start Over", on_click=lambda: clear_code(),
+                ).classes("fun-btn fun-btn-ghost").props("flat no-caps")
+
+            # ── Collapsible code viewer ───────────────────────────
+            with ui.expansion(
+                "🧠 Navigation Script", icon="code",
+            ).classes("w-full code-expansion").props("dense") as code_expansion:
                 code_display = ui.html(
-                    f'<pre class="code-viewer">{current_code}</pre>'
+                    f'<pre class="code-viewer" style="margin: 0; border: none; border-radius: 0 0 var(--radius-md) var(--radius-md);">{current_code}</pre>'
                 )
 
-                with ui.row().classes("gap-2 mt-2"):
-                    ui.button(
-                        "🚀 Go!", on_click=lambda: execute_code(),
-                    ).classes("fun-btn fun-btn-primary").props("flat no-caps")
-                    ui.button(
-                        "🧹 Start Over", on_click=lambda: clear_code(),
-                    ).classes("fun-btn fun-btn-ghost").props("flat no-caps")
 
 
     # ══════════════════════════════════════════════════════════════
@@ -897,20 +1221,41 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
             # Gemini section
             ui.html(
                 '<div class="section-title" style="color: var(--accent-purple);">'
-                '🧠 AI Brain</div>'
+                '🧠 AI Brain (Google Gemini)</div>'
             )
             with ui.column().classes("settings-card gap-4"):
+                ui.label(
+                    "Connect to Google Gemini to give your robot AI superpowers! "
+                    "You need an API key from Google AI Studio."
+                ).style("color: var(--text-medium); font-size: 0.95rem;")
+
                 api_key_input = ui.input(
-                    label="Secret AI Key",
-                    placeholder="Paste your AI key here…",
+                    label="Gemini API Key",
+                    placeholder="Paste your API key here (starts with AIza…)",
                     password=True,
                     password_toggle_button=True,
                 ).classes("nicegui-input w-full")
 
-                ui.button(
-                    "💾 Save Key",
-                    on_click=lambda: save_api_key(),
-                ).classes("fun-btn fun-btn-purple").props("flat no-caps").style("color: white !important;")
+                model_options = {label: label for label in gemini.available_model_labels()}
+                model_select = ui.select(
+                    options=model_options,
+                    label="AI Model",
+                    value=DEFAULT_MODEL_LABEL,
+                    on_change=lambda e: handle_model_change(e.value),
+                ).classes("nicegui-select w-full")
+
+                with ui.row().classes("gap-2"):
+                    ui.button(
+                        "🚀 Save & Test",
+                        on_click=lambda: save_api_key(),
+                    ).classes("fun-btn fun-btn-purple").props("flat no-caps").style("color: white !important;")
+
+                    ui.button(
+                        "🔗 Get API Key",
+                        on_click=lambda: ui.run_javascript(
+                            "window.open('https://aistudio.google.com/apikey', '_blank')"
+                        ),
+                    ).classes("fun-btn fun-btn-ghost").props("flat no-caps")
 
                 gemini_status = ui.label(
                     "AI brain is sleeping (no key yet)"
@@ -1050,15 +1395,37 @@ async def handle_voice_toggle() -> None:
             position="top",
         )
 
-def save_api_key() -> None:
-    """Save the Gemini API key."""
+def handle_model_change(label: str) -> None:
+    """Handle switching the AI model."""
+    gemini.model_label = label
+    ui.notify(f"🧠 Switched to {label}", type="info")
+    if gemini.is_connected:
+        gemini_status.set_text(f"✅ AI brain is awake — using {label}")
+
+
+async def save_api_key() -> None:
+    """Save the Gemini API key and test the connection."""
     key = api_key_input.value.strip()
     if not key:
         ui.notify("Type in your AI key first!", type="warning")
         return
-    gemini.api_key = key
-    gemini_status.set_text("✅ AI brain is awake!")
-    ui.notify("🧠 AI brain activated!", type="positive")
+
+    gemini_status.set_text("⏳ Testing connection…")
+    status_label.set_text("🧠 Connecting AI brain…")
+
+    try:
+        gemini.configure(api_key=key)
+        test_reply = await gemini.test_connection()
+        gemini_status.set_text(
+            f"✅ AI brain is awake! Model: {gemini.model_label}"
+        )
+        status_label.set_text("✨ AI brain activated!")
+        ui.notify("🧠 AI brain activated! Connection works.", type="positive")
+    except Exception as exc:
+        error = str(exc)
+        gemini_status.set_text(f"❌ Connection failed: {error[:80]}")
+        status_label.set_text("⚠️ AI connection failed")
+        ui.notify(f"❌ Could not connect: {error[:120]}", type="negative")
 
 
 async def send_chat_message() -> None:
@@ -1080,6 +1447,7 @@ async def send_chat_message() -> None:
         )
 
     status_label.set_text("🤖 Robot is thinking…")
+    await ui.run_javascript("setRobotFaceState('thinking')")
 
     # Get AI response
     response = await gemini.send_message(text)
@@ -1088,21 +1456,19 @@ async def send_chat_message() -> None:
     with chat_container:
         ui.html(
             f'<div class="chat-msg chat-assistant">'
-            f"{response}"
+            f"{_escape_html(response)}"
             f'<div class="chat-time">{now}</div></div>'
         )
 
-    # Update code viewer if code was generated
-    if gemini._on_code:
-        # Check if code was generated by looking for keywords
-        lower = text.lower()
-        if any(kw in lower for kw in ("move", "drive", "scan", "forward", "back", "turn", "spin")):
-            stub = gemini._generate_stub_code(text)
-            current_code = stub
-            code_display.set_content(
-                f'<pre class="code-viewer">{_escape_html(stub)}</pre>'
-            )
+    # If the response contains a code block, show it in the code viewer
+    code_block = GeminiClient._extract_code(response)
+    if code_block:
+        current_code = code_block
+        code_display.set_content(
+            f'<pre class="code-viewer" style="margin: 0; border: none; border-radius: 0 0 var(--radius-md) var(--radius-md);">{_escape_html(code_block)}</pre>'
+        )
 
+    await ui.run_javascript("setRobotFaceState('idle')")
     status_label.set_text("✨ Ready to play!")
 
 
@@ -1130,6 +1496,7 @@ def clear_code() -> None:
 # ══════════════════════════════════════════════════════════════════
 ui.run(
     title="Robot Command Center! — Miraloma Robotics",
+    favicon=str(BASE_DIR / 'static' / 'logo.png'),
     host="0.0.0.0",
     port=8080,
     dark=False,
