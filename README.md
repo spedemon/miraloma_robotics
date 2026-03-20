@@ -1,7 +1,7 @@
 # 🤖 Miraloma Robots
 
 > **Talk to your robot, and watch it move!**
-> A voice & chat-powered robotics platform built for kids at [Miraloma Elementary School](https://www.sfsud.edu/school/miraloma-elementary).
+> A voice & chat-powered robotics platform built for kids at [Miraloma Elementary School](https://miralomasf.com/).
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
 ![NiceGUI](https://img.shields.io/badge/NiceGUI-2.0+-4ECDC4)
