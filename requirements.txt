@@ -1,4 +1,4 @@
-nicegui>=2.0
+nicegui>=3.9.0
 pyserial
 pyyaml
 google-genai
