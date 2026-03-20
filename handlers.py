@@ -10,7 +10,8 @@ that is set by ``main.py`` after the UI is built.
 
 import json
 import asyncio
-import uuid
+import base64
+import io
 import wave
 import re
 import threading
@@ -466,32 +467,13 @@ async def send_chat_message() -> None:
             "document.getElementById('chat-scroll-container').scrollHeight"
         )
 
-        # Speak the response aloud if voice-initiated
+        # Fire TTS concurrently — don't block on it yet
+        tts_task = None
         if _voice_initiated and display_text.strip():
             _voice_initiated = False
-            try:
-                pcm_data = await gemini.synthesize_speech(display_text)
-                if pcm_data:
-                    audio_id = uuid.uuid4().hex
-                    wav_path = tts_dir / f'{audio_id}.wav'
-                    with wave.open(str(wav_path), 'wb') as wf:
-                        wf.setnchannels(1)
-                        wf.setsampwidth(2)
-                        wf.setframerate(24000)
-                        wf.writeframes(pcm_data)
-                    audio_url = f'/static/tts/{audio_id}.wav'
-                    await ui.run_javascript(f"playGeminiAudio('{audio_url}')")
+            tts_task = asyncio.create_task(gemini.synthesize_speech(display_text))
 
-                    async def _cleanup():
-                        await asyncio.sleep(30)
-                        wav_path.unlink(missing_ok=True)
-                    asyncio.create_task(_cleanup())
-                else:
-                    print("[TTS] WARNING: synthesize_speech returned None/empty")
-            except Exception as tts_exc:
-                print(f"[TTS] ERROR in TTS flow: {tts_exc}")
-
-        # Handle code if present
+        # Handle code if present (TTS is synthesizing in background)
         if parsed.has_code:
             _auto_action_done = False
             current_code = parsed.code
@@ -501,7 +483,10 @@ async def send_chat_message() -> None:
             if parsed.response_type == ResponseType.ACTION:
                 await ui.run_javascript("setRobotFaceState('idle')")
                 ui_refs.status_label.set_text("🚀 Running action…")
-                await _execute_code_async(parsed.code, mode="action", auto_launched=True)
+                await _play_tts_audio(tts_task)
+                tts_task = None  # already handled
+                await _execute_code_async(parsed.code, mode="action",
+                                          auto_launched=True, voice_response=True)
             elif parsed.response_type == ResponseType.NAVIGATION:
                 await ui.run_javascript("setRobotFaceState('idle')")
                 ui_refs.status_label.set_text("📋 Navigation ready — press Go! to start")
@@ -513,6 +498,10 @@ async def send_chat_message() -> None:
             if not _voice_initiated:
                 await ui.run_javascript("setRobotFaceState('idle')")
             ui_refs.status_label.set_text("✨ Ready to play!")
+
+        # Play TTS audio (if not already played above for ACTION)
+        await _play_tts_audio(tts_task)
+
     except Exception:
         await ui.run_javascript("setRobotFaceState('idle')")
         ui_refs.status_label.set_text("✨ Ready to play!")
@@ -523,11 +512,36 @@ async def send_chat_message() -> None:
 #  SCRIPT EXECUTION
 # ══════════════════════════════════════════════════════════════════
 
-async def _execute_code_async(code: str, mode: str = "action", auto_launched: bool = False) -> None:
+async def _play_tts_audio(tts_task) -> None:
+    """Await a TTS task and play the result as base64 audio."""
+    if tts_task is None:
+        return
+    try:
+        pcm_data = await tts_task
+        if pcm_data:
+            buf = io.BytesIO()
+            with wave.open(buf, 'wb') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(24000)
+                wf.writeframes(pcm_data)
+            b64 = base64.b64encode(buf.getvalue()).decode()
+            await ui.run_javascript(
+                f"playGeminiAudio('data:audio/wav;base64,{b64}')"
+            )
+        else:
+            print("[TTS] WARNING: synthesize_speech returned None/empty")
+    except Exception as tts_exc:
+        print(f"[TTS] ERROR in TTS flow: {tts_exc}")
+
+
+async def _execute_code_async(code: str, mode: str = "action",
+                              auto_launched: bool = False,
+                              voice_response: bool = False) -> None:
     """Execute generated Python code in a background task."""
     global _running_task, _auto_action_done
 
-    stop_execution()
+    stop_execution(stop_speech=not voice_response)
     nav_runtime.running = True
     _auto_action_done = False
     _set_go_stop_button(True)
@@ -619,14 +633,15 @@ async def _execute_code_async(code: str, mode: str = "action", auto_launched: bo
             ui_refs.status_label.set_text("✨ Ready to play!")
 
 
-def stop_execution() -> None:
-    """Stop any running navigation code and speech."""
+def stop_execution(stop_speech: bool = True) -> None:
+    """Stop any running navigation code and optionally speech."""
     global _running_task
     nav_runtime.running = False
     if _running_task and not _running_task.done():
         _running_task.cancel()
     _running_task = None
-    ui.run_javascript("stopSpeaking()")
+    if stop_speech:
+        ui.run_javascript("stopSpeaking()")
 
 
 async def toggle_go_stop() -> None:
