@@ -8,6 +8,8 @@
 ![Gemini AI](https://img.shields.io/badge/Google%20Gemini-AI-A855F7?logo=google&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+![Miraloma Robots UI](static/screenshot.png)
+
 ---
 
 ## ✨ What Is This?
