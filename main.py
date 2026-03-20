@@ -11,18 +11,34 @@ NiceGUI application with 4 tabs:
 
 import json
 import asyncio
+import io
+import uuid
+import wave
 import yaml
 import threading
 from datetime import datetime
 from pathlib import Path
 
 from nicegui import ui, app
+from starlette.responses import Response
 
 # BASE_DIR must be defined before mounting static files
 _BASE_DIR_EARLY = Path(__file__).parent
 
 # Serve static assets (logo, etc.)
 app.add_static_files('/static', str(_BASE_DIR_EARLY / 'static'))
+
+# ── TTS audio cache (uid → WAV bytes) ────────────────────────────
+_tts_cache: dict[str, bytes] = {}
+
+
+@app.get('/api/tts/{uid}')
+async def serve_tts_audio(uid: str) -> Response:
+    """Serve a cached TTS WAV file and clean it up."""
+    wav_bytes = _tts_cache.pop(uid, None)
+    if wav_bytes is None:
+        return Response(content=b'', status_code=404)
+    return Response(content=wav_bytes, media_type='audio/wav')
 
 from robot_hal import RobotHAL
 from gemini_client import GeminiClient, AVAILABLE_MODELS, DEFAULT_MODEL_LABEL
@@ -50,6 +66,8 @@ _running_task: asyncio.Task | None = None
 _execution_lock = threading.Lock()
 # Track whether the current chat was initiated by voice
 _voice_initiated: bool = False
+# Track whether the last auto-launched action completed (for "Go Again!" UX)
+_auto_action_done: bool = False
 
 # ── Load cached settings ─────────────────────────────────────────
 _saved = load_settings()
@@ -1035,59 +1053,35 @@ function toggleVoiceInput() {
     return 'started';
 }
 
-// ── Text-to-Speech (SpeechSynthesis API) ───────────────────────
-let _ttsUtterance = null;
+// ── Text-to-Speech (Gemini TTS via server audio) ──────────────
+let _ttsAudio = null;
 
-function speakText(text) {
-    if (!window.speechSynthesis) return;
-    // Cancel any in-progress speech
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-
-    // Pick a nice English voice (prefer Google voices)
-    function pickVoice() {
-        const voices = window.speechSynthesis.getVoices();
-        // Prefer Google US English
-        let voice = voices.find(v => v.name.includes('Google US English'));
-        if (!voice) voice = voices.find(v => v.name.includes('Google') && v.lang.startsWith('en'));
-        if (!voice) voice = voices.find(v => v.lang.startsWith('en') && v.localService);
-        if (!voice) voice = voices.find(v => v.lang.startsWith('en'));
-        return voice || null;
-    }
-
-    const voice = pickVoice();
-    if (voice) utterance.voice = voice;
-
-    utterance.onstart = function() {
+function playGeminiAudio(url) {
+    stopSpeaking();
+    _ttsAudio = new Audio(url);
+    _ttsAudio.onplay = function() {
         setRobotFaceState('talking');
     };
-    utterance.onend = function() {
+    _ttsAudio.onended = function() {
         setRobotFaceState('idle');
+        _ttsAudio = null;
     };
-    utterance.onerror = function() {
+    _ttsAudio.onerror = function() {
         setRobotFaceState('idle');
+        _ttsAudio = null;
     };
-
-    _ttsUtterance = utterance;
-    window.speechSynthesis.speak(utterance);
+    _ttsAudio.play().catch(function(e) {
+        console.warn('Audio play failed:', e);
+        setRobotFaceState('idle');
+    });
 }
 
 function stopSpeaking() {
-    if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
+    if (_ttsAudio) {
+        _ttsAudio.pause();
+        _ttsAudio.currentTime = 0;
+        _ttsAudio = null;
     }
-}
-
-// Pre-load voices (some browsers load them async)
-if (window.speechSynthesis) {
-    window.speechSynthesis.getVoices();
-    window.speechSynthesis.onvoiceschanged = function() {
-        window.speechSynthesis.getVoices();
-    };
 }
 
 // ── Progress Bar Control (horizontal bar under robot face) ─────
@@ -1858,11 +1852,23 @@ async def send_chat_message() -> None:
         # Speak the response aloud if this was a voice-initiated interaction
         if _voice_initiated and display_text.strip():
             _voice_initiated = False
-            # Use JS SpeechSynthesis to read the response aloud
-            await ui.run_javascript(f"speakText({json.dumps(display_text)})")
+            # Use Gemini TTS to synthesize and play the response
+            pcm_data = await gemini.synthesize_speech(display_text)
+            if pcm_data:
+                # Wrap PCM in WAV format
+                wav_buf = io.BytesIO()
+                with wave.open(wav_buf, 'wb') as wf:
+                    wf.setnchannels(1)
+                    wf.setsampwidth(2)
+                    wf.setframerate(24000)
+                    wf.writeframes(pcm_data)
+                uid = uuid.uuid4().hex[:12]
+                _tts_cache[uid] = wav_buf.getvalue()
+                await ui.run_javascript(f"playGeminiAudio('/api/tts/{uid}')")
 
         # Handle code if present
         if parsed.has_code:
+            _auto_action_done = False
             current_code = parsed.code
             code_display.set_content(
                 f'<pre class="code-viewer" style="margin: 0; border: none; '
@@ -1877,7 +1883,7 @@ async def send_chat_message() -> None:
                 await ui.run_javascript("setRobotFaceState('idle')")
                 # Auto-execute action commands immediately
                 status_label.set_text("🚀 Running action…")
-                await _execute_code_async(parsed.code, mode="action")
+                await _execute_code_async(parsed.code, mode="action", auto_launched=True)
             elif parsed.response_type == ResponseType.NAVIGATION:
                 # Return face to idle after AI processing
                 await ui.run_javascript("setRobotFaceState('idle')")
@@ -1912,15 +1918,15 @@ def _estimate_duration(code: str) -> float | None:
     return total if total > 0 else None
 
 
-def _set_go_stop_button(running: bool) -> None:
-    """Toggle Go!/Stop button appearance."""
+def _set_go_stop_button(running: bool, replay: bool = False) -> None:
+    """Toggle Go!/Stop/Go Again! button appearance."""
     if running:
         go_stop_button.set_text("🛑 Stop")
         go_stop_button._classes = [c for c in go_stop_button._classes if c != 'fun-btn-primary']
         go_stop_button._classes.append('stop-btn')
         go_stop_button.update()
     else:
-        go_stop_button.set_text("🚀 Go!")
+        go_stop_button.set_text("🔄 Go Again!" if replay else "🚀 Go!")
         go_stop_button._classes = [c for c in go_stop_button._classes if c != 'stop-btn']
         if 'fun-btn-primary' not in go_stop_button._classes:
             go_stop_button._classes.append('fun-btn-primary')
@@ -1933,15 +1939,16 @@ def _reset_play_ui() -> None:
     ui.run_javascript("stopProgressAnimation()")
 
 
-async def _execute_code_async(code: str, mode: str = "action") -> None:
+async def _execute_code_async(code: str, mode: str = "action", auto_launched: bool = False) -> None:
     """Execute generated Python code in a background task."""
-    global _running_task
+    global _running_task, _auto_action_done
 
     # Stop any currently running code
     stop_execution()
 
     # Set up the runtime
     nav_runtime.running = True
+    _auto_action_done = False
     _set_go_stop_button(True)
 
     # Start the appropriate animation
@@ -1954,6 +1961,8 @@ async def _execute_code_async(code: str, mode: str = "action") -> None:
         else:
             # Fallback: treat unknown duration as indeterminate
             await ui.run_javascript("startIndeterminateProgress()")
+
+    _was_cancelled = False
 
     async def _run():
         try:
@@ -1977,13 +1986,19 @@ async def _execute_code_async(code: str, mode: str = "action") -> None:
     try:
         await _running_task
     except asyncio.CancelledError:
-        pass  # Cancellation is handled by stop_execution
+        _was_cancelled = True
     finally:
         nav_runtime.running = False
-        _set_go_stop_button(False)
         ui.run_javascript("stopProgressAnimation()")
         ui.run_javascript("setRobotFaceState('idle')")
-        status_label.set_text("✨ Ready to play!")
+        # Show "Go Again!" if this was an auto-launched action that completed normally
+        if auto_launched and mode == "action" and not _was_cancelled:
+            _auto_action_done = True
+            _set_go_stop_button(False, replay=True)
+            status_label.set_text("✅ Done! Press Go! to repeat")
+        else:
+            _set_go_stop_button(False)
+            status_label.set_text("✨ Ready to play!")
 
 
 def stop_execution() -> None:
@@ -1997,7 +2012,7 @@ def stop_execution() -> None:
     ui.run_javascript("stopSpeaking()")
 
 
-def toggle_go_stop() -> None:
+async def toggle_go_stop() -> None:
     """Toggle between Go! and Stop based on execution state."""
     if nav_runtime.running:
         # Currently running → stop
@@ -2011,24 +2026,29 @@ def toggle_go_stop() -> None:
         ui.notify("🛑 Script stopped!", type="negative")
     else:
         # Not running → execute
-        execute_code()
+        await execute_code()
 
 
-def execute_code() -> None:
+async def execute_code() -> None:
     """Execute the current navigation script (triggered by Go! button)."""
+    global _auto_action_done
     if "No navigation script" in current_code:
         ui.notify("Tell the robot what to do first! 💬", type="warning")
         return
     # Determine mode from the code content
     mode = "navigation" if ("while" in current_code and "is_running()" in current_code) else "action"
+    # Keep auto_launched=True for replays so "Go Again!" persists after each run
+    is_replay = _auto_action_done
+    _auto_action_done = False
     status_label.set_text("🚀 Running…")
-    asyncio.ensure_future(_execute_code_async(current_code, mode=mode))
+    await _execute_code_async(current_code, mode=mode, auto_launched=is_replay)
 
 
 def clear_code() -> None:
     """Clear the current navigation script, stop execution, and stop speech."""
-    global current_code
+    global current_code, _auto_action_done
     stop_execution()
+    _auto_action_done = False
     _reset_play_ui()
     try:
         robot.stop()

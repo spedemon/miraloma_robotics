@@ -395,6 +395,53 @@ Just be excited and describe what you're DOING, not the code you wrote.
         text = re.sub(r'\n{3,}', '\n\n', text).strip()
         return text
 
+    # ── Text-to-Speech (Gemini TTS) ─────────────────────────────
+
+    async def synthesize_speech(self, text: str) -> bytes | None:
+        """Convert text to speech audio using Gemini TTS.
+
+        Returns raw PCM audio bytes (24 kHz, 16-bit, mono) or None on failure.
+        """
+        if not self.is_connected or not self._client:
+            return None
+
+        try:
+            prompt = (
+                "Say the following cheerfully, as a friendly robot talking "
+                "to elementary school kids:\n\n" + text
+            )
+
+            response = await asyncio.to_thread(
+                self._client.models.generate_content,
+                model="gemini-2.5-flash-preview-tts",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_modalities=["AUDIO"],
+                    speech_config=types.SpeechConfig(
+                        voice_config=types.VoiceConfig(
+                            prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                                voice_name="Kore",
+                            )
+                        ),
+                    ),
+                ),
+            )
+
+            # Extract inline audio data from response
+            if (
+                response.candidates
+                and response.candidates[0].content
+                and response.candidates[0].content.parts
+            ):
+                part = response.candidates[0].content.parts[0]
+                if hasattr(part, "inline_data") and part.inline_data:
+                    return part.inline_data.data
+
+            return None
+        except Exception as exc:
+            print(f"[TTS] Gemini TTS error: {exc}")
+            return None
+
     # ── Helpers ───────────────────────────────────────────────────
 
     @staticmethod
