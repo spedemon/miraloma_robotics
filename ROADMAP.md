@@ -1,4 +1,4 @@
-# 🗺️ Roadmap: Miraloma Robots — Miraloma Robots
+# 🗺️ Roadmap: Miraloma Robots
 
 > AI-powered voice & chat robot control — NiceGUI + Google Gemini + Serial UART
 

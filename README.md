@@ -1,4 +1,4 @@
-# 🤖 Miraloma Robots — Miraloma Robots
+# 🤖 Miraloma Robots
 
 > **Talk to your robot, and watch it move!**
 > A voice & chat-powered robotics platform built for kids at [Miraloma Elementary School](https://www.sfsud.edu/school/miraloma-elementary).
