@@ -55,15 +55,16 @@
 | Model selector (Gemini 2.5 Flash, Pro, Flash-Lite)                                               | ✅      |
 | API key configuration with "Save & Test" flow                                                    | ✅      |
 | Dynamic system prompt with robot identity, architecture, protocol, and calibration               | ✅      |
-| Response classification: `[ACTION]` (auto-execute), `[NAVIGATION]` (confirm first), conversation | ✅      |
+| Response classification: `[ACTION]` (finite control), `[NAVIGATION]` (infinite control), chat | ✅      |
 | Code extraction from fenced code blocks                                                          | ✅      |
 | Friendly error handling (invalid key, rate limits)                                               | ✅      |
 
-### Phase 5 — Voice Chat & Animated UI
+### Phase 5 — Voice (STT & TTS) & Animated UI
 
 | Deliverable                                                    | Status |
 | -------------------------------------------------------------- | ------ |
-| Voice input via browser Web Speech API (Chrome/Edge)           | ✅      |
+| Voice input/STT via browser Web Speech API (Chrome/Edge)          | ✅      |
+| Voice output/TTS via Gemini Text-to-Speech (managed via backend) | ✅      |
 | Microphone toggle button with recording state animation        | ✅      |
 | Animated SVG robot face (idle, listening, thinking states)     | ✅      |
 | Eye blink, pupil tracking, antenna glow, sound wave animations | ✅      |
