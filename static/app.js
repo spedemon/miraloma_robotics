@@ -9,6 +9,8 @@
 let _voiceRecognition = null;
 let _voiceIsListening = false;
 let _voiceGotResult = false;
+let _voiceSilenceTimer = null;
+let _voiceAccumulatedTranscript = '';
 
 function setRobotFaceState(state) {
     const container = document.getElementById('robot-face-outer');
@@ -25,6 +27,21 @@ function setRobotFaceState(state) {
 }
 
 // ── Voice Input (Web Speech API) ────────────────────────────────
+function _submitVoiceTranscript() {
+    if (_voiceGotResult) return;               // already submitted
+    const transcript = _voiceAccumulatedTranscript.trim();
+    if (!transcript) return;
+    _voiceGotResult = true;
+
+    // Store transcript and click hidden button to notify Python
+    window._voiceTranscript = transcript;
+    const btn = document.getElementById('voice-hidden-submit');
+    if (btn) btn.click();
+
+    // Stop recognition now that we have a complete sentence
+    if (_voiceRecognition) _voiceRecognition.stop();
+}
+
 function toggleVoiceInput() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -33,6 +50,9 @@ function toggleVoiceInput() {
     }
 
     if (_voiceIsListening && _voiceRecognition) {
+        // Manual stop: submit whatever we have so far
+        if (_voiceSilenceTimer) { clearTimeout(_voiceSilenceTimer); _voiceSilenceTimer = null; }
+        _submitVoiceTranscript();
         _voiceRecognition.stop();
         return 'stopped';
     }
@@ -41,12 +61,14 @@ function toggleVoiceInput() {
     _voiceRecognition.lang = 'en-US';
     _voiceRecognition.interimResults = false;
     _voiceRecognition.maxAlternatives = 1;
-    _voiceRecognition.continuous = false;
+    _voiceRecognition.continuous = true;           // keep listening through pauses
     _voiceGotResult = false;
+    _voiceAccumulatedTranscript = '';
 
     _voiceRecognition.onstart = function() {
         _voiceIsListening = true;
         _voiceGotResult = false;
+        _voiceAccumulatedTranscript = '';
         const btn = document.getElementById('mic-toggle-btn');
         if (btn) btn.classList.add('mic-btn-recording');
         const status = document.getElementById('voice-status-label');
@@ -56,23 +78,30 @@ function toggleVoiceInput() {
 
     _voiceRecognition.onresult = function(event) {
         if (_voiceGotResult) return;
-        const transcript = event.results[0][0].transcript;
-        if (!transcript) return;
-        _voiceGotResult = true;
 
-        // Store transcript and click hidden button to notify Python
-        window._voiceTranscript = transcript;
-        const btn = document.getElementById('voice-hidden-submit');
-        if (btn) btn.click();
+        // Rebuild the full transcript from all final results so far
+        let fullTranscript = '';
+        for (let i = 0; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+                fullTranscript += event.results[i][0].transcript;
+            }
+        }
+        _voiceAccumulatedTranscript = fullTranscript;
 
-        // Stop recognition immediately to prevent further results
-        _voiceRecognition.stop();
+        // Reset the silence timer — submit after 1.5 s of silence
+        if (_voiceSilenceTimer) clearTimeout(_voiceSilenceTimer);
+        _voiceSilenceTimer = setTimeout(function() {
+            _voiceSilenceTimer = null;
+            _submitVoiceTranscript();
+        }, 1500);
     };
 
     _voiceRecognition.onerror = function(event) {
         console.warn('Speech recognition error:', event.error);
+        if (_voiceSilenceTimer) { clearTimeout(_voiceSilenceTimer); _voiceSilenceTimer = null; }
         _voiceIsListening = false;
         _voiceGotResult = false;
+        _voiceAccumulatedTranscript = '';
         const btn = document.getElementById('mic-toggle-btn');
         if (btn) btn.classList.remove('mic-btn-recording');
         const status = document.getElementById('voice-status-label');
@@ -82,12 +111,15 @@ function toggleVoiceInput() {
 
     _voiceRecognition.onend = function() {
         _voiceIsListening = false;
+        if (_voiceSilenceTimer) { clearTimeout(_voiceSilenceTimer); _voiceSilenceTimer = null; }
         const btn = document.getElementById('mic-toggle-btn');
         if (btn) btn.classList.remove('mic-btn-recording');
         const status = document.getElementById('voice-status-label');
         if (status) { status.textContent = ''; status.style.display = 'none'; }
-        // If we got a result, transition to thinking (send_chat_message handles idle).
-        // Otherwise (manual cancel / no speech detected), go back to idle.
+        // If we haven't submitted yet, submit whatever we have
+        if (!_voiceGotResult && _voiceAccumulatedTranscript.trim()) {
+            _submitVoiceTranscript();
+        }
         if (_voiceGotResult) {
             setRobotFaceState('thinking');
         } else {
