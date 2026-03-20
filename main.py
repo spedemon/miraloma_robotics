@@ -1318,8 +1318,13 @@ async def _execute_code_async(code: str, mode: str = "action", auto_launched: bo
             await ui.run_javascript("startIndeterminateProgress()")
 
     _was_cancelled = False
+    _error_occurred = False
+    _error_line = None
+    _error_type = None
+    _error_msg = None
 
     async def _run():
+        nonlocal _error_occurred, _error_line, _error_type, _error_msg
         try:
             # Create a namespace with the robot object and legacy functions
             exec_globals = {
@@ -1331,28 +1336,25 @@ async def _execute_code_async(code: str, mode: str = "action", auto_launched: bo
                 "is_running": nav_runtime.is_running,
                 "__builtins__": __builtins__,
             }
+            # Compile with a named filename so traceback extraction can find it
+            compiled = compile(code, '<user_script>', 'exec')
             # Run the code in a thread so it doesn't block the UI
-            await asyncio.to_thread(exec, code, exec_globals)
+            await asyncio.to_thread(exec, compiled, exec_globals)
         except Exception as exc:
+            _error_occurred = True
+            _error_type = type(exc).__name__
+            _error_msg = str(exc)
             # Extract line number from traceback
             tb = traceback.extract_tb(exc.__traceback__)
-            # Find the entry that corresponds to the generated script
-            error_line = None
             for entry in reversed(tb):
-                if entry.filename == '<string>' or (entry.line and entry.line in code):
-                    error_line = entry.lineno
+                if entry.filename == '<user_script>':
+                    _error_line = entry.lineno
                     break
-
-            # Re-render code display with the offending line highlighted
-            code_display.set_content(_format_code_with_line_numbers(code, error_line=error_line))
-
-            msg = f"⚠️ Script error on line {error_line}: {exc}" if error_line else f"⚠️ Script error: {exc}"
-            ui.notify(msg, type="negative", duration=5)
-            status_label.set_text("⚠️ Script failed")
 
     _running_task = asyncio.create_task(_run())
 
     # Wait for task to finish, then clean up in the NiceGUI client context
+    # (UI updates MUST happen here, not inside _run(), to have the right context)
     try:
         await _running_task
     except asyncio.CancelledError:
@@ -1361,8 +1363,39 @@ async def _execute_code_async(code: str, mode: str = "action", auto_launched: bo
         nav_runtime.running = False
         ui.run_javascript("stopProgressAnimation()")
         ui.run_javascript("setRobotFaceState('idle')")
-        # Show "Go Again!" if this was an auto-launched action that completed normally
-        if auto_launched and mode == "action" and not _was_cancelled:
+        if _error_occurred:
+            _set_go_stop_button(False)
+            # Highlight the error line in the code panel
+            code_display.set_content(_format_code_with_line_numbers(code, error_line=_error_line))
+            code_expansion.open()
+            # Status bar
+            status_label.set_text("⚠️ Script error")
+            # Notification
+            if _error_line:
+                notify_msg = f"⚠️ Line {_error_line}: {_error_type} — {_error_msg}"
+            else:
+                notify_msg = f"⚠️ {_error_type} — {_error_msg}"
+            ui.notify(notify_msg, type="negative", duration=8)
+            # Chat message (persistent, unlike notifications)
+            now = datetime.now().strftime("%H:%M")
+            if _error_line:
+                err_html = (
+                    f'<div class="chat-msg chat-assistant" style="border-left: 3px solid var(--danger);">'
+                    f'🐛 <b>Script Error</b><br>'
+                    f'{_escape_html(_error_type)} on line {_error_line}: '
+                    f'{_escape_html(_error_msg)}'
+                    f'<div class="chat-time">{now}</div></div>'
+                )
+            else:
+                err_html = (
+                    f'<div class="chat-msg chat-assistant" style="border-left: 3px solid var(--danger);">'
+                    f'🐛 <b>Script Error</b><br>'
+                    f'{_escape_html(_error_type)}: {_escape_html(_error_msg)}'
+                    f'<div class="chat-time">{now}</div></div>'
+                )
+            with chat_container:
+                ui.html(err_html)
+        elif auto_launched and mode == "action" and not _was_cancelled:
             _auto_action_done = True
             _set_go_stop_button(False, replay=True)
             status_label.set_text("✅ Done! Press Go! to repeat")
