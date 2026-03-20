@@ -173,9 +173,7 @@ def _build_workspace_tab(refs, current_code: str, selected_robot: str = ''):
                     ui.button(
                         icon="mic",
                         on_click=lambda: handlers.handle_voice_toggle(),
-                    ).props("flat round").classes("mic-btn").props(
-                        'id=mic-toggle-btn'
-                    )
+                    ).props("flat round id=mic-toggle-btn").classes("mic-btn")
 
                     ui.button(
                         icon="send",
