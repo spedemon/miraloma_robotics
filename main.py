@@ -11,8 +11,7 @@ NiceGUI application with 4 tabs:
 
 import json
 import asyncio
-import base64
-import io
+import uuid
 import wave
 import yaml
 import threading
@@ -26,6 +25,11 @@ _BASE_DIR_EARLY = Path(__file__).parent
 
 # Serve static assets (logo, etc.)
 app.add_static_files('/static', str(_BASE_DIR_EARLY / 'static'))
+
+# ── TTS Audio ─────────────────────────────────────────────────────
+# WAV clips are written to static/tts/ and served as regular static files.
+_TTS_DIR = _BASE_DIR_EARLY / 'static' / 'tts'
+_TTS_DIR.mkdir(parents=True, exist_ok=True)
 
 from robot_hal import RobotHAL
 from gemini_client import GeminiClient, AVAILABLE_MODELS, DEFAULT_MODEL_LABEL
@@ -1840,18 +1844,28 @@ async def send_chat_message() -> None:
         if _voice_initiated and display_text.strip():
             _voice_initiated = False
             # Use Gemini TTS to synthesize and play the response
-            pcm_data = await gemini.synthesize_speech(display_text)
-            if pcm_data:
-                # Wrap PCM in WAV format
-                wav_buf = io.BytesIO()
-                with wave.open(wav_buf, 'wb') as wf:
-                    wf.setnchannels(1)
-                    wf.setsampwidth(2)
-                    wf.setframerate(24000)
-                    wf.writeframes(pcm_data)
-                b64 = base64.b64encode(wav_buf.getvalue()).decode('ascii')
-                data_url = f'data:audio/wav;base64,{b64}'
-                await ui.run_javascript(f"playGeminiAudio('{data_url}')")
+            try:
+                pcm_data = await gemini.synthesize_speech(display_text)
+                if pcm_data:
+                    # Wrap PCM in WAV and write to static/tts/ for HTTP serving
+                    audio_id = uuid.uuid4().hex
+                    wav_path = _TTS_DIR / f'{audio_id}.wav'
+                    with wave.open(str(wav_path), 'wb') as wf:
+                        wf.setnchannels(1)
+                        wf.setsampwidth(2)
+                        wf.setframerate(24000)
+                        wf.writeframes(pcm_data)
+                    audio_url = f'/static/tts/{audio_id}.wav'
+                    await ui.run_javascript(f"playGeminiAudio('{audio_url}')")
+                    # Clean up file after a delay (let browser finish fetching)
+                    async def _cleanup():
+                        await asyncio.sleep(30)
+                        wav_path.unlink(missing_ok=True)
+                    asyncio.create_task(_cleanup())
+                else:
+                    print("[TTS] WARNING: synthesize_speech returned None/empty")
+            except Exception as tts_exc:
+                print(f"[TTS] ERROR in TTS flow: {tts_exc}")
 
         # Handle code if present
         if parsed.has_code:
