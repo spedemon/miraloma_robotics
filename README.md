@@ -1,4 +1,4 @@
-# 🤖 Miraloma Bots — Miraloma Robots
+# 🤖 Miraloma Robots — Miraloma Robots
 
 > **Talk to your robot, and watch it move!**
 > A voice & chat-powered robotics platform built for kids at [Miraloma Elementary School](https://www.sfsud.edu/school/miraloma-elementary).
@@ -12,7 +12,7 @@
 
 ## ✨ What Is This?
 
-Miraloma Bots is an **AI-powered robot control center** that lets kids talk to their robots using plain English — by voice or text. The AI (Google Gemini) understands what they want to do, generates Python code in real-time, and sends commands to the robot over a serial (USB) connection.
+Miraloma Robots is an **AI-powered robot control center** that lets kids talk to their robots using plain English — by voice or text. The AI (Google Gemini) understands what they want to do, generates Python code in real-time, and sends commands to the robot over a serial (USB) connection.
 
 **Example commands:**
 - *"Move forward 3 feet"* → robot drives forward for exactly 3 feet
