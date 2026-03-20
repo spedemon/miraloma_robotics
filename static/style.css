@@ -96,42 +96,30 @@ body {
   line-height: 1.5;
 }
 
-.code-line {
-  display: flex !important;
-  align-items: flex-start;
-  margin: 0;
-  padding: 0 8px;
-  min-height: 1.5em;
+/* === Editable code viewer (CodeMirror) === */
+.code-viewer-edit {
+  border: none !important;
+  background: #1e1e3f !important;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.1);
 }
 
-.line-number {
-  display: inline-block;
-  min-width: 32px;
-  width: 32px;
-  color: #6a6a9d;
-  text-align: right;
-  padding-right: 12px;
-  user-select: none;
-  font-weight: 600;
-  flex-shrink: 0;
-  border-right: 1px solid rgba(106, 106, 157, 0.2);
-  margin-right: 12px;
+.code-viewer-edit .cm-editor {
+  height: 100%;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 0.9rem;
 }
 
-.line-content {
-  flex-grow: 1;
-  white-space: pre;
-  word-break: break-all;
+.code-viewer-edit .cm-gutters {
+  background-color: #1e1e3f !important;
+  border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
+  color: #6a6a9d !important;
 }
 
-.error-line {
-  background: rgba(255, 71, 87, 0.2) !important;
-  box-shadow: inset 4px 0 0 var(--danger);
-}
-
-.error-line .line-number {
-  color: #ff8a8a;
-  border-right-color: rgba(255, 138, 138, 0.4);
+.code-viewer-edit .cm-activeLineGutter {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+  color: var(--accent-yellow) !important;
 }
 
 /* === Stop button === */
@@ -719,4 +707,5 @@ body {
 }
 .code-expansion .q-expansion-item__content {
   padding: 0 !important;
+  background: #1e1e3f; /* Match CodeMirror background */
 }

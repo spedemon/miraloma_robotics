@@ -490,22 +490,6 @@ with ui.tabs().classes("w-full") as tabs:
     tab_settings = ui.tab("Setup", icon="tune")
 
 
-def _format_code_with_line_numbers(code: str, error_line: int | None = None) -> str:
-    """Format code with line numbers and optional error highlighting."""
-    lines = code.splitlines()
-    formatted_rows = []
-    for i, line in enumerate(lines, 1):
-        # Escaping line content while keeping our structural div/span wrappers
-        cls = "code-line error-line" if i == error_line else "code-line"
-        escaped = _escape_html(line)
-        formatted_rows.append(
-            f'<div class="{cls}"><span class="line-number">{i}</span>'
-            f'<span class="line-content">{escaped}</span></div>'
-        )
-    # Use a div so we can use flex without interference
-    inner = "".join(formatted_rows)
-    return f'<div class="code-viewer" style="margin: 0; border: none; border-radius: 0 0 var(--radius-md) var(--radius-md); padding-left: 0;">{inner}</div>'
-
 
 with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
 
@@ -696,9 +680,11 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
             with ui.expansion(
                 "🧠 Navigation Script", icon="code",
             ).classes("w-full code-expansion").props("dense") as code_expansion:
-                code_display = ui.html(
-                    _format_code_with_line_numbers(current_code)
-                )
+                code_display = ui.codemirror(
+                    value=current_code,
+                    language="python",
+                    theme="oceanic-next"
+                ).classes("w-full h-80 q-mt-md code-viewer-edit")
 
 
 
@@ -1223,9 +1209,7 @@ async def send_chat_message() -> None:
         if parsed.has_code:
             _auto_action_done = False
             current_code = parsed.code
-            code_display.set_content(
-                _format_code_with_line_numbers(parsed.code)
-            )
+            code_display.value = parsed.code
             # Auto-expand the code panel
             code_expansion.open()
 
@@ -1304,7 +1288,8 @@ async def _execute_code_async(code: str, mode: str = "action", auto_launched: bo
     _auto_action_done = False
     _set_go_stop_button(True)
     # Clear any previous error highlighting
-    code_display.set_content(_format_code_with_line_numbers(code))
+    # Ensure the editor has the code to execute
+    code_display.value = code
 
     # Start the appropriate animation
     if mode == "navigation":
@@ -1366,7 +1351,8 @@ async def _execute_code_async(code: str, mode: str = "action", auto_launched: bo
         if _error_occurred:
             _set_go_stop_button(False)
             # Highlight the error line in the code panel
-            code_display.set_content(_format_code_with_line_numbers(code, error_line=_error_line))
+            # Update the value if needed (though it should be there), no more HTML highlighting
+            code_display.value = code
             code_expansion.open()
             # Status bar
             status_label.set_text("⚠️ Script error")
@@ -1435,16 +1421,17 @@ async def toggle_go_stop() -> None:
 async def execute_code() -> None:
     """Execute the current navigation script (triggered by Go! button)."""
     global _auto_action_done
-    if "No navigation script" in current_code:
+    # Get the code from the editor (source of truth)
+    code_to_run = code_display.value
+    if "No navigation script" in code_to_run:
         ui.notify("Tell the robot what to do first! 💬", type="warning")
         return
     # Determine mode from the code content
-    mode = "navigation" if ("while" in current_code and "is_running()" in current_code) else "action"
+    mode = "navigation" if ("while" in code_to_run and "is_running()" in code_to_run) else "action"
     # Keep auto_launched=True for replays so "Go Again!" persists after each run
     is_replay = _auto_action_done
     _auto_action_done = False
-    status_label.set_text("🚀 Running…")
-    await _execute_code_async(current_code, mode=mode, auto_launched=is_replay)
+    await _execute_code_async(code_to_run, mode=mode, auto_launched=is_replay)
 
 
 def clear_code() -> None:
@@ -1458,9 +1445,7 @@ def clear_code() -> None:
     except ConnectionError:
         pass
     current_code = "# No navigation script loaded yet."
-    code_display.set_content(
-        _format_code_with_line_numbers(current_code)
-    )
+    code_display.value = current_code
     status_label.set_text("✨ Ready to play!")
     ui.run_javascript("stopSpeaking()")
 

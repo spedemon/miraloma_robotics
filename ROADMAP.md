@@ -86,6 +86,8 @@
 | "Go!" button for `[NAVIGATION]` confirmation flow                         | ✅      |
 | "Start Over" button to clear script + stop execution                      | ✅      |
 | Collapsible code viewer panel (auto-expands when code is generated)       | ✅      |
+| Proper editable CodeMirror widget with line numbers                       | ✅      |
+| Editable navigation scripts (pre-launch modifications)                    | ✅      |
 | Emergency stop kills running script + sends motor halt                    | ✅      |
 
 ### Phase 7 — Setup & Calibration
@@ -103,10 +105,6 @@
 
 ## 🔧 In Progress / Planned
 
-### Next Step 🚀
-
-- [ ] Improve the Python control script viewer: ensure line numbers are styled correctly and don't mix with text. Use a proper editor widget (like Monaco or Ace) to prepare for making the code fully editable.
-- [ ] Make the Python robot control script UI view editable so that we can edit the code before launching it.
 
 
 ### UI Polish
