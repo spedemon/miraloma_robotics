@@ -2,3 +2,4 @@ nicegui>=2.0
 pyserial
 pyyaml
 google-genai
+pywebview

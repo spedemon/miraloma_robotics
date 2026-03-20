@@ -90,9 +90,15 @@ pip install -r requirements.txt
 
 # Run the app
 python main.py
+
+# Optional: Run on a different port (default: 8080)
+python main.py --port 8888
+
+# Optional: Run in native window mode
+python main.py --native
 ```
 
-The app opens at **http://localhost:8080**.
+The app opens at **http://localhost:8080** (or your specified port).
 
 ### First-Time Setup
 
@@ -181,10 +187,11 @@ cd miraloma_bots
 # Install dependencies
 pip install -r requirements.txt
 
-# Run in development mode (hot-reload enabled)
+# Run the app (hot-reload is on by default unless using --native)
 python main.py
 
-# Make your changes, then submit a PR
+# To run in a native app window:
+python main.py --native
 ```
 
 ### Areas Where Help Is Needed

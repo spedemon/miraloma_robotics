@@ -17,6 +17,7 @@ import yaml
 import threading
 from datetime import datetime
 from pathlib import Path
+import argparse
 
 from nicegui import ui, app
 
@@ -57,6 +58,8 @@ _running_task: asyncio.Task | None = None
 _execution_lock = threading.Lock()
 # Track whether the current chat was initiated by voice
 _voice_initiated: bool = False
+# Flag to prevent double-processing of voice results
+_processing_voice: bool = False
 # Track whether the last auto-launched action completed (for "Go Again!" UX)
 _auto_action_done: bool = False
 
@@ -324,12 +327,18 @@ function toggleVoiceInput() {
     };
 
     _voiceRecognition.onresult = function(event) {
+        if (_voiceGotResult) return;
         const transcript = event.results[0][0].transcript;
+        if (!transcript) return;
         _voiceGotResult = true;
+        
         // Store transcript and click hidden button to notify Python
         window._voiceTranscript = transcript;
         const btn = document.getElementById('voice-hidden-submit');
         if (btn) btn.click();
+        
+        // Stop recognition immediately to prevent further results
+        _voiceRecognition.stop();
     };
 
     _voiceRecognition.onerror = function(event) {
@@ -1049,14 +1058,19 @@ async def _on_voice_hidden_click() -> None:
 
 async def handle_voice_result(text: str) -> None:
     """Handle a voice transcript received from the browser."""
-    global _voice_initiated
-    if not text:
+    global _voice_initiated, _processing_voice
+    if not text or _processing_voice:
         return
-    # Mark this interaction as voice-initiated (for TTS response)
-    _voice_initiated = True
-    # Set the chat input so send_chat_message can read it
-    chat_input.value = text
-    await send_chat_message()
+        
+    try:
+        _processing_voice = True
+        # Mark this interaction as voice-initiated (for TTS response)
+        _voice_initiated = True
+        # Set the chat input so send_chat_message can read it
+        chat_input.value = text
+        await send_chat_message()
+    finally:
+        _processing_voice = False
 
 def handle_model_change(label: str) -> None:
     """Handle switching the AI model."""
@@ -1384,12 +1398,19 @@ def clear_code() -> None:
 # ══════════════════════════════════════════════════════════════════
 #  LAUNCH
 # ══════════════════════════════════════════════════════════════════
-ui.run(
-    title="Miraloma Robots — Miraloma Robotics",
-    favicon=str(BASE_DIR / 'static' / 'logo.png'),
-    host="0.0.0.0",
-    port=8080,
-    dark=False,
-    reload=True,
-)
+if __name__ in {"__main__", "__mp_main__"}:
+    parser = argparse.ArgumentParser(description="Miraloma Robot Brain Designer")
+    parser.add_argument("-p", "--port", type=int, default=8080, help="Port to run the UI on (default: 8080)")
+    parser.add_argument("-n", "--native", action="store_true", help="Run in native window mode")
+    args = parser.parse_args()
+
+    ui.run(
+        title="Miraloma Robots",
+        favicon=str(BASE_DIR / 'static' / 'logo.png'),
+        host="0.0.0.0",
+        port=args.port,
+        native=args.native,
+        dark=False,
+        reload=not args.native,  # reload is usually incompatible with native=True in some environments
+    )
 
