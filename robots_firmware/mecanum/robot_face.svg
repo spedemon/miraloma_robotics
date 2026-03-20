@@ -1,26 +1,38 @@
-<svg viewBox="-50 -50 360 380" width="280" height="300" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="-50 -60 360 400" width="420" height="465" xmlns="http://www.w3.org/2000/svg">
   <!-- Sound waves (visible when listening) -->
   <circle class="sound-wave" cx="130" cy="120" r="100" fill="none" stroke="#FF6B35" stroke-width="2"/>
   <circle class="sound-wave" cx="130" cy="120" r="100" fill="none" stroke="#FF6B35" stroke-width="2"/>
   <circle class="sound-wave" cx="130" cy="120" r="100" fill="none" stroke="#FF6B35" stroke-width="2"/>
 
   <defs>
-    <linearGradient id="carBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#4A90D9"/>
-      <stop offset="100%" style="stop-color:#2C5F9E"/>
+    <!-- Body gradients -->
+    <linearGradient id="chassisGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2A2A2A"/>
+      <stop offset="100%" style="stop-color:#1A1A1A"/>
     </linearGradient>
-    <linearGradient id="carTopGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#5BA0E8"/>
-      <stop offset="100%" style="stop-color:#4A90D9"/>
-    </linearGradient>
-    <linearGradient id="wheelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#444"/>
+    <linearGradient id="topPlateGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#333"/>
       <stop offset="100%" style="stop-color:#222"/>
     </linearGradient>
     <linearGradient id="sensorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" style="stop-color:#E8EDF2"/>
       <stop offset="100%" style="stop-color:#B0B8C4"/>
     </linearGradient>
+    <linearGradient id="servoGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90D9"/>
+      <stop offset="100%" style="stop-color:#2E6AB0"/>
+    </linearGradient>
+    <!-- Wheel gradients -->
+    <radialGradient id="wheelHubGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#555"/>
+      <stop offset="70%" style="stop-color:#333"/>
+      <stop offset="100%" style="stop-color:#222"/>
+    </radialGradient>
+    <radialGradient id="rollerGrad" cx="40%" cy="30%" r="60%">
+      <stop offset="0%" style="stop-color:#FFD740"/>
+      <stop offset="100%" style="stop-color:#E5A800"/>
+    </radialGradient>
+    <!-- Eye glows -->
     <radialGradient id="eyeGlowL">
       <stop offset="0%" style="stop-color:#4ECDC4; stop-opacity:0.3"/>
       <stop offset="100%" style="stop-color:#4ECDC4; stop-opacity:0"/>
@@ -29,129 +41,186 @@
       <stop offset="0%" style="stop-color:#FF6B9D; stop-opacity:0.3"/>
       <stop offset="100%" style="stop-color:#FF6B9D; stop-opacity:0"/>
     </radialGradient>
+    <!-- Yellow motor gradient -->
+    <linearGradient id="motorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD740"/>
+      <stop offset="100%" style="stop-color:#E5A800"/>
+    </linearGradient>
   </defs>
 
-  <!-- === ULTRASOUND SENSOR HEAD (on top) === -->
+  <!-- === ULTRASOUND SENSOR HEAD === -->
 
-  <!-- Sensor mount pole -->
-  <rect x="123" y="40" width="14" height="30" rx="3" fill="#B0B8C4" stroke="#9CA8B4" stroke-width="1.5"/>
+  <!-- Servo mount bracket (blue) -->
+  <rect x="117" y="50" width="26" height="22" rx="3" fill="url(#servoGrad)" stroke="#1E4A80" stroke-width="1.5"/>
 
-  <!-- Sensor head housing -->
-  <rect x="85" y="12" width="90" height="35" rx="12" ry="12"
+  <!-- Sensor head housing (silver/grey) -->
+  <rect x="85" y="14" width="90" height="38" rx="10" ry="10"
         fill="url(#sensorGrad)" stroke="#9CA8B4" stroke-width="2"/>
+
+  <!-- Transducer cylinder rims -->
+  <circle cx="110" cy="33" r="16" fill="none" stroke="#AAB2BC" stroke-width="2.5"/>
+  <circle cx="150" cy="33" r="16" fill="none" stroke="#AAB2BC" stroke-width="2.5"/>
 
   <!-- Ultrasound transducer eyes -->
   <!-- Eye glow -->
-  <circle cx="110" cy="30" r="22" fill="url(#eyeGlowL)"/>
-  <circle cx="150" cy="30" r="22" fill="url(#eyeGlowR)"/>
+  <circle cx="110" cy="33" r="22" fill="url(#eyeGlowL)"/>
+  <circle cx="150" cy="33" r="22" fill="url(#eyeGlowR)"/>
 
-  <!-- Eyes whites (transducer housings) -->
-  <circle class="robot-eye-white" cx="110" cy="30" r="14" fill="white"
+  <!-- Eyes whites (transducer cylinders) -->
+  <circle class="robot-eye-white" cx="110" cy="33" r="13" fill="#E8EDF2"
           stroke="#9CA8B4" stroke-width="2"/>
-  <circle class="robot-eye-white" cx="150" cy="30" r="14" fill="white"
+  <circle class="robot-eye-white" cx="150" cy="33" r="13" fill="#E8EDF2"
           stroke="#9CA8B4" stroke-width="2"/>
+
+  <!-- Transducer mesh detail -->
+  <circle cx="110" cy="33" r="9" fill="none" stroke="#C8CED6" stroke-width="0.8"/>
+  <circle cx="150" cy="33" r="9" fill="none" stroke="#C8CED6" stroke-width="0.8"/>
 
   <!-- Pupils (transducer cores) -->
-  <circle class="robot-eye-pupil" cx="110" cy="30" r="6" fill="#2D3436"/>
-  <circle class="robot-eye-pupil" cx="150" cy="30" r="6" fill="#2D3436"/>
+  <circle class="robot-eye-pupil" cx="110" cy="33" r="5.5" fill="#2D3436"/>
+  <circle class="robot-eye-pupil" cx="150" cy="33" r="5.5" fill="#2D3436"/>
 
   <!-- Pupil highlights -->
-  <circle cx="113" cy="27" r="2.5" fill="white" opacity="0.9"/>
-  <circle cx="153" cy="27" r="2.5" fill="white" opacity="0.9"/>
+  <circle cx="113" cy="30" r="2" fill="white" opacity="0.85"/>
+  <circle cx="153" cy="30" r="2" fill="white" opacity="0.85"/>
 
-  <!-- Ultrasound pulse waves -->
-  <circle class="ultrasound-wave" cx="130" cy="30" r="20" fill="none" stroke="#4ECDC4" stroke-width="1.5"/>
-  <circle class="ultrasound-wave" cx="130" cy="30" r="20" fill="none" stroke="#4ECDC4" stroke-width="1.5"/>
 
   <!-- Antenna on sensor -->
-  <line x1="130" y1="12" x2="130" y2="-5" stroke="#B0B8C4" stroke-width="3" stroke-linecap="round"/>
+  <line x1="130" y1="14" x2="130" y2="-5" stroke="#B0B8C4" stroke-width="3" stroke-linecap="round"/>
   <circle class="antenna-tip" cx="130" cy="-7" r="5" fill="#FF6B35"/>
 
-  <!-- Mouth (smile under sensor) -->
-  <ellipse class="robot-mouth" cx="130" cy="42" rx="12" ry="5"
-           fill="#FF6B9D" opacity="0.6"/>
+  <!-- Mouth (smile under sensor head) -->
+  <ellipse class="robot-mouth" cx="130" cy="48" rx="11" ry="4.5"
+           fill="#FF6B9D" opacity="0.55"/>
 
-  <!-- === CAR BODY === -->
+  <!-- === WIRES (decorative, like the real robot) === -->
+  <path d="M100 72 Q80 60 75 72 Q70 82 85 78" fill="none" stroke="#E53935" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+  <path d="M108 72 Q95 55 100 68" fill="none" stroke="#1E88E5" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+  <path d="M160 72 Q175 58 180 72 Q185 82 172 78" fill="none" stroke="#FB8C00" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+  <path d="M152 72 Q165 55 160 68" fill="none" stroke="#43A047" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
 
-  <!-- Main car body -->
-  <rect x="40" y="80" width="180" height="110" rx="20" ry="20"
-        fill="url(#carBodyGrad)" stroke="#1E4A80" stroke-width="3"/>
+  <!-- === TOP PLATFORM (upper deck) === -->
+  <rect x="50" y="72" width="160" height="14" rx="3" fill="url(#topPlateGrad)" stroke="#444" stroke-width="1.5"/>
+  <!-- PCB accent (green strip on top plate) -->
+  <rect x="70" y="75" width="50" height="8" rx="2" fill="#2E7D32" opacity="0.6"/>
+  <!-- Mini component dots on PCB -->
+  <circle cx="78" cy="79" r="1.5" fill="#4CAF50" opacity="0.8"/>
+  <circle cx="86" cy="79" r="1.5" fill="#FF5722" opacity="0.8"/>
+  <circle cx="94" cy="79" r="1.5" fill="#FFC107" opacity="0.8"/>
 
-  <!-- Top panel accent -->
-  <rect x="55" y="90" width="150" height="40" rx="12" ry="12"
-        fill="url(#carTopGrad)" stroke="#3A7AC0" stroke-width="1.5" opacity="0.6"/>
+  <!-- Black box on top right (like battery/controller in photo) -->
+  <rect x="155" y="72" width="40" height="14" rx="2" fill="#1A1A1A" stroke="#333" stroke-width="1"/>
+  <!-- USB port detail -->
+  <rect x="193" y="76" width="4" height="6" rx="1" fill="#555"/>
 
-  <!-- Headlights -->
-  <circle cx="60" cy="105" r="8" fill="#FFD93D" opacity="0.8" stroke="#E8B800" stroke-width="1.5"/>
-  <circle cx="60" cy="105" r="4" fill="white" opacity="0.6"/>
-  <circle cx="200" cy="105" r="8" fill="#FFD93D" opacity="0.8" stroke="#E8B800" stroke-width="1.5"/>
-  <circle cx="200" cy="105" r="4" fill="white" opacity="0.6"/>
+  <!-- === STANDOFF PILLARS (connecting top and bottom plates) === -->
+  <rect x="58" y="86" width="5" height="28" rx="1" fill="#C9A84C" stroke="#A68B3C" stroke-width="0.8"/>
+  <rect x="197" y="86" width="5" height="28" rx="1" fill="#C9A84C" stroke="#A68B3C" stroke-width="0.8"/>
+  <rect x="90" y="86" width="4" height="28" rx="1" fill="#C9A84C" stroke="#A68B3C" stroke-width="0.5"/>
+  <rect x="166" y="86" width="4" height="28" rx="1" fill="#C9A84C" stroke="#A68B3C" stroke-width="0.5"/>
 
-  <!-- Cheek blush on car body -->
-  <ellipse cx="65" cy="150" rx="12" ry="7" fill="#FFB8C6" opacity="0.35"/>
-  <ellipse cx="195" cy="150" rx="12" ry="7" fill="#FFB8C6" opacity="0.35"/>
+  <!-- === BOTTOM PLATFORM (main chassis) === -->
+  <rect x="45" y="114" width="170" height="50" rx="5" fill="url(#chassisGrad)" stroke="#444" stroke-width="2"/>
 
-  <!-- Dashboard LEDs -->
-  <circle cx="115" cy="100" r="4" fill="#4ECDC4" opacity="0.7"/>
-  <circle cx="130" cy="100" r="4" fill="#FF6B35" opacity="0.7"/>
-  <circle cx="145" cy="100" r="4" fill="#A855F7" opacity="0.7"/>
+  <!-- Yellow motors visible under chassis (left side) -->
+  <rect x="30" y="122" width="28" height="16" rx="3" fill="url(#motorGrad)" stroke="#C8960F" stroke-width="1.5"/>
+  <rect x="30" y="144" width="28" height="16" rx="3" fill="url(#motorGrad)" stroke="#C8960F" stroke-width="1.5"/>
+
+  <!-- Yellow motors visible under chassis (right side) -->
+  <rect x="202" y="122" width="28" height="16" rx="3" fill="url(#motorGrad)" stroke="#C8960F" stroke-width="1.5"/>
+  <rect x="202" y="144" width="28" height="16" rx="3" fill="url(#motorGrad)" stroke="#C8960F" stroke-width="1.5"/>
+
+  <!-- Board component accents on bottom plate -->
+  <rect x="75" y="120" width="30" height="10" rx="2" fill="#1565C0" opacity="0.5"/>
+  <rect x="155" y="120" width="30" height="10" rx="2" fill="#1565C0" opacity="0.5"/>
+
+  <!-- Dashboard LEDs on bottom plate -->
+  <circle cx="120" cy="135" r="3" fill="#4ECDC4" opacity="0.7"/>
+  <circle cx="130" cy="135" r="3" fill="#FF6B35" opacity="0.7"/>
+  <circle cx="140" cy="135" r="3" fill="#A855F7" opacity="0.7"/>
 
   <!-- Body label -->
-  <text x="130" y="165" text-anchor="middle" fill="white" font-size="11"
-        font-family="Outfit, sans-serif" font-weight="700" opacity="0.6">MECANUM</text>
+  <text x="130" y="155" text-anchor="middle" fill="white" font-size="9"
+        font-family="Outfit, sans-serif" font-weight="700" opacity="0.45">MECANUM</text>
 
-  <!-- === WHEELS === -->
+  <!-- === MECANUM WHEELS (yellow/black gear-style) === -->
 
   <!-- Front-Left Wheel -->
-  <g class="mecanum-wheel" style="transform-origin: 35px 105px;">
-    <rect x="18" y="88" width="22" height="34" rx="6" fill="url(#wheelGrad)" stroke="#111" stroke-width="2"/>
-    <!-- Rollers -->
-    <line x1="22" y1="95" x2="36" y2="95" stroke="#666" stroke-width="2" stroke-linecap="round"/>
-    <line x1="22" y1="102" x2="36" y2="102" stroke="#555" stroke-width="2" stroke-linecap="round"/>
-    <line x1="22" y1="109" x2="36" y2="109" stroke="#666" stroke-width="2" stroke-linecap="round"/>
-    <line x1="22" y1="116" x2="36" y2="116" stroke="#555" stroke-width="2" stroke-linecap="round"/>
+  <g class="mecanum-wheel" style="transform-origin: 18px 130px;">
+    <!-- Tire -->
+    <circle cx="18" cy="130" r="18" fill="#2A2A2A" stroke="#111" stroke-width="2"/>
+    <!-- Inner rim -->
+    <circle cx="18" cy="130" r="12" fill="none" stroke="#444" stroke-width="1.5"/>
+    <!-- Rollers (yellow gear teeth around the wheel) -->
+    <ellipse cx="18" cy="112.5" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1"/>
+    <ellipse cx="30.3" cy="116.3" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(45, 30.3, 116.3)"/>
+    <ellipse cx="35.5" cy="130" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(90, 35.5, 130)"/>
+    <ellipse cx="30.3" cy="143.7" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(135, 30.3, 143.7)"/>
+    <ellipse cx="18" cy="147.5" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(0, 18, 147.5)"/>
+    <ellipse cx="5.7" cy="143.7" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(45, 5.7, 143.7)"/>
+    <ellipse cx="0.5" cy="130" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(90, 0.5, 130)"/>
+    <ellipse cx="5.7" cy="116.3" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(135, 5.7, 116.3)"/>
     <!-- Hub -->
-    <circle cx="29" cy="105" r="4" fill="#888" stroke="#555" stroke-width="1.5"/>
+    <circle cx="18" cy="130" r="5" fill="#555" stroke="#333" stroke-width="1.5"/>
+    <circle cx="18" cy="130" r="2" fill="#777"/>
   </g>
 
   <!-- Front-Right Wheel -->
-  <g class="mecanum-wheel" style="transform-origin: 225px 105px; animation-delay: 0.2s;">
-    <rect x="220" y="88" width="22" height="34" rx="6" fill="url(#wheelGrad)" stroke="#111" stroke-width="2"/>
-    <line x1="224" y1="95" x2="238" y2="95" stroke="#666" stroke-width="2" stroke-linecap="round"/>
-    <line x1="224" y1="102" x2="238" y2="102" stroke="#555" stroke-width="2" stroke-linecap="round"/>
-    <line x1="224" y1="109" x2="238" y2="109" stroke="#666" stroke-width="2" stroke-linecap="round"/>
-    <line x1="224" y1="116" x2="238" y2="116" stroke="#555" stroke-width="2" stroke-linecap="round"/>
-    <circle cx="231" cy="105" r="4" fill="#888" stroke="#555" stroke-width="1.5"/>
+  <g class="mecanum-wheel" style="transform-origin: 242px 130px; animation-delay: 0.2s;">
+    <circle cx="242" cy="130" r="18" fill="#2A2A2A" stroke="#111" stroke-width="2"/>
+    <circle cx="242" cy="130" r="12" fill="none" stroke="#444" stroke-width="1.5"/>
+    <ellipse cx="242" cy="112.5" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1"/>
+    <ellipse cx="254.3" cy="116.3" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(45, 254.3, 116.3)"/>
+    <ellipse cx="259.5" cy="130" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(90, 259.5, 130)"/>
+    <ellipse cx="254.3" cy="143.7" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(135, 254.3, 143.7)"/>
+    <ellipse cx="242" cy="147.5" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1"/>
+    <ellipse cx="229.7" cy="143.7" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(45, 229.7, 143.7)"/>
+    <ellipse cx="224.5" cy="130" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(90, 224.5, 130)"/>
+    <ellipse cx="229.7" cy="116.3" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(135, 229.7, 116.3)"/>
+    <circle cx="242" cy="130" r="5" fill="#555" stroke="#333" stroke-width="1.5"/>
+    <circle cx="242" cy="130" r="2" fill="#777"/>
   </g>
 
   <!-- Back-Left Wheel -->
-  <g class="mecanum-wheel" style="transform-origin: 35px 175px; animation-delay: 0.4s;">
-    <rect x="18" y="158" width="22" height="34" rx="6" fill="url(#wheelGrad)" stroke="#111" stroke-width="2"/>
-    <line x1="22" y1="165" x2="36" y2="165" stroke="#666" stroke-width="2" stroke-linecap="round"/>
-    <line x1="22" y1="172" x2="36" y2="172" stroke="#555" stroke-width="2" stroke-linecap="round"/>
-    <line x1="22" y1="179" x2="36" y2="179" stroke="#666" stroke-width="2" stroke-linecap="round"/>
-    <line x1="22" y1="186" x2="36" y2="186" stroke="#555" stroke-width="2" stroke-linecap="round"/>
-    <circle cx="29" cy="175" r="4" fill="#888" stroke="#555" stroke-width="1.5"/>
+  <g class="mecanum-wheel" style="transform-origin: 18px 152px; animation-delay: 0.4s;">
+    <circle cx="18" cy="152" r="18" fill="#2A2A2A" stroke="#111" stroke-width="2"/>
+    <circle cx="18" cy="152" r="12" fill="none" stroke="#444" stroke-width="1.5"/>
+    <ellipse cx="18" cy="134.5" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1"/>
+    <ellipse cx="30.3" cy="138.3" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(45, 30.3, 138.3)"/>
+    <ellipse cx="35.5" cy="152" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(90, 35.5, 152)"/>
+    <ellipse cx="30.3" cy="165.7" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(135, 30.3, 165.7)"/>
+    <ellipse cx="18" cy="169.5" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1"/>
+    <ellipse cx="5.7" cy="165.7" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(45, 5.7, 165.7)"/>
+    <ellipse cx="0.5" cy="152" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(90, 0.5, 152)"/>
+    <ellipse cx="5.7" cy="138.3" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(135, 5.7, 138.3)"/>
+    <circle cx="18" cy="152" r="5" fill="#555" stroke="#333" stroke-width="1.5"/>
+    <circle cx="18" cy="152" r="2" fill="#777"/>
   </g>
 
   <!-- Back-Right Wheel -->
-  <g class="mecanum-wheel" style="transform-origin: 225px 175px; animation-delay: 0.6s;">
-    <rect x="220" y="158" width="22" height="34" rx="6" fill="url(#wheelGrad)" stroke="#111" stroke-width="2"/>
-    <line x1="224" y1="165" x2="238" y2="165" stroke="#666" stroke-width="2" stroke-linecap="round"/>
-    <line x1="224" y1="172" x2="238" y2="172" stroke="#555" stroke-width="2" stroke-linecap="round"/>
-    <line x1="224" y1="179" x2="238" y2="179" stroke="#666" stroke-width="2" stroke-linecap="round"/>
-    <line x1="224" y1="186" x2="238" y2="186" stroke="#555" stroke-width="2" stroke-linecap="round"/>
-    <circle cx="231" cy="175" r="4" fill="#888" stroke="#555" stroke-width="1.5"/>
+  <g class="mecanum-wheel" style="transform-origin: 242px 152px; animation-delay: 0.6s;">
+    <circle cx="242" cy="152" r="18" fill="#2A2A2A" stroke="#111" stroke-width="2"/>
+    <circle cx="242" cy="152" r="12" fill="none" stroke="#444" stroke-width="1.5"/>
+    <ellipse cx="242" cy="134.5" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1"/>
+    <ellipse cx="254.3" cy="138.3" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(45, 254.3, 138.3)"/>
+    <ellipse cx="259.5" cy="152" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(90, 259.5, 152)"/>
+    <ellipse cx="254.3" cy="165.7" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(135, 254.3, 165.7)"/>
+    <ellipse cx="242" cy="169.5" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1"/>
+    <ellipse cx="229.7" cy="165.7" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(45, 229.7, 165.7)"/>
+    <ellipse cx="224.5" cy="152" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(90, 224.5, 152)"/>
+    <ellipse cx="229.7" cy="138.3" rx="4.5" ry="3.5" fill="url(#rollerGrad)" stroke="#C8960F" stroke-width="1" transform="rotate(135, 229.7, 138.3)"/>
+    <circle cx="242" cy="152" r="5" fill="#555" stroke="#333" stroke-width="1.5"/>
+    <circle cx="242" cy="152" r="2" fill="#777"/>
   </g>
 
   <!-- === LINE TRACKER (underside detail) === -->
-  <rect x="100" y="195" width="60" height="8" rx="4" fill="#333" stroke="#222" stroke-width="1"/>
-  <circle cx="110" cy="199" r="2.5" fill="#FF4444" opacity="0.6"/>
-  <circle cx="130" cy="199" r="2.5" fill="#FF4444" opacity="0.6"/>
-  <circle cx="150" cy="199" r="2.5" fill="#FF4444" opacity="0.6"/>
+  <rect x="100" y="170" width="60" height="7" rx="3.5" fill="#333" stroke="#222" stroke-width="1"/>
+  <circle cx="110" cy="173.5" r="2" fill="#FF4444" opacity="0.6"/>
+  <circle cx="130" cy="173.5" r="2" fill="#FF4444" opacity="0.6"/>
+  <circle cx="150" cy="173.5" r="2" fill="#FF4444" opacity="0.6"/>
 
   <!-- Thinking dots (visible when thinking) -->
-  <g class="thinking-dots" transform="translate(130, 240)">
+  <g class="thinking-dots" transform="translate(130, 210)">
     <circle class="thinking-dot" cx="-16" cy="0" r="5" fill="#A855F7"/>
     <circle class="thinking-dot" cx="0" cy="0" r="5" fill="#A855F7"/>
     <circle class="thinking-dot" cx="16" cy="0" r="5" fill="#A855F7"/>
