@@ -427,7 +427,7 @@ async def save_api_key() -> None:
 # ══════════════════════════════════════════════════════════════════
 
 async def send_chat_message() -> None:
-    """Handle sending a chat message with intent classification."""
+    """Handle sending a chat message with streaming response."""
     global current_code, _voice_initiated
     text = ui_refs.chat_input.value.strip()
     if not text:
@@ -451,20 +451,43 @@ async def send_chat_message() -> None:
     ui_refs.status_label.set_text("🤖 Robot is thinking…")
     await ui.run_javascript("setRobotFaceState('thinking')")
 
+    # Create AI chat bubble immediately with typing indicator
+    _stream_id = f"stream-{id(text)}-{now.replace(':', '')}"
+    with ui_refs.chat_container:
+        ui.html(
+            f'<div class="chat-msg chat-assistant" id="{_stream_id}">'
+            f'<span class="typing-dots">···</span>'
+            f'<div class="chat-time">{now}</div></div>'
+        )
+    await ui.run_javascript(
+        "document.getElementById('chat-scroll-container').scrollTop = "
+        "document.getElementById('chat-scroll-container').scrollHeight"
+    )
+
     try:
-        response = await gemini.send_message(text)
+        # Stream the response — push chunks into the bubble via JS
+        _streamed_chunks = []
+
+        def _on_chunk(piece: str):
+            _streamed_chunks.append(piece)
+
+        response = await gemini.send_message_stream(text, on_chunk=_on_chunk)
+
+        # Update the bubble with the final cleaned display text
         parsed = GeminiClient.parse_response(response)
         display_text = GeminiClient.clean_message_for_display(response)
+        safe_text = _escape_html(display_text).replace('\n', '<br>')
 
-        with ui_refs.chat_container:
-            ui.html(
-                f'<div class="chat-msg chat-assistant">'
-                f"{_escape_html(display_text)}"
-                f'<div class="chat-time">{now}</div></div>'
-            )
         await ui.run_javascript(
-            "document.getElementById('chat-scroll-container').scrollTop = "
-            "document.getElementById('chat-scroll-container').scrollHeight"
+            f"(function() {{"
+            f"  var el = document.getElementById('{_stream_id}');"
+            f"  if (el) {{"
+            f"    el.innerHTML = '{safe_text.replace(chr(39), chr(92) + chr(39))}"
+            f"<div class=\"chat-time\">{now}</div>';"
+            f"  }}"
+            f"  document.getElementById('chat-scroll-container').scrollTop = "
+            f"  document.getElementById('chat-scroll-container').scrollHeight;"
+            f"}})()"
         )
 
         # Fire TTS concurrently — don't block on it yet

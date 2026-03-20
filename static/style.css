@@ -80,6 +80,19 @@ body {
   margin-top: 4px;
 }
 
+/* Typing indicator dots in streaming chat bubble */
+.typing-dots {
+  display: inline-block;
+  font-size: 1.6rem;
+  letter-spacing: 3px;
+  color: var(--text-light);
+  animation: typing-pulse 1.2s ease-in-out infinite;
+}
+@keyframes typing-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
 /* === Code viewer === */
 .code-viewer {
   background: #282a36 !important;

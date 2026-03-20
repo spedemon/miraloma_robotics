@@ -139,17 +139,97 @@ The app opens at **http://localhost:8080** (or your specified port).
 
 ## 🤖 Supported Robots
 
+Miraloma Robots currently supports two very different robot platforms. Despite their
+hardware differences, both share a **unified architecture**: custom firmware implements
+a **UART protocol** that gives direct access to actuators, sensors, and I/O over a USB
+serial connection. The Python **Navigation Runtime** then wraps that UART interface in
+an object-oriented `Robot` class whose documentation is fed to the Gemini AI agent, so
+it can generate control code with full access to each robot's capabilities.
+
 ### Mecanum Car
-- **Platform:** Micro:bit V2 + Keyestudio Mecanum chassis
-- **Movement:** Omnidirectional (forward, backward, strafe, rotate)
-- **Sensors:** Ultrasonic distance (servo-mounted head), 3-channel line tracker
-- **Firmware:** MakeCode Static TypeScript
+
+| | |
+|---|---|
+| **MCU** | [BBC Micro:bit V2](https://microbit.org/) — ARM-based Nordic Semiconductor nRF52833 |
+| **Chassis** | Keyestudio Mecanum 4WD — omnidirectional wheels |
+| **Sensors** | Ultrasonic distance (servo-mounted), 3-channel line tracker |
+| **IDE** | [Microsoft MakeCode for Micro:bit](https://makecode.microbit.org/) (web-based) |
+
+The Micro:bit V2 is a board created by **BBC** in collaboration with **ARM** and
+**Microsoft**. It is typically programmed using **MakeCode Micro:bit**, a web-based tool
+that offers a beautiful **block programming** interface for kids (similar to Scratch).
+MakeCode maintains a one-to-one mapping between the visual blocks and
+**Static TypeScript (STS)** code. The STS is then compiled to **ARM Thumb machine code**
+directly within the browser using a dedicated compiler implemented in TypeScript itself.
+MakeCode uses **WebUSB** to flash the device and communicate via serial port — no
+drivers or native tools needed.
+
+**Firmware:** Miraloma Robots provides a custom STS script (`main.ts`) that implements
+a UART protocol exposing direct access to all actuators and sensors. To flash:
+
+1. Open the **Robot Code** tab in Miraloma Robots and copy the firmware source
+2. Paste it into [MakeCode](https://makecode.microbit.org/) (switch to JavaScript/TypeScript view)
+3. Click **Download** — MakeCode flashes the Micro:bit via WebUSB
+
+**Control interface:** The UART protocol (documented in the **Command Book** tab)
+exposes both **low-level** methods (control individual wheel speeds) and **high-level**
+methods (move forward, backward, rotate, strafe sideways — made possible by the
+mecanum wheels). The AI agent chooses freely between low- and high-level commands
+depending on the user's request, and generally picks the right abstraction level.
+
+---
 
 ### Spider Walker
-- **Platform:** ESP8266 + ACB_Spider servo legs
-- **Movement:** Walk in all directions, rotate
-- **Special:** 9 preset animations (dance, pushup, greet, etc.)
-- **Firmware:** Arduino/ACECode C
+
+| | |
+|---|---|
+| **MCU** | ESP8266 (Wi-Fi SoC) |
+| **Chassis** | ACEBott Spider — multi-servo hexapod-style walker |
+| **Library** | `ACB_Spider_ESP8266` (provided by ACEBott) |
+| **IDE** | [ACECode](https://www.acebott.com/) (desktop app for macOS / Windows) |
+
+The Spider is a very different beast (insect, really). It uses an **ESP8266** and is
+programmed via **ACECode**, a desktop application that provides a **block programming**
+graphical language nearly identical to MakeCode. ACECode generates **C / Arduino** code
+and compiles and flashes it to the device. ACECode also has a panel that allows pasting
+raw C code directly.
+
+**Firmware:** Miraloma Robots provides a custom C firmware (`main.c`) that wraps the
+**ACB_Spider_ESP8266** library, exposing motion primitives and preset actions over UART.
+To flash:
+
+1. Open the **Robot Code** tab in Miraloma Robots and copy the firmware source
+2. Open ACECode, paste the C code in the code panel
+3. Click **Upload** to compile and flash the ESP8266
+
+> **Why ACECode?** Other Arduino IDEs can be used, but ACECode automatically configures
+> the Arduino library paths for the Spider robot (provided by ACEBott). This avoids
+> manual library setup.
+
+**Control interface:** The Spider has many servos and motion requires complex
+coordination. The `ACB_Spider_ESP8266` library provides high-level motion primitives
+that the firmware exposes over UART: move forward, backward, sideways, rotate left /
+right. It also exposes preset **actions**: standby, lying, sleep, greet, pushup,
+fighting, dancing, swing, and handsome.
+
+---
+
+### Unified Robot API
+
+Both robots implement the same UART protocol structure (setters for actuators, getters
+for sensors). The Python `Robot` class in `nav_runtime.py` wraps these UART commands
+into a unified object-oriented API, so AI-generated code like `robot.move_forward(150)`
+works identically on both platforms.
+
+Many commands are **shared** between robots (high-level motion primitives), while others
+are **unique** (e.g., Spider's preset animations, Mecanum's individual wheel control and
+ultrasonic sensor). The UART protocol and the `Robot` wrapper are intentionally designed
+to **unify commands across robots** where possible.
+
+> **Note:** The Miraloma Robots UI currently does not show documentation of the Python
+> `Robot` class to the user. However, the AI agent has full access to this documentation
+> in its system prompt, enabling it to generate correct control code for whichever robot
+> is selected.
 
 ---
 

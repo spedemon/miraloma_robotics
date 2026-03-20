@@ -8,7 +8,7 @@ robot identity, protocol commands, and code generation guidelines.
 
 import asyncio
 import re
-from typing import Optional, Callable
+from typing import Optional, Callable, AsyncIterator
 
 from google import genai
 from google.genai import types
@@ -377,6 +377,60 @@ Just be excited and describe what you're DOING, not the code you wrote.
                 return "⏳ **Rate limit reached.** Wait a moment and try again."
             return f"⚠️ **AI Error:** {error_msg}"
 
+    async def send_message_stream(self, text: str, on_chunk: Callable[[str], None] = None) -> str:
+        """Send a message and stream the response, calling on_chunk for each piece.
+
+        Returns the full response text once streaming completes.
+        """
+        if not self.is_connected or not self._client:
+            msg = (
+                "🔑 **AI brain is not configured yet!**\n\n"
+                "Go to the **⚙️ Setup** tab, paste your API key, "
+                "and press **Save & Test** to activate the AI."
+            )
+            if on_chunk:
+                on_chunk(msg)
+            return msg
+
+        try:
+            self._ensure_chat()
+
+            # Collect full response while streaming chunks
+            full_text = ""
+
+            def _stream_blocking():
+                """Run the blocking stream iteration in a thread."""
+                nonlocal full_text
+                for chunk in self._chat.send_message_stream(text):
+                    piece = chunk.text if chunk.text else ""
+                    if piece:
+                        full_text += piece
+                        if on_chunk:
+                            on_chunk(piece)
+
+            await asyncio.to_thread(_stream_blocking)
+
+            if not full_text:
+                full_text = "(no response)"
+
+            if self._on_message:
+                self._on_message(full_text)
+
+            if "```" in full_text and self._on_code:
+                code = self._extract_code(full_text)
+                if code:
+                    self._on_code(code)
+
+            return full_text
+
+        except Exception as exc:
+            error_msg = str(exc)
+            if "API_KEY_INVALID" in error_msg or "401" in error_msg:
+                return "❌ **Invalid API key.** Check your key in the Setup tab."
+            if "quota" in error_msg.lower() or "429" in error_msg:
+                return "⏳ **Rate limit reached.** Wait a moment and try again."
+            return f"⚠️ **AI Error:** {error_msg}"
+
     # ── Response Parsing ──────────────────────────────────────────
 
     @staticmethod
@@ -430,10 +484,7 @@ Just be excited and describe what you're DOING, not the code you wrote.
             return None
 
         try:
-            prompt = (
-                "Say the following cheerfully, as a friendly robot talking "
-                "to elementary school kids:\n\n" + text
-            )
+            prompt = "Read aloud cheerfully:\n" + text
 
             response = await asyncio.to_thread(
                 self._client.models.generate_content,

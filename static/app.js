@@ -88,12 +88,12 @@ function toggleVoiceInput() {
         }
         _voiceAccumulatedTranscript = fullTranscript;
 
-        // Reset the silence timer — submit after 1.5 s of silence
+        // Reset the silence timer — submit after 0.8 s of silence
         if (_voiceSilenceTimer) clearTimeout(_voiceSilenceTimer);
         _voiceSilenceTimer = setTimeout(function() {
             _voiceSilenceTimer = null;
             _submitVoiceTranscript();
-        }, 1500);
+        }, 800);
     };
 
     _voiceRecognition.onerror = function(event) {
