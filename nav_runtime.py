@@ -82,11 +82,12 @@ class Robot:
         except ConnectionError:
             pass
 
-    def _read_sensor(self, sensor_id: str, value: int = 0) -> str:
+    def _read_sensor(self, sensor_id: str, value: int = 0) -> float:
         try:
-            return self._get_hal().read_sensor(sensor_id, value)
-        except ConnectionError:
-            return "0.0"
+            resp = self._get_hal().read_sensor(sensor_id, value)
+            return float(resp)
+        except (ValueError, ConnectionError):
+            return -1.0
 
     @classmethod
     def _create_dynamic_methods(cls, setter_ids: list[str], getter_ids: list[str]):
