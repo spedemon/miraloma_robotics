@@ -15,9 +15,17 @@ from nicegui import ui
 from gemini_client import AVAILABLE_MODELS, DEFAULT_MODEL_LABEL
 import handlers
 
-# Read the robot face SVG once at import time so it can be inlined.
-# It must be inline (not <object>) for CSS animations to work.
-_ROBOT_FACE_SVG = (Path(__file__).parent / 'static' / 'robot_face.svg').read_text()
+# Fallback generic robot face SVG.
+_GENERIC_FACE_SVG = (Path(__file__).parent / 'static' / 'robot_face.svg').read_text()
+_ROBOTS_DIR = Path(__file__).parent / 'robots_firmware'
+
+
+def _load_robot_face_svg(robot_name: str) -> str:
+    """Load the robot-specific face SVG, falling back to the generic one."""
+    specific = _ROBOTS_DIR / robot_name / 'robot_face.svg'
+    if specific.exists():
+        return specific.read_text()
+    return _GENERIC_FACE_SVG
 
 
 # ── Exported builder ─────────────────────────────────────────────
@@ -87,7 +95,7 @@ def build_ui(
         #  TAB 1: WORKSPACE
         # ══════════════════════════════════════════════════════════
         with ui.tab_panel(tab_workspace):
-            _build_workspace_tab(refs, current_code)
+            _build_workspace_tab(refs, current_code, selected_robot)
 
         # ══════════════════════════════════════════════════════════
         #  TAB 2: FIRMWARE
@@ -128,7 +136,7 @@ def build_ui(
 
 # ── Tab builders (private) ────────────────────────────────────────
 
-def _build_workspace_tab(refs, current_code: str):
+def _build_workspace_tab(refs, current_code: str, selected_robot: str = ''):
     """Build the Workspace tab: chat + robot face + code viewer."""
     with ui.column().classes("w-full gap-3"):
         with ui.row().classes("w-full gap-4").style("min-height: 460px;"):
@@ -186,12 +194,13 @@ def _build_workspace_tab(refs, current_code: str):
 
             # ── Robot Face column ─────────────────────────────
             with ui.column().classes("flex-1 items-center justify-center"):
-                ui.html(f'''
+                _face_svg = _load_robot_face_svg(selected_robot) if selected_robot else _GENERIC_FACE_SVG
+                refs.robot_face_html = ui.html(f'''
                 <div id="robot-face-outer" class="robot-face-idle">
                   <div class="robot-face-container">
                     <div class="face-glow"></div>
                     <div class="robot-face-wrapper">
-                      {_ROBOT_FACE_SVG}
+                      {_face_svg}
                     </div>
                   </div>
                   <div id="face-state-text" class="face-state-label">😊 Ready to chat!</div>

@@ -225,6 +225,27 @@ def handle_robot_change(robot_name: str) -> None:
     # Update open-IDE button text
     ui_refs.firmware_open_btn.set_text(platform["open_label"])
 
+    # Update the robot face graphic in the Play tab
+    import ui_layout as _ui_layout
+    face_svg = _ui_layout._load_robot_face_svg(robot_name)
+    ui_refs.robot_face_html.set_content(f'''
+    <div id="robot-face-outer" class="robot-face-idle">
+      <div class="robot-face-container">
+        <div class="face-glow"></div>
+        <div class="robot-face-wrapper">
+          {face_svg}
+        </div>
+      </div>
+      <div id="face-state-text" class="face-state-label">😊 Ready to chat!</div>
+      <div id="progress-bar-area" class="progress-bar-area">
+        <div class="progress-bar-track">
+          <div id="progress-bar-fill" class="progress-bar-fill"></div>
+        </div>
+        <div id="progress-bar-label" class="progress-bar-label"></div>
+      </div>
+    </div>
+    ''')
+
     # Update Protocol Docs tab
     ui_refs.protocol_meta.set_text(
         f"Robot: {robot_name.capitalize()} · "

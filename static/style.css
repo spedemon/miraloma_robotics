@@ -722,3 +722,36 @@ body {
   padding: 0 !important;
   background: #282a36; /* Match CodeMirror Dracula background */
 }
+
+/* === Spider robot: idle leg wiggle === */
+.spider-leg {
+  animation: spider-leg-walk 2.5s ease-in-out infinite;
+}
+@keyframes spider-leg-walk {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(4deg); }
+  75% { transform: rotate(-4deg); }
+}
+
+/* === Mecanum robot: idle wheel roller slide === */
+.mecanum-wheel {
+  animation: mecanum-wheel-spin 2s linear infinite;
+}
+@keyframes mecanum-wheel-spin {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+  100% { transform: translateY(0); }
+}
+
+/* === Mecanum robot: ultrasound pulse === */
+.ultrasound-wave {
+  opacity: 0.5;
+  animation: ultrasound-pulse 2s ease-out infinite;
+}
+.ultrasound-wave:nth-child(2) {
+  animation-delay: 1s;
+}
+@keyframes ultrasound-pulse {
+  0% { r: 20; opacity: 0.6; stroke-width: 2; }
+  100% { r: 55; opacity: 0; stroke-width: 0.5; }
+}
