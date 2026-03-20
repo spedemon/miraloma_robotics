@@ -105,6 +105,7 @@
 
 ### Next Step 🚀
 
+- [ ] Improve the Python control script viewer: ensure line numbers are styled correctly and don't mix with text. Use a proper editor widget (like Monaco or Ace) to prepare for making the code fully editable.
 - [ ] Make the Python robot control script UI view editable so that we can edit the code before launching it.
 
 
