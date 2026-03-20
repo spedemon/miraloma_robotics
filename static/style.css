@@ -82,14 +82,14 @@ body {
 
 /* === Code viewer === */
 .code-viewer {
-  background: #1e1e3f !important;
+  background: #282a36 !important;
   border: 3px solid var(--accent-purple);
   border-radius: var(--radius-md);
   padding: 18px;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.88rem;
   white-space: pre-wrap;
-  color: #d1d1f0;
+  color: #f8f8f2;
   overflow-y: auto;
   max-height: 420px;
   box-shadow: 0 4px 16px rgba(168, 85, 247, 0.15);
@@ -99,7 +99,7 @@ body {
 /* === Editable code viewer (CodeMirror) === */
 .code-viewer-edit {
   border: none !important;
-  background: #1e1e3f !important;
+  background: #282a36 !important;
   border-radius: 0 0 var(--radius-md) var(--radius-md);
   overflow: hidden;
   box-shadow: 0 4px 16px rgba(168, 85, 247, 0.1);
@@ -109,17 +109,30 @@ body {
   height: 100%;
   font-family: 'JetBrains Mono', monospace !important;
   font-size: 0.9rem;
+  background: #282a36 !important;
 }
 
 .code-viewer-edit .cm-gutters {
-  background-color: #1e1e3f !important;
-  border-right: 1px solid rgba(168, 85, 247, 0.2) !important;
-  color: #6a6a9d !important;
+  background-color: #282a36 !important;
+  border-right: 1px solid rgba(98, 114, 164, 0.4) !important;
+  color: #6272a4 !important;
 }
 
 .code-viewer-edit .cm-activeLineGutter {
-  background-color: rgba(168, 85, 247, 0.15) !important;
-  color: var(--accent-yellow) !important;
+  background-color: rgba(68, 71, 90, 0.6) !important;
+  color: #f1fa8c !important;
+}
+
+.code-viewer-edit .cm-activeLine {
+  background-color: rgba(68, 71, 90, 0.35) !important;
+}
+
+.code-viewer-edit .cm-selectionBackground {
+  background-color: rgba(68, 71, 90, 0.6) !important;
+}
+
+.code-viewer-edit .cm-cursor {
+  border-left-color: #f8f8f2 !important;
 }
 
 /* === Stop button === */
@@ -707,5 +720,5 @@ body {
 }
 .code-expansion .q-expansion-item__content {
   padding: 0 !important;
-  background: #1e1e3f; /* Match CodeMirror background */
+  background: #282a36; /* Match CodeMirror Dracula background */
 }

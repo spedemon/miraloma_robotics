@@ -683,7 +683,7 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                 code_display = ui.codemirror(
                     value=current_code,
                     language="python",
-                    theme="oceanic-next"
+                    theme="dracula"
                 ).classes("w-full h-80 q-mt-md code-viewer-edit")
 
 
