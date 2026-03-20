@@ -246,6 +246,85 @@ to **unify commands across robots** where possible.
 
 ---
 
+## 📡 Autonomous Navigation: Distance-to-Target System
+
+This system provides high-precision distance measurement between two active nodes (the **Initiator** robot and the **Target** beacon) using a "Sync-and-Calculate" method. By using **ESP-NOW** (a low-latency radio protocol) as a "starting pistol" and the **HY-SRF05** for the "sound flight," you can achieve centimeter-level accuracy for under $15.
+
+### System Architecture
+
+The system relies on the speed difference between radio waves (instant) and sound (~343 m/s).
+
+1.  **Node A (Initiator)** sends an **ESP-NOW radio packet** and simultaneously triggers its ultrasonic pulse.
+2.  **Node B (Responder)** receives the radio packet, starts a microsecond timer, and waits for the ultrasonic pulse to arrive at its receiver.
+3.  **Node B** calculates the distance and sends the value back to **Node A** via radio.
+
+---
+
+### Hardware Bill of Materials
+
+To keep this under $15, you should use the following specific modules.
+
+* **Primary Sensor:** HY-SRF05 Ultrasonic Module (2 per system).
+* **Controller:** ESP32 or ESP8266 NodeMCU (2 per system).
+* **Radio:** Integrated **ESP-NOW** (no extra hardware cost).
+
+---
+
+### Technical Specifications
+
+| Feature | Specification |
+| :--- | :--- |
+| **Maximum Distance** | **4.5 - 5.0 Meters** (Limited by sound attenuation) |
+| **Minimum Distance** | **2.0 Centimeters** |
+| **Expected Resolution** | **3 mm** (Dependent on clock timing) |
+| **Update Rate** | **10Hz - 20Hz** (Configurable via UART) |
+| **Communication** | **ESP-NOW** (2.4GHz Peer-to-Peer) |
+
+---
+
+### Firmware Logic & Specifications
+
+#### 1. The Initiator (Node A)
+
+* **Idle State:** Listens for UART commands.
+* **Trigger Sequence:**
+    1.  Pulses the `Trig` pin on the HY-SRF05 for **10µs**.
+    2.  Simultaneously broadcasts an **ESP-NOW sync packet** containing a unique ID and a timestamp.
+* **Wait State:** Waits for an incoming ESP-NOW packet from Node B containing the calculated distance.
+* **Output:** Sends the distance value to its **UART TX** line.
+
+#### 2. The Responder (Node B)
+
+* **Sync State:** Listens for the ESP-NOW sync packet.
+* **Timing Sequence:**
+    1.  Upon receiving the packet, it records the current time using `esp_timer_get_time()` (the **Start Time**).
+    2.  It enables a **Hardware Interrupt** on its HY-SRF05 `Echo` pin.
+    3.  When the pin goes HIGH (pulse arrival), it records the **End Time**.
+* **Calculation:** Uses the formula: *Distance = (EndTime − StartTime) × 0.0343 cm/µs*.
+* **Reporting:** Sends the result back to Node A via ESP-NOW and also outputs it to its own **UART TX**.
+
+---
+
+### UART Interface Specification
+
+Both nodes operate at **115200 Baud**.
+
+* **Commands (Input):**
+    * `EN`: Enable active measurement (Initiator mode).
+    * `DIS`: Disable measurement / Low power mode.
+    * `GET`: Request the last recorded reciprocal distance.
+* **Output Format:**
+    * `DIST: [Value] cm` (e.g., `DIST: 124.5 cm`)
+    * `STATUS: ENABLED / DISABLED`
+
+---
+
+### ⚡ Implementation Tip
+
+Since the ESP32 logic levels are **3.3V** and the HY-SRF05 runs at **5V**, you must use a **Voltage Divider** (two resistors) on the sensor's `Echo` pin before connecting it to the ESP32 to prevent damage.
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions from parents, teachers, and fellow robotics enthusiasts!
