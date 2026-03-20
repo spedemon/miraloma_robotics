@@ -11,8 +11,8 @@ NiceGUI application with 4 tabs:
 
 import json
 import asyncio
+import base64
 import io
-import uuid
 import wave
 import yaml
 import threading
@@ -20,25 +20,12 @@ from datetime import datetime
 from pathlib import Path
 
 from nicegui import ui, app
-from starlette.responses import Response
 
 # BASE_DIR must be defined before mounting static files
 _BASE_DIR_EARLY = Path(__file__).parent
 
 # Serve static assets (logo, etc.)
 app.add_static_files('/static', str(_BASE_DIR_EARLY / 'static'))
-
-# ── TTS audio cache (uid → WAV bytes) ────────────────────────────
-_tts_cache: dict[str, bytes] = {}
-
-
-@app.get('/api/tts/{uid}')
-async def serve_tts_audio(uid: str) -> Response:
-    """Serve a cached TTS WAV file and clean it up."""
-    wav_bytes = _tts_cache.pop(uid, None)
-    if wav_bytes is None:
-        return Response(content=b'', status_code=404)
-    return Response(content=wav_bytes, media_type='audio/wav')
 
 from robot_hal import RobotHAL
 from gemini_client import GeminiClient, AVAILABLE_MODELS, DEFAULT_MODEL_LABEL
@@ -1862,9 +1849,9 @@ async def send_chat_message() -> None:
                     wf.setsampwidth(2)
                     wf.setframerate(24000)
                     wf.writeframes(pcm_data)
-                uid = uuid.uuid4().hex[:12]
-                _tts_cache[uid] = wav_buf.getvalue()
-                await ui.run_javascript(f"playGeminiAudio('/api/tts/{uid}')")
+                b64 = base64.b64encode(wav_buf.getvalue()).decode('ascii')
+                data_url = f'data:audio/wav;base64,{b64}'
+                await ui.run_javascript(f"playGeminiAudio('{data_url}')")
 
         # Handle code if present
         if parsed.has_code:
