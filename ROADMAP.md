@@ -48,47 +48,47 @@
 
 ### Phase 4 — Google Gemini AI Integration
 
-| Deliverable                                                                                      | Status |
-| ------------------------------------------------------------------------------------------------ | ------ |
-| `gemini_client.py` — official `google-genai` SDK wrapper                                         | ✅      |
-| Multi-turn chat with conversation history                                                        | ✅      |
-| Model selector (Gemini 2.5 Flash, Pro, Flash-Lite)                                               | ✅      |
-| API key configuration with "Save & Test" flow                                                    | ✅      |
-| Dynamic system prompt with robot identity, architecture, protocol, and calibration               | ✅      |
+| Deliverable                                                                                   | Status |
+| --------------------------------------------------------------------------------------------- | ------ |
+| `gemini_client.py` — official `google-genai` SDK wrapper                                      | ✅      |
+| Multi-turn chat with conversation history                                                     | ✅      |
+| Model selector (Gemini 2.5 Flash, Pro, Flash-Lite)                                            | ✅      |
+| API key configuration with "Save & Test" flow                                                 | ✅      |
+| Dynamic system prompt with robot identity, architecture, protocol, and calibration            | ✅      |
 | Response classification: `[ACTION]` (finite control), `[NAVIGATION]` (infinite control), chat | ✅      |
-| Code extraction from fenced code blocks                                                          | ✅      |
-| Friendly error handling (invalid key, rate limits)                                               | ✅      |
+| Code extraction from fenced code blocks                                                       | ✅      |
+| Friendly error handling (invalid key, rate limits)                                            | ✅      |
 
 ### Phase 5 — Voice (STT & TTS) & Animated UI
 
-| Deliverable                                                    | Status |
-| -------------------------------------------------------------- | ------ |
-| Voice input/STT via browser Web Speech API (Chrome/Edge)          | ✅      |
+| Deliverable                                                      | Status |
+| ---------------------------------------------------------------- | ------ |
+| Voice input/STT via browser Web Speech API (Chrome/Edge)         | ✅      |
 | Voice output/TTS via Gemini Text-to-Speech (managed via backend) | ✅      |
-| Microphone toggle button with recording state animation        | ✅      |
-| Animated SVG robot face (idle, listening, thinking states)     | ✅      |
-| Eye blink, pupil tracking, antenna glow, sound wave animations | ✅      |
-| Thinking dots and gear icon during AI processing               | ✅      |
-| Face state transitions driven by voice/chat lifecycle          | ✅      |
+| Microphone toggle button with recording state animation          | ✅      |
+| Animated SVG robot face (idle, listening, thinking states)       | ✅      |
+| Eye blink, pupil tracking, antenna glow, sound wave animations   | ✅      |
+| Thinking dots and gear icon during AI processing                 | ✅      |
+| Face state transitions driven by voice/chat lifecycle            | ✅      |
 
 ### Phase 6 — Code Generation & Execution Engine
 
-| Deliverable                                                               | Status |
-| ------------------------------------------------------------------------- | ------ |
-| `nav_runtime.py` — sandboxed API for LLM-generated scripts                | ✅      |
-| Runtime functions: `send()`, `read()`, `stop()`, `wait()`, `is_running()` | ✅      |
-| Object-oriented `robot.method()` API for simplified coding                | ✅      |
+| Deliverable                                                                 | Status |
+| --------------------------------------------------------------------------- | ------ |
+| `nav_runtime.py` — sandboxed API for LLM-generated scripts                  | ✅      |
+| Runtime functions: `send()`, `read()`, `stop()`, `wait()`, `is_running()`   | ✅      |
+| Object-oriented `robot.method()` API for simplified coding                  | ✅      |
 | Auto-mapping of protocol IDs to friendly method names (e.g. `move_forward`) | ✅      |
-| Backward compatibility for bare `send()`/`read()` functions               | ✅      |
-| Interruptible `wait()` (checks `running` flag at 100ms intervals)         | ✅      |
-| Background execution via `asyncio.to_thread(exec, ...)`                   | ✅      |
-| Auto-execute for `[ACTION]` commands                                      | ✅      |
-| "Go!" button for `[NAVIGATION]` confirmation flow                         | ✅      |
-| "Start Over" button to clear script + stop execution                      | ✅      |
-| Collapsible code viewer panel (auto-expands when code is generated)       | ✅      |
-| Proper editable CodeMirror widget with line numbers                       | ✅      |
-| Editable navigation scripts (pre-launch modifications)                    | ✅      |
-| Emergency stop kills running script + sends motor halt                    | ✅      |
+| Backward compatibility for bare `send()`/`read()` functions                 | ✅      |
+| Interruptible `wait()` (checks `running` flag at 100ms intervals)           | ✅      |
+| Background execution via `asyncio.to_thread(exec, ...)`                     | ✅      |
+| Auto-execute for `[ACTION]` commands                                        | ✅      |
+| "Go!" button for `[NAVIGATION]` confirmation flow                           | ✅      |
+| "Start Over" button to clear script + stop execution                        | ✅      |
+| Collapsible code viewer panel (auto-expands when code is generated)         | ✅      |
+| Proper editable CodeMirror widget with line numbers                         | ✅      |
+| Editable navigation scripts (pre-launch modifications)                      | ✅      |
+| Emergency stop kills running script + sends motor halt                      | ✅      |
 
 ### Phase 7 — Setup & Calibration
 
@@ -109,9 +109,9 @@
 
 ### UI Polish
 
-- [ ] Use different animated robot graphics in the Play section based on the selected robot (Mecanum face vs Spider face)
+- [V] Use different animated robot graphics in the Play section based on the selected robot (Mecanum face vs Spider face)
 - [ ] Improve robot icon in header — remove gray background box and make it transparent
-- [ ] Persistent settings (remember last port, API key, robot selection across sessions)
+- [V] Persistent settings (remember last port, API key, robot selection across sessions)
 
 ### Firmware Improvements
 
@@ -130,7 +130,6 @@
 ### New Robots
 
 - [ ] Add more robot platforms (additional Micro:bit kits, Arduino-based robots, etc.)
-- [ ] Community-contributed robot definitions
 
 ---
 
@@ -152,16 +151,16 @@ Testing is a major area that has **not been started yet**. The following test ef
 ### End-to-End Tests (Manual)
 - [ ] Connect a real Mecanum robot and test voice commands
 - [ ] Connect a real Spider robot and test preset actions
-- [ ] Test voice input in Chrome and Edge browsers
+- [V] Test voice input in Chrome and Edge browsers
 - [ ] Test with all three Gemini model options
 - [ ] Verify calibration changes affect generated code timing
 
 ### Browser / UI Tests
-- [ ] Verify all tabs render correctly
-- [ ] Test voice input toggle (start/stop recording)
-- [ ] Test robot face state transitions (idle → listening → thinking → idle)
-- [ ] Test collapsible code panel (expand/collapse, auto-expand on code gen)
-- [ ] Test "Go!" and "Start Over" buttons
+- [V] Verify all tabs render correctly
+- [V] Test voice input toggle (start/stop recording)
+- [V] Test robot face state transitions (idle → listening → thinking → idle)
+- [V] Test collapsible code panel (expand/collapse, auto-expand on code gen)
+- [V] Test "Go!" and "Start Over" buttons
 
 ---
 

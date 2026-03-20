@@ -13,6 +13,8 @@ from typing import Optional, Callable
 from google import genai
 from google.genai import types
 
+from nav_runtime import COMMAND_METHODS, SENSOR_METHODS
+
 
 # ── Available models (user-facing label → API model name) ────────
 AVAILABLE_MODELS: dict[str, str] = {
@@ -22,35 +24,6 @@ AVAILABLE_MODELS: dict[str, str] = {
 }
 
 DEFAULT_MODEL_LABEL = "Gemini 2.5 Flash (Recommended)"
-
-
-# ── Robot API Mappings ──────────────────────────────────────────
-
-# Mapping from protocol command ID to (method_name, param_name, default_value)
-# MUST be kept in sync with nav_runtime.py
-COMMAND_METHODS = {
-    "STP": ("stop", None, 0),
-    "MFW": ("move_forward", "speed", 0),
-    "MBW": ("move_backward", "speed", 0),
-    "MSL": ("strafe_left", "speed", 0),
-    "MSR": ("strafe_right", "speed", 0),
-    "RTL": ("rotate_left", "speed", 0),
-    "RTR": ("rotate_right", "speed", 0),
-    "WFL": ("set_wheel_front_left", "speed", 0),
-    "WFR": ("set_wheel_front_right", "speed", 0),
-    "WBL": ("set_wheel_back_left", "speed", 0),
-    "WBR": ("set_wheel_back_right", "speed", 0),
-    "ULA": ("set_head_angle", "angle", 90),
-    "LDL": ("set_left_led", "state", 0),
-    "DIC": ("clear_display", None, 0),
-    "ACT": ("do_action", "action_id", 1),
-}
-
-# Mapping from protocol sensor ID to (method_name, param_name, default_value)
-SENSOR_METHODS = {
-    "ULD": ("read_distance", None, 0),
-    "LTR": ("read_line_tracker", "sensor", 0),
-}
 
 
 # ── Response classification ──────────────────────────────────────
