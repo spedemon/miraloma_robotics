@@ -82,17 +82,56 @@ body {
 
 /* === Code viewer === */
 .code-viewer {
-  background: #2D2B55 !important;
+  background: #1e1e3f !important;
   border: 3px solid var(--accent-purple);
   border-radius: var(--radius-md);
   padding: 18px;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.88rem;
   white-space: pre-wrap;
-  color: #A9FFA7;
+  color: #d1d1f0;
   overflow-y: auto;
-  max-height: 320px;
+  max-height: 420px;
   box-shadow: 0 4px 16px rgba(168, 85, 247, 0.15);
+  line-height: 1.5;
+}
+
+.code-line {
+  display: flex !important;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0 8px;
+  min-height: 1.5em;
+}
+
+.line-number {
+  display: inline-block;
+  min-width: 32px;
+  width: 32px;
+  color: #6a6a9d;
+  text-align: right;
+  padding-right: 12px;
+  user-select: none;
+  font-weight: 600;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(106, 106, 157, 0.2);
+  margin-right: 12px;
+}
+
+.line-content {
+  flex-grow: 1;
+  white-space: pre;
+  word-break: break-all;
+}
+
+.error-line {
+  background: rgba(255, 71, 87, 0.2) !important;
+  box-shadow: inset 4px 0 0 var(--danger);
+}
+
+.error-line .line-number {
+  color: #ff8a8a;
+  border-right-color: rgba(255, 138, 138, 0.4);
 }
 
 /* === Stop button === */

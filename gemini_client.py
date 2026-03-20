@@ -24,6 +24,35 @@ AVAILABLE_MODELS: dict[str, str] = {
 DEFAULT_MODEL_LABEL = "Gemini 2.5 Flash (Recommended)"
 
 
+# ── Robot API Mappings ──────────────────────────────────────────
+
+# Mapping from protocol command ID to (method_name, param_name, default_value)
+# MUST be kept in sync with nav_runtime.py
+COMMAND_METHODS = {
+    "STP": ("stop", None, 0),
+    "MFW": ("move_forward", "speed", 0),
+    "MBW": ("move_backward", "speed", 0),
+    "MSL": ("strafe_left", "speed", 0),
+    "MSR": ("strafe_right", "speed", 0),
+    "RTL": ("rotate_left", "speed", 0),
+    "RTR": ("rotate_right", "speed", 0),
+    "WFL": ("set_wheel_front_left", "speed", 0),
+    "WFR": ("set_wheel_front_right", "speed", 0),
+    "WBL": ("set_wheel_back_left", "speed", 0),
+    "WBR": ("set_wheel_back_right", "speed", 0),
+    "ULA": ("set_head_angle", "angle", 90),
+    "LDL": ("set_left_led", "state", 0),
+    "DIC": ("clear_display", None, 0),
+    "ACT": ("do_action", "action_id", 1),
+}
+
+# Mapping from protocol sensor ID to (method_name, param_name, default_value)
+SENSOR_METHODS = {
+    "ULD": ("read_distance", None, 0),
+    "LTR": ("read_line_tracker", "sensor", 0),
+}
+
+
 # ── Response classification ──────────────────────────────────────
 
 class ResponseType:
@@ -149,29 +178,48 @@ class GeminiClient:
         # Build the command reference
         setter_lines = []
         for cmd in protocol_yaml.get("setters", []):
-            params = ", ".join(
-                f'{p["name"]}: {p["type"]}' + (f' ({p.get("range", "")})' if p.get("range") else "")
-                for p in cmd.get("parameters", [])
-            )
-            setter_lines.append(
-                f"  - send('{cmd['id']}', {params if params else '0'})  # {cmd['description']}"
-            )
+            cmd_id = cmd["id"]
+            if cmd_id in COMMAND_METHODS:
+                name, param, _ = COMMAND_METHODS[cmd_id]
+                params_str = f'{param}' if param else ""
+                setter_lines.append(
+                    f"  - robot.{name}({params_str})  # {cmd['description']}"
+                )
+            else:
+                # Fallback to low-level send() for unknown protocol IDs
+                params = ", ".join(
+                    f'{p["name"]}: {p["type"]}' + (f' ({p.get("range", "")})' if p.get("range") else "")
+                    for p in cmd.get("parameters", [])
+                )
+                setter_lines.append(
+                    f"  - send('{cmd['id']}', {params if params else '0'})  # {cmd['description']}"
+                )
 
         getter_lines = []
         for cmd in protocol_yaml.get("getters", []):
-            params = ", ".join(
-                f'{p["name"]}: {p["type"]}'
-                for p in cmd.get("parameters", [])
-            )
-            ret = cmd.get("returns", {})
-            ret_info = f" → {ret.get('type', 'str')}" if ret else ""
-            getter_lines.append(
-                f"  - read('{cmd['id']}'{', ' + params if params else ''})  "
-                f"# {cmd['description']}{ret_info}"
-            )
+            cmd_id = cmd["id"]
+            if cmd_id in SENSOR_METHODS:
+                name, param, _ = SENSOR_METHODS[cmd_id]
+                params_str = f'{param}' if param else ""
+                getter_lines.append(
+                    f"  - robot.{name}({params_str})  "
+                    f"# {cmd['description']}"
+                )
+            else:
+                # Fallback to low-level read()
+                params = ", ".join(
+                    f'{p["name"]}: {p["type"]}'
+                    for p in cmd.get("parameters", [])
+                )
+                ret = cmd.get("returns", {})
+                ret_info = f" → {ret.get('type', 'str')}" if ret else ""
+                getter_lines.append(
+                    f"  - read('{cmd['id']}'{', ' + params if params else ''})  "
+                    f"# {cmd['description']}{ret_info}"
+                )
 
         setters_text = "\n".join(setter_lines) if setter_lines else "  (none)"
-        getters_text = "\n".join(getter_lines) if getter_lines else "  (none)"
+        getters_text = "\n".join(getter_lines) if getters_text else "  (none)"
 
         return f"""You are **{robot_name}**, a robot who lives at **Miraloma Elementary School**.
 You were **designed and built by the kids** in the Miraloma Elementary robotics program.
@@ -211,9 +259,9 @@ You control your body by generating Python code that calls these functions:
 {getters_text}
 
 **Utility functions:**
-  - stop()           # Emergency stop — halt all motors
-  - wait(seconds)    # Wait for a duration (safely interruptible)
-  - is_running()     # Check if script should keep running (for loops)
+  - robot.stop()           # Emergency stop — halt all motors
+  - robot.wait(seconds)    # Wait for a duration (safely interruptible)
+  - robot.is_running()     # Check if script should keep running (for loops)
 
 ## Calibration
 - Moving speed: approximately **{speed_per_foot} seconds per foot** at default speed
@@ -228,12 +276,12 @@ you MUST generate Python code and tag your response appropriately.
 ### Classification Rules:
 1. **[ACTION]** — Simple, finite commands (e.g., "move forward 3 feet", "turn left",
    "dance", "do a pushup"). These are executed IMMEDIATELY without confirmation.
-   Generate a short script: stop → action → wait → stop.
+   Generate a short script: robot.stop() → action → robot.wait() → robot.stop().
 
 2. **[NAVIGATION]** — Complex, continuous tasks (e.g., "explore the room",
    "avoid obstacles while moving forward", "follow the wall", "scan for objects").
    These require user confirmation before execution.
-   Generate a loop that checks `is_running()`.
+   Generate a loop that checks `robot.is_running()`.
 
 3. **No tag** — Conversational responses (questions, explanations, greetings).
    Do NOT generate code for these.
@@ -247,10 +295,10 @@ Place the classification tag on its own line BEFORE the code block.
 [ACTION]
 ```python
 # Brief description of what this does
-stop()
-send('MFW', {motor_speed})  # Move forward
-wait(9.0)      # 3 feet × {speed_per_foot} sec/foot
-stop()
+robot.stop()
+robot.move_forward({motor_speed})  # Move forward
+robot.wait(9.0)      # 3 feet × {speed_per_foot} sec/foot
+robot.stop()
 ```
 ```
 
@@ -259,18 +307,18 @@ stop()
 [NAVIGATION]
 ```python
 # Brief description of what this does
-stop()
-while is_running():
+robot.stop()
+while robot.is_running():
     # ... navigation/sensing logic ...
-    wait(0.1)  # Small delay between iterations
-stop()
+    robot.wait(0.1)  # Small delay between iterations
+robot.stop()
 ```
 ```
 
 ### Important:
-- ALWAYS call stop() at the beginning AND end of any script
+- ALWAYS call robot.stop() at the beginning AND end of any script
 - For ACTION scripts, calculate wait time: distance_in_feet × {speed_per_foot} seconds
-- For navigation with sensors, use read() to get sensor data
+- For navigation with sensors, use robot.methods to get sensor data
 - Support unit conversions: feet, meters, centimeters, inches
 - Keep code simple and readable — this is for kids learning robotics!
 - In conversational responses, be fun and encouraging. Use emojis.

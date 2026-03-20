@@ -18,6 +18,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 import argparse
+import traceback
 
 from nicegui import ui, app
 
@@ -135,6 +136,8 @@ def build_and_set_prompt(robot_name: str) -> None:
     protocol_path = ROBOTS_DIR / robot_name / "protocol.yaml"
     if protocol_path.exists():
         robot.load_protocol(protocol_path)
+        # Notify the runtime so the 'robot' proxy object gets its methods
+        nav_runtime._set_robot(robot)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -487,6 +490,23 @@ with ui.tabs().classes("w-full") as tabs:
     tab_settings = ui.tab("Setup", icon="tune")
 
 
+def _format_code_with_line_numbers(code: str, error_line: int | None = None) -> str:
+    """Format code with line numbers and optional error highlighting."""
+    lines = code.splitlines()
+    formatted_rows = []
+    for i, line in enumerate(lines, 1):
+        # Escaping line content while keeping our structural div/span wrappers
+        cls = "code-line error-line" if i == error_line else "code-line"
+        escaped = _escape_html(line)
+        formatted_rows.append(
+            f'<div class="{cls}"><span class="line-number">{i}</span>'
+            f'<span class="line-content">{escaped}</span></div>'
+        )
+    # Use a div so we can use flex without interference
+    inner = "".join(formatted_rows)
+    return f'<div class="code-viewer" style="margin: 0; border: none; border-radius: 0 0 var(--radius-md) var(--radius-md); padding-left: 0;">{inner}</div>'
+
+
 with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
 
     # ══════════════════════════════════════════════════════════════
@@ -677,7 +697,7 @@ with ui.tab_panels(tabs, value=tab_workspace).classes("w-full flex-grow"):
                 "🧠 Navigation Script", icon="code",
             ).classes("w-full code-expansion").props("dense") as code_expansion:
                 code_display = ui.html(
-                    f'<pre class="code-viewer" style="margin: 0; border: none; border-radius: 0 0 var(--radius-md) var(--radius-md);">{current_code}</pre>'
+                    _format_code_with_line_numbers(current_code)
                 )
 
 
@@ -1204,9 +1224,7 @@ async def send_chat_message() -> None:
             _auto_action_done = False
             current_code = parsed.code
             code_display.set_content(
-                f'<pre class="code-viewer" style="margin: 0; border: none; '
-                f'border-radius: 0 0 var(--radius-md) var(--radius-md);">'
-                f'{_escape_html(parsed.code)}</pre>'
+                _format_code_with_line_numbers(parsed.code)
             )
             # Auto-expand the code panel
             code_expansion.open()
@@ -1243,10 +1261,12 @@ def _estimate_duration(code: str) -> float | None:
     Returns None for NAVIGATION scripts (contain while is_running()).
     """
     import re
-    if "while" in code and "is_running()" in code:
+    # Check for both old and new navigation patterns
+    if "while" in code and ("is_running()" in code or "robot.is_running()" in code):
         return None
     total = 0.0
-    for m in re.finditer(r'wait\s*\(\s*([\d.]+)\s*\)', code):
+    # Match both wait(X) and robot.wait(X)
+    for m in re.finditer(r'(?:robot\.)?wait\s*\(\s*([\d.]+)\s*\)', code):
         total += float(m.group(1))
     return total if total > 0 else None
 
@@ -1283,6 +1303,8 @@ async def _execute_code_async(code: str, mode: str = "action", auto_launched: bo
     nav_runtime.running = True
     _auto_action_done = False
     _set_go_stop_button(True)
+    # Clear any previous error highlighting
+    code_display.set_content(_format_code_with_line_numbers(code))
 
     # Start the appropriate animation
     if mode == "navigation":
@@ -1299,8 +1321,9 @@ async def _execute_code_async(code: str, mode: str = "action", auto_launched: bo
 
     async def _run():
         try:
-            # Create a namespace with nav_runtime functions
+            # Create a namespace with the robot object and legacy functions
             exec_globals = {
+                "robot": nav_runtime.robot,
                 "send": nav_runtime.send,
                 "read": nav_runtime.read,
                 "stop": nav_runtime.stop,
@@ -1311,7 +1334,21 @@ async def _execute_code_async(code: str, mode: str = "action", auto_launched: bo
             # Run the code in a thread so it doesn't block the UI
             await asyncio.to_thread(exec, code, exec_globals)
         except Exception as exc:
-            ui.notify(f"⚠️ Script error: {exc}", type="negative")
+            # Extract line number from traceback
+            tb = traceback.extract_tb(exc.__traceback__)
+            # Find the entry that corresponds to the generated script
+            error_line = None
+            for entry in reversed(tb):
+                if entry.filename == '<string>' or (entry.line and entry.line in code):
+                    error_line = entry.lineno
+                    break
+
+            # Re-render code display with the offending line highlighted
+            code_display.set_content(_format_code_with_line_numbers(code, error_line=error_line))
+
+            msg = f"⚠️ Script error on line {error_line}: {exc}" if error_line else f"⚠️ Script error: {exc}"
+            ui.notify(msg, type="negative", duration=5)
+            status_label.set_text("⚠️ Script failed")
 
     _running_task = asyncio.create_task(_run())
 
@@ -1389,7 +1426,7 @@ def clear_code() -> None:
         pass
     current_code = "# No navigation script loaded yet."
     code_display.set_content(
-        f'<pre class="code-viewer">{current_code}</pre>'
+        _format_code_with_line_numbers(current_code)
     )
     status_label.set_text("✨ Ready to play!")
     ui.run_javascript("stopSpeaking()")

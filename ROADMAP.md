@@ -77,6 +77,9 @@
 | ------------------------------------------------------------------------- | ------ |
 | `nav_runtime.py` — sandboxed API for LLM-generated scripts                | ✅      |
 | Runtime functions: `send()`, `read()`, `stop()`, `wait()`, `is_running()` | ✅      |
+| Object-oriented `robot.method()` API for simplified coding                | ✅      |
+| Auto-mapping of protocol IDs to friendly method names (e.g. `move_forward`) | ✅      |
+| Backward compatibility for bare `send()`/`read()` functions               | ✅      |
 | Interruptible `wait()` (checks `running` flag at 100ms intervals)         | ✅      |
 | Background execution via `asyncio.to_thread(exec, ...)`                   | ✅      |
 | Auto-execute for `[ACTION]` commands                                      | ✅      |
@@ -99,6 +102,11 @@
 ---
 
 ## 🔧 In Progress / Planned
+
+### Next Step 🚀
+
+- [ ] Make the Python robot control script UI view editable so that we can edit the code before launching it.
+
 
 ### UI Polish
 
