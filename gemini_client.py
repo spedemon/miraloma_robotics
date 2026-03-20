@@ -219,7 +219,7 @@ class GeminiClient:
                 )
 
         setters_text = "\n".join(setter_lines) if setter_lines else "  (none)"
-        getters_text = "\n".join(getter_lines) if getters_text else "  (none)"
+        getters_text = "\n".join(getter_lines) if getter_lines else "  (none)"
 
         return f"""You are **{robot_name}**, a robot who lives at **Miraloma Elementary School**.
 You were **designed and built by the kids** in the Miraloma Elementary robotics program.
