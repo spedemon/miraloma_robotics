@@ -126,7 +126,7 @@ def build_ui(
 
     # ── Status Bar ────────────────────────────────────────────────
     with ui.row().classes("status-bar w-full items-center justify-between"):
-        ui.label("🤖 Miraloma Robotics v1.1").style("font-size: 0.85rem;")
+        ui.label("🤖 Miraloma Robots v1.1").style("font-size: 0.85rem;")
         refs.status_label = ui.label("✨ Ready to play!").style(
             "font-size: 0.85rem; color: var(--primary); font-weight: 600;"
         )
