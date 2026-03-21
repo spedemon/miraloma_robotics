@@ -148,12 +148,12 @@ it can generate control code with full access to each robot's capabilities.
 
 ### Mecanum Car
 
-| | |
-|---|---|
-| **MCU** | [BBC Micro:bit V2](https://microbit.org/) — ARM-based Nordic Semiconductor nRF52833 |
-| **Chassis** | Keyestudio Mecanum 4WD — omnidirectional wheels |
-| **Sensors** | Ultrasonic distance (servo-mounted), 3-channel line tracker |
-| **IDE** | [Microsoft MakeCode for Micro:bit](https://makecode.microbit.org/) (web-based) |
+|             |                                                                                     |
+| ----------- | ----------------------------------------------------------------------------------- |
+| **MCU**     | [BBC Micro:bit V2](https://microbit.org/) — ARM-based Nordic Semiconductor nRF52833 |
+| **Chassis** | Keyestudio Mecanum 4WD — omnidirectional wheels                                     |
+| **Sensors** | Ultrasonic distance (servo-mounted), 3-channel line tracker                         |
+| **IDE**     | [Microsoft MakeCode for Micro:bit](https://makecode.microbit.org/) (web-based)      |
 
 The Micro:bit V2 is a board created by **BBC** in collaboration with **ARM** and
 **Microsoft**. It is typically programmed using **MakeCode Micro:bit**, a web-based tool
@@ -181,12 +181,12 @@ depending on the user's request, and generally picks the right abstraction level
 
 ### Spider Walker
 
-| | |
-|---|---|
-| **MCU** | ESP8266 (Wi-Fi SoC) |
-| **Chassis** | ACEBott Spider — multi-servo hexapod-style walker |
-| **Library** | `ACB_Spider_ESP8266` (provided by ACEBott) |
-| **IDE** | [ACECode](https://www.acebott.com/) (desktop app for macOS / Windows) |
+|             |                                                                       |
+| ----------- | --------------------------------------------------------------------- |
+| **MCU**     | ESP8266 (Wi-Fi SoC)                                                   |
+| **Chassis** | ACEBott Spider — multi-servo hexapod-style walker                     |
+| **Library** | `ACB_Spider_ESP8266` (provided by ACEBott)                            |
+| **IDE**     | [ACECode](https://www.acebott.com/) (desktop app for macOS / Windows) |
 
 The Spider is a very different beast (insect, really). It uses an **ESP8266** and is
 programmed via **ACECode**, a desktop application that provides a **block programming**
@@ -248,7 +248,7 @@ to **unify commands across robots** where possible.
 
 ## 📡 Autonomous Navigation: Distance-to-Target System
 
-This system provides high-precision distance measurement between two active nodes (the **Initiator** robot and the **Target** beacon) using a "Sync-and-Calculate" method. By using **ESP-NOW** (a low-latency radio protocol) as a "starting pistol" and the **HY-SRF05** for the "sound flight," you can achieve centimeter-level accuracy for under $15.
+This system provides high-precision distance measurement between two active nodes (the **Initiator** robot and the **Target** beacon) using a "Sync-and-Calculate" method. By using **ESP-NOW** (a low-latency radio protocol) as a "starting pistol" and the **HY-SRF05** for the "sound flight," we can achieve centimeter-level accuracy for under $15.
 
 ### System Architecture
 
@@ -262,7 +262,7 @@ The system relies on the speed difference between radio waves (instant) and soun
 
 ### Hardware Bill of Materials
 
-To keep this under $15, you should use the following specific modules.
+To keep this under $15, we can use the following specific modules.
 
 * **Primary Sensor:** HY-SRF05 Ultrasonic Module (2 per system).
 * **Controller:** ESP32 or ESP8266 NodeMCU (2 per system).
@@ -272,13 +272,13 @@ To keep this under $15, you should use the following specific modules.
 
 ### Technical Specifications
 
-| Feature | Specification |
-| :--- | :--- |
-| **Maximum Distance** | **4.5 - 5.0 Meters** (Limited by sound attenuation) |
-| **Minimum Distance** | **2.0 Centimeters** |
-| **Expected Resolution** | **3 mm** (Dependent on clock timing) |
-| **Update Rate** | **10Hz - 20Hz** (Configurable via UART) |
-| **Communication** | **ESP-NOW** (2.4GHz Peer-to-Peer) |
+| Feature                 | Specification                                       |
+| :---------------------- | :-------------------------------------------------- |
+| **Maximum Distance**    | **4.5 - 5.0 Meters** (Limited by sound attenuation) |
+| **Minimum Distance**    | **2.0 Centimeters**                                 |
+| **Expected Resolution** | **3 mm** (Dependent on clock timing)                |
+| **Update Rate**         | **10Hz - 20Hz** (Configurable via UART)             |
+| **Communication**       | **ESP-NOW** (2.4GHz Peer-to-Peer)                   |
 
 ---
 
@@ -321,7 +321,7 @@ Both nodes operate at **115200 Baud**.
 
 ### ⚡ Implementation Tip
 
-Since the ESP32 logic levels are **3.3V** and the HY-SRF05 runs at **5V**, you must use a **Voltage Divider** (two resistors) on the sensor's `Echo` pin before connecting it to the ESP32 to prevent damage.
+Since the ESP32 logic levels are **3.3V** and the HY-SRF05 runs at **5V**, we must use a **Voltage Divider** (two resistors) on the sensor's `Echo` pin before connecting it to the ESP32 to prevent damage.
 
 ---
 
