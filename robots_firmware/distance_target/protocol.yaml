@@ -1,0 +1,42 @@
+name: Distance-to-Target
+firmware_platform: arduino-esp32   # Arduino framework on ESP32
+baud_rate: 115200
+command_format: "COMMAND\\n"
+flash_instructions: >
+  Open initiator.c or responder.c in the Arduino IDE with the ESP32
+  board package installed, select your ESP32 board, and flash via USB.
+  Flash initiator.c onto the robot-mounted node (Node A) and
+  responder.c onto the target beacon node (Node B).
+
+# Note: This system is NOT a robot — it is a two-node distance
+# measurement accessory. It does not have setters/getters in the
+# VERB:ACTION:VALUE format used by the robots. Instead it uses
+# simple text commands and outputs.
+
+commands:
+  - id: EN
+    command: "EN"
+    description: "Enable active distance measurement (starts periodic ranging)"
+
+  - id: DIS
+    command: "DIS"
+    description: "Disable measurement / enter low-power idle mode"
+
+  - id: GET
+    command: "GET"
+    description: "Request the last recorded distance measurement"
+
+  - id: RATE
+    command: "RATE:<hz>"
+    description: "Set the measurement update rate (Initiator only, 1–50 Hz)"
+    parameters:
+      - name: hz
+        type: int
+        range: [1, 50]
+
+outputs:
+  - format: "DIST: <value> cm"
+    description: "Distance reading (e.g., DIST: 124.5 cm). Sent automatically when enabled, or in response to GET."
+
+  - format: "STATUS: ENABLED / DISABLED"
+    description: "Current operating state, sent in response to EN or DIS commands."
