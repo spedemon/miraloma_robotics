@@ -139,6 +139,10 @@ void SerialConsole::_processCommand(const String& line) {
         _cmdMove(cmd.substring(5));
     } else if (cmd == "stop") {
         _cmdStop();
+    } else if (cmd == "sleep") {
+        _cmdSleep();
+    } else if (cmd == "wake") {
+        _cmdWake();
     } else if (cmd.startsWith("gesture ")) {
         _cmdGesture(cmd.substring(8));
     } else if (cmd == "gesture") {
@@ -190,7 +194,9 @@ void SerialConsole::_cmdHelp() {
     _outln();
     _outln("  ── Smooth Motion ──");
     _outln("  move <x> <y> <z> [speed]  Move smoothly (mm/s)");
-    _outln("  stop                      Stop all motion");
+    _outln("  stop                      Stop all motion + sleep servos");
+    _outln("  sleep                     Disable servo PWM (go limp)");
+    _outln("  wake                      Re-enable servo PWM");
     _outln();
     _outln("  ── Gestures ──");
     _outln("  gesture list              List gestures");
@@ -393,7 +399,20 @@ void SerialConsole::_cmdMove(const String& args) {
 
 void SerialConsole::_cmdStop() {
     _interruptMotion();
-    _outln("OK — stopped");
+    _ctrl.sleep();
+    _outln("OK — stopped (servos sleeping)");
+}
+
+void SerialConsole::_cmdSleep() {
+    _interruptMotion();
+    _ctrl.sleep();
+    _outln("OK — servos sleeping (PWM disabled)");
+}
+
+void SerialConsole::_cmdWake() {
+    _ctrl.wake();
+    _ctrl.home();
+    _outln("OK — servos awake (homed)");
 }
 
 void SerialConsole::_cmdGesture(const String& args) {

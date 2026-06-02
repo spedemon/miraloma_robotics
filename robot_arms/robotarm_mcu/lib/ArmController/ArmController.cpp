@@ -182,6 +182,18 @@ void ArmController::home() {
     forwardKinematics(_baseAngle, _shoulderAngle, _elbowAngle, _x, _y, _z);
 }
 
+void ArmController::sleep() {
+    _arm.sleep();
+}
+
+void ArmController::wake() {
+    _arm.wake();
+}
+
+bool ArmController::isSleeping() const {
+    return _arm.isSleeping();
+}
+
 void ArmController::setJointAngle(uint8_t channel, float angle) {
     _arm.setServoAngle(channel, angle);
 

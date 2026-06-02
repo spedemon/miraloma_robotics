@@ -30,6 +30,7 @@
 #include "SmoothMover.h"
 #include "SerialConsole.h"
 #include "SwarmNode.h"
+#include "BoostButton.h"
 
 // --- Layer 0: PWM driver ---
 MiraArm arm;
@@ -65,6 +66,12 @@ SerialConsole console(arm, controller, planner, gestures, smooth);
 
 // --- Swarm (ESP-NOW) ---
 SwarmNode swarmNode;
+
+// --- BOOT button mode cycler ---
+BoostButton boostButton(gestures, controller);
+
+// --- Idle detection ---
+bool wasGestureActive = false;
 
 // ---------------------------------------------------------------------------
 // Swarm command handler — bridges ESP-NOW commands to SerialConsole
@@ -123,9 +130,15 @@ void setup() {
 
     console.begin();
 
+    // --- BOOT button init ---
+    boostButton.begin();
+
     // --- Swarm init ---
     swarmNode.onCommand(handleSwarmCommand);
     swarmNode.begin();
+
+    // --- Initial idle: sleep servos after homing ---
+    arm.sleep();
 }
 
 void loop() {
@@ -134,4 +147,15 @@ void loop() {
     gestures.update();    // Feed planner if a gesture is active
     console.update();     // Process serial input (USB)
     swarmNode.update();   // Process swarm commands (ESP-NOW)
+    boostButton.update(); // BOOT button mode cycling
+
+    // --- Auto-sleep when gesture finishes (one-shot) ---
+    bool isActive = (gestures.active() != nullptr);
+    if (wasGestureActive && !isActive) {
+        // Gesture just finished — home and sleep
+        controller.home();
+        arm.sleep();
+        Serial.println("[Main] Gesture finished → idle (sleep)");
+    }
+    wasGestureActive = isActive;
 }

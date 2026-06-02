@@ -5,7 +5,7 @@
 #include "MiraArm.h"
 
 MiraArm::MiraArm()
-    : _pca(PCA9685_ADDR) {
+    : _pca(PCA9685_ADDR), _sleeping(false) {
 }
 
 void MiraArm::begin() {
@@ -86,6 +86,10 @@ uint16_t MiraArm::_angleToTick(uint8_t channel, float angle) {
 // ---------------------------------------------------------------------------
 
 void MiraArm::setServoAngle(uint8_t channel, float angle) {
+    if (_sleeping) {
+        _sleeping = false;
+        Serial.println("[MiraArm] Waking up (PWM re-enabled)");
+    }
     uint16_t tick = _angleToTick(channel, angle);
     _pca.setPWM(channel, 0, tick);
 }
@@ -146,4 +150,32 @@ void MiraArm::sweep(uint8_t channel, float fromAngle, float toAngle, uint16_t st
         }
         angle += step;
     }
+}
+
+// ---------------------------------------------------------------------------
+// Sleep / Wake — disable PWM to reduce power and wear when idle
+// ---------------------------------------------------------------------------
+
+void MiraArm::sleep() {
+    if (_sleeping) return;
+    _sleeping = true;
+
+    // Set the "full OFF" bit (bit 12 of the OFF register) on each channel.
+    // This forces the output LOW with no PWM pulses.
+    _pca.setPWM(SERVO_CH_GRIP,     0, 4096);
+    _pca.setPWM(SERVO_CH_BASE,     0, 4096);
+    _pca.setPWM(SERVO_CH_SHOULDER, 0, 4096);
+    _pca.setPWM(SERVO_CH_ELBOW,    0, 4096);
+
+    Serial.println("[MiraArm] Servos sleeping (PWM disabled)");
+}
+
+void MiraArm::wake() {
+    _sleeping = false;
+    // Actual PWM output resumes on the next setServoAngle() call.
+    Serial.println("[MiraArm] Servos awake");
+}
+
+bool MiraArm::isSleeping() const {
+    return _sleeping;
 }

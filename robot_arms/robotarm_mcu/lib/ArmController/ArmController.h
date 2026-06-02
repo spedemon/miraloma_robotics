@@ -50,6 +50,20 @@ public:
     void home();
 
     /**
+     * Disable servo PWM output (servos go limp).
+     * Reduces power draw when idle. Any motion command re-enables automatically.
+     */
+    void sleep();
+
+    /**
+     * Re-enable servo PWM. Follow with a motion command to restore positions.
+     */
+    void wake();
+
+    /** Returns true if servos are currently sleeping (PWM disabled). */
+    bool isSleeping() const;
+
+    /**
      * Set a single joint's servo angle directly (degrees).
      * Updates internal state via FK so `where` stays consistent.
      * @param channel  PCA9685 channel (use SERVO_CH_BASE etc.)

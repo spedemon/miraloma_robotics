@@ -97,6 +97,8 @@ private:
     void _cmdGrip(const String& args);
     void _cmdMove(const String& args);
     void _cmdStop();
+    void _cmdSleep();
+    void _cmdWake();
     void _cmdGesture(const String& args);
     void _cmdSmset(const String& args);
     void _cmdTimedSet(const String& args);

@@ -165,6 +165,13 @@
 #define SMOOTH_MAX_JOINTS          4       // Max simultaneous smooth moves
 
 // ---------------------------------------------------------------------------
+// BOOT Button (GPIO 9 on ESP32-C3 Super Mini, active LOW)
+// Used after boot to cycle through gesture demo modes.
+// ---------------------------------------------------------------------------
+#define BOOT_BUTTON_PIN       9
+#define BOOT_BUTTON_DEBOUNCE_MS 50   // Debounce window (ms)
+
+// ---------------------------------------------------------------------------
 // Serial
 // ---------------------------------------------------------------------------
 #define SERIAL_BAUD 115200

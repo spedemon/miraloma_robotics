@@ -52,6 +52,23 @@ public:
     void setServoRawUs(uint8_t channel, uint16_t pulseUs);
 
     /**
+     * Disable PWM output on all servo channels (servos go limp).
+     * Reduces power draw and mechanical wear when idle.
+     * Any subsequent setServoAngle() call re-enables output automatically.
+     */
+    void sleep();
+
+    /**
+     * Re-enable PWM output after sleep().
+     * Note: this only clears the sleeping flag — callers should
+     * follow with setServoAngle() calls to restore servo positions.
+     */
+    void wake();
+
+    /** Returns true if servos are currently disabled (sleeping). */
+    bool isSleeping() const;
+
+    /**
      * Smoothly sweep a single servo from one angle to another.
      * Uses blocking delay — suitable for test routines only.
      * @param channel   PCA9685 channel
@@ -63,6 +80,7 @@ public:
 
 private:
     Adafruit_PWMServoDriver _pca;
+    bool _sleeping;   ///< true when PWM outputs are disabled
 
     /**
      * Convert an angle in degrees to a PCA9685 tick count,
