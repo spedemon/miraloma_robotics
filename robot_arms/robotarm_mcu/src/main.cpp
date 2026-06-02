@@ -47,15 +47,15 @@ SmoothMover smooth(controller);
 GestureManager gestures;
 DanceGesture   danceGesture(controller, smooth);
 BowGesture     bowGesture(planner, controller, smooth);
-CrabGesture    crabGesture(planner, controller);
+CrabGesture    crabGesture(planner, controller, smooth);
 BreakGesture   breakGesture(controller, smooth);
-CircleGesture  circleGesture(planner, controller);
-SquareGesture  squareGesture(planner, controller);
-TriangleGesture triangleGesture(planner, controller);
-FCircleGesture  fcircleGesture(planner, controller);
-FSquareGesture  fsquareGesture(planner, controller);
-FTriangleGesture ftriangleGesture(planner, controller);
-WaveGesture     waveGesture(planner, controller);
+CircleGesture  circleGesture(planner, controller, smooth);
+SquareGesture  squareGesture(planner, controller, smooth);
+TriangleGesture triangleGesture(planner, controller, smooth);
+FCircleGesture  fcircleGesture(planner, controller, smooth);
+FSquareGesture  fsquareGesture(planner, controller, smooth);
+FTriangleGesture ftriangleGesture(planner, controller, smooth);
+WaveGesture     waveGesture(planner, controller, smooth);
 
 // --- Peripherals ---
 StatusLed led;
