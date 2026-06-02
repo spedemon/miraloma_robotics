@@ -11,6 +11,9 @@ venv/
 # macOS
 .DS_Store
 
+# Gemini
+.gemini/
+
 # Project-specific
 settings.json
 static/tts/
