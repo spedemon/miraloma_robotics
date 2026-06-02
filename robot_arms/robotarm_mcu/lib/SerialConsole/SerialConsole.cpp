@@ -174,6 +174,14 @@ void SerialConsole::_processCommand(const String& line) {
         _outln("Usage: test <base|shoulder|elbow|grip|wave|all>");
     } else if (cmd == "id") {
         _cmdId();
+    } else if (cmd.startsWith("cal_set ")) {
+        _cmdCalSet(cmd.substring(8));
+    } else if (cmd == "cal_set") {
+        _outln("Usage: cal_set <base> <shoulder> <elbow> <grip>");
+    } else if (cmd == "cal_get") {
+        _cmdCalGet();
+    } else if (cmd == "cal_reset") {
+        _cmdCalReset();
     } else {
         _out("Unknown command: '");
         _out(cmd);
@@ -226,6 +234,11 @@ void SerialConsole::_cmdHelp() {
     _outln();
     _outln("  help                      Show this message");
     _outln("  id                        Show device MAC address");
+    _outln();
+    _outln("  ── Calibration ──");
+    _outln("  cal_set B S E G           Save joint offsets to flash");
+    _outln("  cal_get                   Show current calibration offsets");
+    _outln("  cal_reset                 Reset all offsets to zero");
     _outln("──────────────────────────────────────────");
 }
 
@@ -433,9 +446,10 @@ void SerialConsole::_cmdStop() {
         // handle the smooth return to home and subsequent sleep
         _outln("OK — stopped (returning home)");
     } else {
-        // No gesture — request deferred sleep (waits for any motion to finish)
+        // No gesture — smooth return to home, then sleep
+        _smooth.startTimedMove(HOME_BASE, HOME_SHOULDER, HOME_ELBOW, HOME_GRIP, 800);
         requestSleep();
-        _outln("OK — stopped");
+        _outln("OK — stopped (returning home)");
     }
 }
 
@@ -820,4 +834,56 @@ void SerialConsole::_interruptMotion() {
     _gestures.stopAll();
     _planner.clearQueue();
     _smooth.stopAll();
+}
+
+// ---------------------------------------------------------------------------
+// Calibration commands
+// ---------------------------------------------------------------------------
+
+void SerialConsole::_cmdCalSet(const String& args) {
+    // Parse: "<base> <shoulder> <elbow> <grip>"
+    float base, shoulder, elbow, grip;
+
+    String a = args;
+    a.trim();
+
+    int sp1 = a.indexOf(' ');
+    if (sp1 < 0) { _outln("Usage: cal_set <base> <shoulder> <elbow> <grip>"); return; }
+    int sp2 = a.indexOf(' ', sp1 + 1);
+    if (sp2 < 0) { _outln("Usage: cal_set <base> <shoulder> <elbow> <grip>"); return; }
+    int sp3 = a.indexOf(' ', sp2 + 1);
+    if (sp3 < 0) { _outln("Usage: cal_set <base> <shoulder> <elbow> <grip>"); return; }
+
+    String sBase     = a.substring(0, sp1);
+    String sShoulder = a.substring(sp1 + 1, sp2);
+    String sElbow    = a.substring(sp2 + 1, sp3);
+    String sGrip     = a.substring(sp3 + 1);
+
+    if (!_parseFloat(sBase, base) || !_parseFloat(sShoulder, shoulder) ||
+        !_parseFloat(sElbow, elbow) || !_parseFloat(sGrip, grip)) {
+        _outln("Invalid arguments");
+        return;
+    }
+
+    _arm.getCalStore().setOffsets(base, shoulder, elbow, grip);
+
+    String msg = "OK \xE2\x80\x94 calibration saved: B=" + String(base, 1) +
+                 " S=" + String(shoulder, 1) + " E=" + String(elbow, 1) +
+                 " G=" + String(grip, 1);
+    _outln(msg);
+}
+
+void SerialConsole::_cmdCalGet() {
+    float base, shoulder, elbow, grip;
+    _arm.getCalStore().getOffsets(base, shoulder, elbow, grip);
+
+    String msg = "Calibration: B=" + String(base, 1) +
+                 " S=" + String(shoulder, 1) + " E=" + String(elbow, 1) +
+                 " G=" + String(grip, 1);
+    _outln(msg);
+}
+
+void SerialConsole::_cmdCalReset() {
+    _arm.getCalStore().resetOffsets();
+    _outln("OK \xE2\x80\x94 calibration reset (all offsets = 0)");
 }

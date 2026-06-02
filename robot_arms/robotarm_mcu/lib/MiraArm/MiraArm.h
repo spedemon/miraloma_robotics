@@ -12,6 +12,7 @@
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include "config.h"
+#include "CalibrationStore.h"
 
 class MiraArm {
 public:
@@ -78,13 +79,21 @@ public:
      */
     void sweep(uint8_t channel, float fromAngle, float toAngle, uint16_t stepDelay = TEST_STEP_DELAY_MS);
 
+    /**
+     * Get a reference to the calibration store.
+     * Used by SerialConsole for cal_set/cal_get/cal_reset commands.
+     */
+    CalibrationStore& getCalStore();
+
 private:
     Adafruit_PWMServoDriver _pca;
+    CalibrationStore _calStore;
     bool _sleeping;   ///< true when PWM outputs are disabled
 
     /**
      * Convert an angle in degrees to a PCA9685 tick count,
      * using per-channel calibration from config.h.
+     * Applies calibration offset before mapping.
      */
     uint16_t _angleToTick(uint8_t channel, float angle);
 };

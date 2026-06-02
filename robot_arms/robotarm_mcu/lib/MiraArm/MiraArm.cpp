@@ -15,6 +15,9 @@ void MiraArm::begin() {
     _pca.setPWMFreq(PCA9685_FREQ);
     delay(10);  // Let the oscillator stabilize
 
+    // Load per-joint calibration offsets from NVS flash
+    _calStore.begin();
+
     Serial.println("[MiraArm] PCA9685 initialized");
     Serial.print("[MiraArm] I2C SDA=");
     Serial.print(PIN_SDA);
@@ -66,6 +69,9 @@ static const int CAL_COUNT = sizeof(CAL) / sizeof(CAL[0]);
 
 uint16_t MiraArm::_angleToTick(uint8_t channel, float angle) {
     const ServoCalibration& c = CAL[channel < CAL_COUNT ? channel : 0];
+
+    // Apply per-joint calibration offset (from NVS flash)
+    angle += _calStore.getOffset(channel);
 
     // Linear map: angle → pulse µs using two reference points
     float usPerDeg = (c.hiUs - c.loUs) / (c.hiDeg - c.loDeg);
@@ -178,4 +184,8 @@ void MiraArm::wake() {
 
 bool MiraArm::isSleeping() const {
     return _sleeping;
+}
+
+CalibrationStore& MiraArm::getCalStore() {
+    return _calStore;
 }

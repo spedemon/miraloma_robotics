@@ -106,6 +106,9 @@ private:
     void _cmdRawset(const String& args);
     void _cmdTest(const String& args);
     void _cmdId();
+    void _cmdCalSet(const String& args);
+    void _cmdCalGet();
+    void _cmdCalReset();
 
     // --- Test routines (blocking, for servo-level debugging) ---
     void _testBase();
