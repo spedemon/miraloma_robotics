@@ -9,25 +9,25 @@
 // Arm Geometry & IK/FK (mirrored from robotarm_mcu/include/config.h)
 // ---------------------------------------------------------------------------
 
-const ARM_BASE_HEIGHT  = 22.0;   // d0: base pivot to shoulder pivot (mm)
+const ARM_BASE_HEIGHT = 22.0;   // d0: base pivot to shoulder pivot (mm)
 const ARM_LINK1_LENGTH = 40.0;   // L1: shoulder pivot to elbow pivot (mm)
 const ARM_LINK2_LENGTH = 86.0;   // L2: elbow pivot to end effector (mm)
 
 // Servo ↔ geometric angle mapping (from config.h)
-const SERVO_BASE_OFFSET          = 0.0;
-const SERVO_BASE_DIRECTION       = 1.0;
-const SERVO_SHOULDER_OFFSET      = 90.0;
-const SERVO_SHOULDER_DIRECTION   = -1.0;
-const SERVO_ELBOW_OFFSET         = 0.0;
-const SERVO_ELBOW_DIRECTION      = -1.0;
+const SERVO_BASE_OFFSET = 0.0;
+const SERVO_BASE_DIRECTION = 1.0;
+const SERVO_SHOULDER_OFFSET = 90.0;
+const SERVO_SHOULDER_DIRECTION = -1.0;
+const SERVO_ELBOW_OFFSET = 0.0;
+const SERVO_ELBOW_DIRECTION = -1.0;
 
 // Joint limits (servo degrees, from config.h)
-const JOINT_BASE_MIN     = -90;
-const JOINT_BASE_MAX     =  90;
+const JOINT_BASE_MIN = -90;
+const JOINT_BASE_MAX = 90;
 const JOINT_SHOULDER_MIN = -109;
-const JOINT_SHOULDER_MAX =  104;
-const JOINT_ELBOW_MIN    = -100;
-const JOINT_ELBOW_MAX    =  100;
+const JOINT_SHOULDER_MAX = 104;
+const JOINT_ELBOW_MIN = -100;
+const JOINT_ELBOW_MAX = 100;
 
 const DEG2RAD = Math.PI / 180.0;
 const RAD2DEG = 180.0 / Math.PI;
@@ -42,12 +42,12 @@ function fk(baseServoDeg, shoulderServoDeg, elbowServoDeg) {
     const d0 = ARM_BASE_HEIGHT;
 
     // Servo → geometric angles (radians)
-    const baseGeo     = ((baseServoDeg     - SERVO_BASE_OFFSET)     / SERVO_BASE_DIRECTION)     * DEG2RAD;
+    const baseGeo = ((baseServoDeg - SERVO_BASE_OFFSET) / SERVO_BASE_DIRECTION) * DEG2RAD;
     const shoulderGeo = ((shoulderServoDeg - SERVO_SHOULDER_OFFSET) / SERVO_SHOULDER_DIRECTION) * DEG2RAD;
-    const elbowGeo    = ((elbowServoDeg    - SERVO_ELBOW_OFFSET)   / SERVO_ELBOW_DIRECTION)   * DEG2RAD;
+    const elbowGeo = ((elbowServoDeg - SERVO_ELBOW_OFFSET) / SERVO_ELBOW_DIRECTION) * DEG2RAD;
 
     // End-effector in the vertical plane
-    const r    = L1 * Math.cos(shoulderGeo) + L2 * Math.cos(shoulderGeo + elbowGeo);
+    const r = L1 * Math.cos(shoulderGeo) + L2 * Math.cos(shoulderGeo + elbowGeo);
     const zEff = L1 * Math.sin(shoulderGeo) + L2 * Math.sin(shoulderGeo + elbowGeo);
 
     return {
@@ -71,7 +71,7 @@ function ik(x, y, z) {
     const baseGeo = Math.atan2(y, x);
 
     // 2-link planar IK in the vertical plane
-    const r    = Math.sqrt(x * x + y * y);
+    const r = Math.sqrt(x * x + y * y);
     const zEff = z - d0;
 
     const distSq = r * r + zEff * zEff;
@@ -84,17 +84,17 @@ function ik(x, y, z) {
 
     // Shoulder angle
     const shoulderGeo = Math.atan2(zEff, r)
-                      - Math.atan2(L2 * Math.sin(elbowGeo), L1 + L2 * Math.cos(elbowGeo));
+        - Math.atan2(L2 * Math.sin(elbowGeo), L1 + L2 * Math.cos(elbowGeo));
 
     // Geometric → servo angles
-    const baseAngle     = SERVO_BASE_OFFSET     + SERVO_BASE_DIRECTION     * (baseGeo     * RAD2DEG);
-    const shoulderAngle = SERVO_SHOULDER_OFFSET  + SERVO_SHOULDER_DIRECTION * (shoulderGeo * RAD2DEG);
-    const elbowAngle    = SERVO_ELBOW_OFFSET     + SERVO_ELBOW_DIRECTION   * (elbowGeo    * RAD2DEG);
+    const baseAngle = SERVO_BASE_OFFSET + SERVO_BASE_DIRECTION * (baseGeo * RAD2DEG);
+    const shoulderAngle = SERVO_SHOULDER_OFFSET + SERVO_SHOULDER_DIRECTION * (shoulderGeo * RAD2DEG);
+    const elbowAngle = SERVO_ELBOW_OFFSET + SERVO_ELBOW_DIRECTION * (elbowGeo * RAD2DEG);
 
     // Check joint limits
-    if (baseAngle     < JOINT_BASE_MIN     || baseAngle     > JOINT_BASE_MAX)     return null;
+    if (baseAngle < JOINT_BASE_MIN || baseAngle > JOINT_BASE_MAX) return null;
     if (shoulderAngle < JOINT_SHOULDER_MIN || shoulderAngle > JOINT_SHOULDER_MAX) return null;
-    if (elbowAngle    < JOINT_ELBOW_MIN    || elbowAngle    > JOINT_ELBOW_MAX)    return null;
+    if (elbowAngle < JOINT_ELBOW_MIN || elbowAngle > JOINT_ELBOW_MAX) return null;
 
     return { base: baseAngle, shoulder: shoulderAngle, elbow: elbowAngle };
 }
@@ -104,17 +104,17 @@ function ik(x, y, z) {
 // ---------------------------------------------------------------------------
 
 const GESTURES = [
-    { id: "dance",     label: "💃 Dance",          continuous: true  },
-    { id: "break",     label: "🕺 Break",          continuous: true  },
-    { id: "crab",      label: "🦀 Crab",           continuous: true  },
-    { id: "circle",    label: "⭕ Side Circle",    continuous: true  },
-    { id: "square",    label: "🟦 Side Square",    continuous: true  },
-    { id: "triangle",  label: "🔺 Side Triangle",  continuous: true  },
-    { id: "fcircle",   label: "🌀 Front Circle",   continuous: true  },
-    { id: "fsquare",   label: "🎯 Front Square",   continuous: true  },
-    { id: "ftriangle", label: "📐 Front Triangle",  continuous: true  },
-    { id: "bow",       label: "🎩 Bow",            continuous: false },
-    { id: "wave",      label: "🌊 Wave",           continuous: true  },
+    { id: "dance", label: "💃 Dance", continuous: true },
+    { id: "break", label: "🕺 Break", continuous: true },
+    { id: "crab", label: "🦀 Crab", continuous: true },
+    { id: "circle", label: "⭕ Side Circle", continuous: true },
+    { id: "square", label: "🟦 Side Square", continuous: true },
+    { id: "triangle", label: "🔺 Side Triangle", continuous: true },
+    { id: "fcircle", label: "🌀 Front Circle", continuous: true },
+    { id: "fsquare", label: "🎯 Front Square", continuous: true },
+    { id: "ftriangle", label: "📐 Front Triangle", continuous: true },
+    { id: "bow", label: "🎩 Bow", continuous: false },
+    { id: "wave", label: "🌊 Wave", continuous: true },
 ];
 
 // ---------------------------------------------------------------------------
@@ -127,6 +127,9 @@ let selectedTarget = null;  // null = all robots, or { name, mac, masterName }
 let activeGesture = null;   // gesture id currently running
 let serialConnected = false;
 let openMenuMac = null;     // MAC of robot whose context menu is open
+let deviceType = 'master';  // 'master' or 'robot' — set by server
+let renamingMac = null;     // MAC of robot currently being renamed (blocks re-render)
+let pendingRender = false;  // true if a render was skipped during rename
 
 // Control mode & motion type
 let controlMode = 'joint';  // 'cartesian' or 'joint'
@@ -136,6 +139,10 @@ let motionType = 'smooth';      // 'smooth' or 'instant'
 let sliderThrottleTimer = null;
 let gripThrottleTimer = null;
 const SLIDER_THROTTLE_MS = 100;
+
+// Slider idle → sleep: power off servos after inactivity
+let sliderIdleTimer = null;
+const SLIDER_IDLE_MS = 2500;  // 2 seconds of no slider activity → sleep
 
 // ---------------------------------------------------------------------------
 // Socket.IO Connection
@@ -164,6 +171,11 @@ function initSocket() {
 
     socket.on("console_line", (data) => {
         addConsoleLine(data.text, data.type, data.time);
+    });
+
+    socket.on("device_type", (data) => {
+        deviceType = data.type;
+        renderRobotList();  // re-render to show/hide rename option
     });
 }
 
@@ -263,6 +275,13 @@ async function disconnectSerial() {
 // ---------------------------------------------------------------------------
 
 function renderRobotList() {
+    // Skip re-render while a rename is in progress to avoid destroying
+    // the inline <input> (which would trigger blur → auto-save).
+    if (renamingMac) {
+        pendingRender = true;
+        return;
+    }
+
     const list = document.getElementById("robot-list");
     const emptyState = document.getElementById("empty-state");
     const countEl = document.getElementById("robot-count");
@@ -417,6 +436,10 @@ function startRename(itemEl, robot) {
     if (!nameEl) return;
     const currentName = robot.name;
 
+    // Block re-renders while the user is typing
+    renamingMac = robot.mac;
+    pendingRender = false;
+
     const input = document.createElement("input");
     input.type = "text";
     input.className = "robot-rename-input";
@@ -436,6 +459,9 @@ function startRename(itemEl, robot) {
         input.removeEventListener("keydown", onKey);
         input.removeEventListener("blur", onBlur);
 
+        // Unblock re-renders
+        renamingMac = null;
+
         if (save && newName && newName !== currentName) {
             try {
                 const res = await fetch("/api/robots/rename", {
@@ -450,6 +476,12 @@ function startRename(itemEl, robot) {
             } catch (e) {
                 addConsoleLine("Rename failed", "error");
             }
+        }
+
+        // Flush any render that was deferred while we were renaming
+        if (pendingRender) {
+            pendingRender = false;
+            renderRobotList();
         } else {
             renderRobotList();
         }
@@ -491,11 +523,7 @@ function sendCommand(cmd) {
 }
 
 function sendHome() {
-    // Use smooth moves instead of instant "home" for gentler motion
-    sendCommand("smset base 0");
-    sendCommand("smset shoulder 0");
-    sendCommand("smset elbow 0");
-    sendCommand("smset grip 0");
+    sendCommand("home");
     // Reset joint sliders to home (all 0°)
     document.getElementById("slider-base").value = 0;
     document.getElementById("slider-shoulder").value = 0;
@@ -504,10 +532,12 @@ function sendHome() {
     document.getElementById("slider-grip").value = 0;
     // Compute Cartesian home position from FK
     const homePos = fk(0, 0, 0);
-    document.getElementById("slider-x").value = Math.max(0, homePos.x.toFixed(1));
+    document.getElementById("slider-x").value = homePos.x.toFixed(1);
     document.getElementById("slider-y").value = homePos.y.toFixed(1);
     document.getElementById("slider-z").value = homePos.z.toFixed(1);
     updateSliderValues();
+    // Auto-sleep after idle period (gives servos time to reach home)
+    resetSliderIdleTimer();
 }
 
 function sendWhere() {
@@ -608,9 +638,9 @@ function syncCartesianToJoint() {
  * and in the background when Joint sliders change.
  */
 function syncJointToCartesian() {
-    const base     = parseFloat(document.getElementById("slider-base").value);
+    const base = parseFloat(document.getElementById("slider-base").value);
     const shoulder = parseFloat(document.getElementById("slider-shoulder").value);
-    const elbow    = parseFloat(document.getElementById("slider-elbow").value);
+    const elbow = parseFloat(document.getElementById("slider-elbow").value);
 
     const pos = fk(base, shoulder, elbow);
 
@@ -651,7 +681,12 @@ function initSliderTicks() {
         // Clear any existing ticks
         container.innerHTML = '';
 
-        for (let v = min; v <= max; v += tickStep) {
+        // Snap the starting value to the nearest multiple of tickStep at or above min.
+        // This ensures tick values align with multiples of labelStep (e.g. 0, ±30, ±60)
+        // even when min isn't itself a multiple (e.g. -109, -100, -126, -104).
+        const start = Math.ceil(min / tickStep) * tickStep;
+
+        for (let v = start; v <= max; v += tickStep) {
             // Round to avoid floating point drift
             const val = Math.round(v * 100) / 100;
             const pct = ((val - min) / range) * 100;
@@ -740,6 +775,7 @@ function throttledSend(fn) {
         fn();
         sliderThrottleTimer = null;
     }, SLIDER_THROTTLE_MS);
+    resetSliderIdleTimer();
 }
 
 function throttledSendGrip() {
@@ -748,6 +784,28 @@ function throttledSendGrip() {
         sendGrip();
         gripThrottleTimer = null;
     }, SLIDER_THROTTLE_MS);
+    resetSliderIdleTimer();
+}
+
+/**
+ * Reset the slider idle timer. After SLIDER_IDLE_MS of no slider
+ * activity, sends a 'sleep' command to disable servo PWM.
+ * The MCU auto-wakes on the next servo command.
+ */
+function resetSliderIdleTimer() {
+    if (sliderIdleTimer) clearTimeout(sliderIdleTimer);
+    sliderIdleTimer = setTimeout(() => {
+        sendCommand('sleep');
+        sliderIdleTimer = null;
+    }, SLIDER_IDLE_MS);
+}
+
+/** Cancel any pending slider idle timer (e.g. when a gesture or playback starts). */
+function clearSliderIdleTimer() {
+    if (sliderIdleTimer) {
+        clearTimeout(sliderIdleTimer);
+        sliderIdleTimer = null;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -773,26 +831,21 @@ function initGestures() {
 }
 
 function toggleGesture(gesture) {
+    clearSliderIdleTimer();  // Don't sleep during gesture playback
     if (gesture.continuous) {
         if (activeGesture === gesture.id) {
             // Stop it
             sendCommand(`gesture ${gesture.id} stop`);
             setActiveGesture(null);
         } else {
-            // Stop previous, start new
-            if (activeGesture) {
-                sendCommand(`gesture ${activeGesture} stop`);
-            }
+            // Start new — MCU handles smooth transition from previous gesture
             sendCommand(`gesture ${gesture.id}`);
             setActiveGesture(gesture.id);
         }
     } else {
-        // One-shot: just start it
-        if (activeGesture) {
-            sendCommand(`gesture ${activeGesture} stop`);
-            setActiveGesture(null);
-        }
+        // One-shot: just start it — MCU handles stopping previous gesture
         sendCommand(`gesture ${gesture.id}`);
+        setActiveGesture(null);  // One-shots don't stay "active" in UI
     }
 }
 
@@ -1022,15 +1075,15 @@ function kfAddKeyframe() {
             addConsoleLine("Cannot add keyframe: current Cartesian position is unreachable", "error");
             return;
         }
-        base     = result.base;
+        base = result.base;
         shoulder = result.shoulder;
-        elbow    = result.elbow;
-        grip     = parseFloat(document.getElementById("slider-grip").value);
+        elbow = result.elbow;
+        grip = parseFloat(document.getElementById("slider-grip").value);
     } else {
-        base     = parseFloat(document.getElementById("slider-base").value);
+        base = parseFloat(document.getElementById("slider-base").value);
         shoulder = parseFloat(document.getElementById("slider-shoulder").value);
-        elbow    = parseFloat(document.getElementById("slider-elbow").value);
-        grip     = parseFloat(document.getElementById("slider-grip-joint").value);
+        elbow = parseFloat(document.getElementById("slider-elbow").value);
+        grip = parseFloat(document.getElementById("slider-grip-joint").value);
     }
 
     const kf = {
@@ -1397,6 +1450,7 @@ function kfTogglePlay() {
  * Only the keyframes after the cursor are scheduled.
  */
 function kfPlay() {
+    clearSliderIdleTimer();  // Don't sleep during sequencer playback
     if (keyframes.length === 0) {
         addConsoleLine("No keyframes to play", "warning");
         return;

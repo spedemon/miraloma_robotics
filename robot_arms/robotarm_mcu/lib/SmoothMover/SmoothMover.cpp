@@ -104,7 +104,9 @@ void SmoothMover::startMove(uint8_t channel, float targetAngle) {
     // Compute distance
     float dist = fabsf(targetAngle - currentAngle);
     if (dist < 0.5f) {
-        // Already there
+        // Force servo to target — ensures hardware matches tracked state
+        // (critical after sleep when physical position may differ)
+        _ctrl.setJointAngle(channel, targetAngle);
         m.active = false;
         return;
     }
@@ -160,7 +162,11 @@ void SmoothMover::startTimedMove(float baseAngle, float shoulderAngle,
         float currentAngle = _ctrl.getJointAngle(channels[i]);
         float dist = fabsf(targets[i] - currentAngle);
 
-        if (dist < 0.5f) continue;  // Already at target
+        if (dist < 0.5f) {
+            // Force servo to target — ensures hardware matches tracked state
+            _ctrl.setJointAngle(channels[i], targets[i]);
+            continue;
+        }
 
         int slot = _findSlot(channels[i]);
         if (slot < 0) continue;  // No slot available (shouldn't happen with 4 slots)

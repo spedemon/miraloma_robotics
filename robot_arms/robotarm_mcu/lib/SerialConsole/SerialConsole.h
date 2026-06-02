@@ -105,6 +105,7 @@ private:
     void _cmdSmparam(const String& args);
     void _cmdRawset(const String& args);
     void _cmdTest(const String& args);
+    void _cmdId();
 
     // --- Test routines (blocking, for servo-level debugging) ---
     void _testBase();

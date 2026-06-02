@@ -1,12 +1,25 @@
 /**
  * Gesture.cpp — GestureManager Implementation
+ *
+ * When a new gesture is requested while another is running,
+ * the manager:
+ *   1. Stops the current gesture (sets _running = false)
+ *   2. Starts a smooth timed move to home position
+ *   3. Waits for the homing move to complete
+ *   4. Starts the pending gesture
+ *
+ * This eliminates the jerky snap that occurred when jumping
+ * directly from one gesture's pose to another.
  */
 
 #include "Gesture.h"
+#include "config.h"
 #include <string.h>
 
-GestureManager::GestureManager()
-    : _count(0), _active(nullptr) {
+GestureManager::GestureManager(SmoothMover& smooth, MotionPlanner& planner)
+    : _count(0), _active(nullptr),
+      _pending(nullptr), _transitioning(false),
+      _smooth(smooth), _planner(planner) {
 }
 
 void GestureManager::registerGesture(Gesture* g) {
@@ -16,6 +29,22 @@ void GestureManager::registerGesture(Gesture* g) {
 }
 
 void GestureManager::update() {
+    // --- Transition logic: wait for homing to finish, then start pending ---
+    if (_transitioning) {
+        if (!_smooth.isBusy() && !_planner.isBusy()) {
+            // Homing complete — start the pending gesture
+            _transitioning = false;
+            if (_pending) {
+                _active = _pending;
+                _pending = nullptr;
+                _active->start();
+                Serial.println("[GestureManager] Transition complete → starting gesture");
+            }
+        }
+        return;  // Don't update any gesture while transitioning
+    }
+
+    // --- Normal gesture update ---
     if (_active && _active->isRunning()) {
         _active->update();
     } else if (_active && !_active->isRunning()) {
@@ -37,7 +66,36 @@ bool GestureManager::startGesture(const char* name) {
     Gesture* g = find(name);
     if (!g) return false;
 
-    // Stop any running gesture first (interruptible)
+    // If we're already transitioning, just replace the pending gesture
+    if (_transitioning) {
+        _pending = g;
+        Serial.println("[GestureManager] Updated pending gesture during transition");
+        return true;
+    }
+
+    // If a gesture is currently active, transition through home first
+    if (_active && _active->isRunning()) {
+        // Stop the current gesture (just flag it, don't trigger its own homing)
+        _active->stop();
+        _active = nullptr;
+
+        // Clear any residual planner/smooth motion from the stopped gesture
+        _planner.clearQueue();
+        _smooth.stopAll();
+
+        // Start smooth homing move
+        _smooth.startTimedMove(HOME_BASE, HOME_SHOULDER, HOME_ELBOW, HOME_GRIP,
+                               TRANSITION_HOME_MS);
+
+        // Queue the new gesture as pending
+        _pending = g;
+        _transitioning = true;
+        Serial.println("[GestureManager] Transitioning to home before next gesture");
+        return true;
+    }
+
+    // No gesture running — start immediately
+    // (Still do a quick home if we're not already there)
     stopAll();
 
     _active = g;
@@ -46,6 +104,9 @@ bool GestureManager::startGesture(const char* name) {
 }
 
 void GestureManager::stopAll() {
+    _pending = nullptr;
+    _transitioning = false;
+
     if (_active) {
         _active->stop();
         _active = nullptr;
@@ -54,6 +115,10 @@ void GestureManager::stopAll() {
 
 Gesture* GestureManager::active() {
     return _active;
+}
+
+bool GestureManager::isTransitioning() const {
+    return _transitioning;
 }
 
 uint8_t GestureManager::count() const {

@@ -99,9 +99,9 @@ bool BoostButton::_wasPressed() {
 
 void BoostButton::_goIdle() {
     _gestures.stopAll();
-    _controller.home();
-    _controller.sleep();
-    Serial.println("[BoostButton] → idle (home + sleep)");
+    // The main loop auto-home logic will detect the gesture→inactive
+    // transition and smoothly return to home, then sleep.
+    Serial.println("[BoostButton] → idle (auto-homing)");
 }
 
 void BoostButton::_startMode() {

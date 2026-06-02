@@ -48,6 +48,9 @@ serial_port = None  # current port name
 serial_thread = None
 serial_running = False
 
+# Device type: "master" (master_mcu with swarm) or "robot" (single robotarm_mcu)
+device_type = "master"
+
 # ---------------------------------------------------------------------------
 # Robot registry (server-side mirror of what master reports)
 # ---------------------------------------------------------------------------
@@ -78,16 +81,6 @@ def save_names(names):
         json.dump(names, f, indent=2)
 
 name_map = load_names()  # { "AA:BB:CC:DD:EE:FF": "Lefty", ... }
-
-# Pre-populate robots from saved names so the UI shows known robots immediately
-for mac, display_name in name_map.items():
-    robots[mac] = {
-        "name": display_name,
-        "masterName": display_name,
-        "mac": mac,
-        "online": False,
-        "lastSeen": 0,
-    }
 
 # ---------------------------------------------------------------------------
 # Serial port helpers
@@ -174,9 +167,47 @@ def serial_reader():
 
 def process_serial_line(text):
     """Parse a serial line and emit the appropriate WebSocket events."""
-    global robots, name_map
+    global robots, name_map, device_type
 
     timestamp = datetime.now().strftime("%H:%M:%S")
+
+    # --- Device-type detection from startup banner ---
+    # Detect robotarm_mcu by its unique banner lines
+    if "Mira Motor MCU" in text:
+        _switch_device_type("robot")
+        socketio.emit("console_line", {"text": text, "type": "system", "time": timestamp})
+        return
+
+    # Detect and auto-register robot from its swarm node MAC line
+    m = re.match(r"\[Swarm\] Node MAC:\s+([0-9A-Fa-f:]{17})", text)
+    if m:
+        mac = m.group(1).upper()
+        _switch_device_type("robot")
+        _register_direct_robot(mac)
+        socketio.emit("console_line", {"text": text, "type": "system", "time": timestamp})
+        return
+
+    # Detect master_mcu by its unique banner
+    if "Mira Master MCU" in text:
+        _switch_device_type("master")
+        socketio.emit("console_line", {"text": text, "type": "system", "time": timestamp})
+        return
+
+    # Fallback detection from prompt (when device was already booted)
+    if text.strip() == "mira>" and device_type != "robot":
+        _switch_device_type("robot")
+        # Send 'id' command to get the MAC address for registration
+        serial_write("id")
+        return
+
+    # Parse ID response from the 'id' command
+    m = re.match(r"ID:\s+([0-9A-Fa-f:]{17})", text)
+    if m and device_type == "robot":
+        mac = m.group(1).upper()
+        if mac not in robots:
+            _register_direct_robot(mac)
+        socketio.emit("console_line", {"text": text, "type": "system", "time": timestamp})
+        return
 
     # --- NEW_ROBOT: R1 [AA:BB:CC:DD:EE:FF] ---
     m = re.match(r"NEW_ROBOT:\s+(\S+)\s+\[([0-9A-Fa-f:]{17})\]", text)
@@ -294,15 +325,18 @@ def get_robot_list():
 # ---------------------------------------------------------------------------
 
 def start_swarm_poll():
-    """Start the periodic swarm list poll timer."""
+    """Start the periodic swarm list poll timer (master mode only)."""
     global swarm_poll_timer
     stop_swarm_poll()
+
+    if device_type != "master":
+        return  # No swarm polling in direct robot mode
 
     def poll():
         global swarm_poll_timer
         while serial_running:
             time.sleep(SWARM_POLL_INTERVAL)
-            if serial_running:
+            if serial_running and device_type == "master":
                 serial_write("swarm list")
 
     swarm_poll_timer = threading.Thread(target=poll, daemon=True)
@@ -313,11 +347,60 @@ def stop_swarm_poll():
     global swarm_poll_timer
     swarm_poll_timer = None  # Thread will exit on next iteration check
 
+
+def _switch_device_type(new_type):
+    """Switch between 'master' and 'robot' device modes."""
+    global device_type, robots
+    if device_type == new_type:
+        return
+    device_type = new_type
+    print(f"  🔄 Device type detected: {new_type}")
+    socketio.emit("device_type", {"type": new_type})
+
+    if new_type == "robot":
+        stop_swarm_poll()
+        # Clear any pre-populated or leftover robots from master mode
+        robots = {}
+        socketio.emit("robot_list", get_robot_list())
+    elif new_type == "master":
+        # Re-populate known robots from name_map as offline
+        robots = {}
+        for mac, display_name in name_map.items():
+            robots[mac] = {
+                "name": display_name,
+                "masterName": display_name,
+                "mac": mac,
+                "online": False,
+                "lastSeen": 0,
+            }
+        socketio.emit("robot_list", get_robot_list())
+        start_swarm_poll()
+
+
+def _register_direct_robot(mac):
+    """Auto-register a directly-connected robotarm_mcu."""
+    global robots
+    display_name = name_map.get(mac, mac)
+    robots[mac] = {
+        "name": display_name,
+        "masterName": display_name,
+        "mac": mac,
+        "online": True,
+        "lastSeen": time.time(),
+    }
+    socketio.emit("robot_list", get_robot_list())
+    print(f"  🤖 Direct robot registered: {display_name} [{mac}]")
+
+
 def connect_serial(port):
     """Open a serial connection to the given port."""
-    global ser, serial_port, serial_thread, serial_running
+    global ser, serial_port, serial_thread, serial_running, device_type, robots
 
     disconnect_serial()
+
+    # Reset device type and robot list — will be re-populated after detection
+    device_type = "master"
+    robots = {}
 
     try:
         ser = serial.Serial(port, BAUD_RATE, timeout=0.1)
@@ -327,13 +410,32 @@ def connect_serial(port):
         serial_thread.start()
 
         socketio.emit("serial_status", {"connected": True, "port": port})
+        socketio.emit("device_type", {"type": device_type})
 
-        # Request robot list from master
-        time.sleep(0.5)
-        serial_write("swarm list")
+        # Wait for banner lines to arrive and trigger auto-detection.
+        # Then request robot list from master (if it is a master).
+        def _deferred_init():
+            # Send a newline to trigger a prompt for fallback detection
+            # (if the device was already booted, banner has passed)
+            time.sleep(0.3)
+            serial_write("")
+            time.sleep(1.2)  # Allow banner/prompt to arrive and be parsed
+            if device_type == "master" and serial_running:
+                # Re-populate known robots as offline for master mode
+                for mac, display_name in name_map.items():
+                    if mac not in robots:
+                        robots[mac] = {
+                            "name": display_name,
+                            "masterName": display_name,
+                            "mac": mac,
+                            "online": False,
+                            "lastSeen": 0,
+                        }
+                socketio.emit("robot_list", get_robot_list())
+                serial_write("swarm list")
+                start_swarm_poll()
 
-        # Start periodic polling
-        start_swarm_poll()
+        threading.Thread(target=_deferred_init, daemon=True).start()
 
         return True
     except serial.SerialException as e:
@@ -344,7 +446,7 @@ def connect_serial(port):
 
 def disconnect_serial():
     """Close the current serial connection."""
-    global ser, serial_port, serial_running
+    global ser, serial_port, serial_running, robots
 
     serial_running = False
     stop_swarm_poll()
@@ -360,9 +462,8 @@ def disconnect_serial():
         ser = None
         serial_port = None
 
-    # Mark all robots as offline when serial is disconnected
-    for mac in robots:
-        robots[mac]["online"] = False
+    # Clear all robots when serial is disconnected
+    robots = {}
     socketio.emit("robot_list", get_robot_list())
 
 # ---------------------------------------------------------------------------
@@ -396,8 +497,9 @@ def api_rename():
 
     old_master_name = robot.get("masterName", robot.get("name"))
 
-    # Send rename command to master
-    serial_write(f"swarm rename {old_master_name} {new_name}")
+    # Send rename command to master (only in master mode)
+    if device_type == "master":
+        serial_write(f"swarm rename {old_master_name} {new_name}")
 
     # Update local state
     robot["name"] = new_name
@@ -442,6 +544,7 @@ def ws_connect():
     connected = ser is not None and ser.is_open
     emit("serial_status", {"connected": connected, "port": serial_port})
     emit("robot_list", get_robot_list())
+    emit("device_type", {"type": device_type})
 
 @socketio.on("send_command")
 def ws_send_command(data):
@@ -454,7 +557,10 @@ def ws_send_command(data):
     if not command:
         return
 
-    if target == "all":
+    if device_type == "robot":
+        # Direct connection: always send raw command (no @target prefix)
+        serial_write(command)
+    elif target == "all":
         serial_write(command)
     else:
         serial_write(f"@{target} {command}")
@@ -462,7 +568,8 @@ def ws_send_command(data):
 @socketio.on("request_robot_list")
 def ws_request_robot_list():
     """Client requests a fresh robot list from the master."""
-    serial_write("swarm list")
+    if device_type == "master":
+        serial_write("swarm list")
 
 # ---------------------------------------------------------------------------
 # Entry point

@@ -3,6 +3,9 @@
  *
  * Base class for all gestures and a GestureManager that registers
  * and dispatches them. Gestures feed waypoints into the MotionPlanner.
+ *
+ * When switching between gestures, the manager smoothly transitions
+ * through the home position to avoid jerky movements.
  */
 
 #ifndef MIRA_GESTURE_H
@@ -10,6 +13,7 @@
 
 #include <Arduino.h>
 #include "MotionPlanner.h"
+#include "SmoothMover.h"
 
 // ---------------------------------------------------------------------------
 // Gesture base class
@@ -52,20 +56,24 @@ class GestureManager {
 public:
     static const uint8_t MAX_GESTURES = 16;
 
-    GestureManager();
+    /** Duration of the smooth home transition between gestures (ms). */
+    static const uint32_t TRANSITION_HOME_MS = 800;
+
+    GestureManager(SmoothMover& smooth, MotionPlanner& planner);
 
     /** Register a gesture. Call during setup(). */
     void registerGesture(Gesture* g);
 
     /**
-     * Update active gesture. Call every loop() iteration.
+     * Update active gesture and transition logic.
+     * Call every loop() iteration.
      */
     void update();
 
     /** Find a gesture by name (case-sensitive). Returns nullptr if not found. */
     Gesture* find(const char* name);
 
-    /** Start a gesture by name. Stops any running gesture first. */
+    /** Start a gesture by name. If another is running, transitions via home first. */
     bool startGesture(const char* name);
 
     /** Stop whatever gesture is currently running. */
@@ -73,6 +81,9 @@ public:
 
     /** Get the currently active gesture (or nullptr). */
     Gesture* active();
+
+    /** Is the manager currently transitioning between gestures? */
+    bool isTransitioning() const;
 
     // Iteration for listing
     uint8_t count() const;
@@ -82,6 +93,12 @@ private:
     Gesture* _gestures[MAX_GESTURES];
     uint8_t  _count;
     Gesture* _active;
+
+    // Transition state
+    Gesture*       _pending;       // Gesture to start after homing
+    bool           _transitioning; // true while smooth-homing before next gesture
+    SmoothMover&   _smooth;
+    MotionPlanner& _planner;
 };
 
 #endif // MIRA_GESTURE_H

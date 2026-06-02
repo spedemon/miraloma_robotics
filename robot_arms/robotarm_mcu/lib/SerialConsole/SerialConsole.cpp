@@ -6,6 +6,11 @@
  */
 
 #include "SerialConsole.h"
+#include <WiFi.h>
+
+// Deferred sleep functions defined in main.cpp
+extern void requestSleep();
+extern void cancelSleep();
 
 SerialConsole::SerialConsole(MiraArm& arm, ArmController& ctrl,
                              MotionPlanner& planner, GestureManager& gestures,
@@ -167,6 +172,8 @@ void SerialConsole::_processCommand(const String& line) {
         _cmdTest(cmd.substring(5));
     } else if (cmd == "test") {
         _outln("Usage: test <base|shoulder|elbow|grip|wave|all>");
+    } else if (cmd == "id") {
+        _cmdId();
     } else {
         _out("Unknown command: '");
         _out(cmd);
@@ -218,15 +225,35 @@ void SerialConsole::_cmdHelp() {
     _outln("  test base|shoulder|elbow|grip|wave|all");
     _outln();
     _outln("  help                      Show this message");
+    _outln("  id                        Show device MAC address");
     _outln("──────────────────────────────────────────");
+}
+
+void SerialConsole::_cmdId() {
+    String mac = WiFi.macAddress();
+    _out("ID: ");
+    _outln(mac);
 }
 
 void SerialConsole::_cmdHome() {
     _interruptMotion();
-    _ctrl.home();
+
+    if (_ctrl.isSleeping()) {
+        // Servos sleeping — physical position unknown (user may have moved joints)
+        // Direct servo command — auto-wakes and moves at hardware speed
+        _ctrl.home();
+        // Note: deferred sleep is handled by the caller (web app idle timer)
+        // because the instant move needs time to physically complete before
+        // PWM can be safely disabled.
+    } else {
+        // Servos awake — smooth timed move to home (800 ms)
+        _smooth.startTimedMove(HOME_BASE, HOME_SHOULDER, HOME_ELBOW, HOME_GRIP, 800);
+        // Sleep after the smooth move finishes (deferred in loop())
+        requestSleep();
+    }
 
     float x, y, z;
-    _ctrl.getPosition(x, y, z);
+    _ctrl.getHomePosition(x, y, z);
 
     String msg = "OK — homed (";
     msg += String(x, 1) + ", " + String(y, 1) + ", " + String(z, 1) + ")";
@@ -301,6 +328,7 @@ void SerialConsole::_cmdTimedSet(const String& args) {
         return;
     }
 
+    cancelSleep();  // New motion cancels any pending sleep
     _interruptMotion();
 
     _smooth.startTimedMove(base, shoulder, elbow, grip, timeMs);
@@ -398,18 +426,27 @@ void SerialConsole::_cmdMove(const String& args) {
 }
 
 void SerialConsole::_cmdStop() {
+    bool hadGesture = (_gestures.active() != nullptr);
     _interruptMotion();
-    _ctrl.sleep();
-    _outln("OK — stopped (servos sleeping)");
+    if (hadGesture) {
+        // Gesture was running — auto-home smooth logic in loop() will
+        // handle the smooth return to home and subsequent sleep
+        _outln("OK — stopped (returning home)");
+    } else {
+        // No gesture — request deferred sleep (waits for any motion to finish)
+        requestSleep();
+        _outln("OK — stopped");
+    }
 }
 
 void SerialConsole::_cmdSleep() {
     _interruptMotion();
-    _ctrl.sleep();
-    _outln("OK — servos sleeping (PWM disabled)");
+    requestSleep();
+    _outln("OK — sleep requested (waiting for motion to complete)");
 }
 
 void SerialConsole::_cmdWake() {
+    cancelSleep();
     _ctrl.wake();
     _ctrl.home();
     _outln("OK — servos awake (homed)");
@@ -474,8 +511,8 @@ void SerialConsole::_cmdGesture(const String& args) {
         String msg = "OK — " + gestureName + " speed → " + String(speed, 0) + " mm/s";
         _outln(msg);
     } else if (subCmd.length() == 0) {
-        // Start the gesture
-        _planner.clearQueue();
+        // Start the gesture — GestureManager handles transition if another is active
+        cancelSleep();
         _gestures.startGesture(gestureName.c_str());
     } else {
         _outln("Usage: gesture <name> [stop|speed <v>]");
@@ -685,6 +722,7 @@ void SerialConsole::_cmdSmset(const String& args) {
         return;
     }
 
+    cancelSleep();  // New motion cancels any pending sleep
     _smooth.startMove(channel, angle);
     String msg = "OK — smooth " + jointName + " → " + String(angle, 1) + "° (" +
                  String(_smooth.getMaxSpeed(), 0) + " deg/s, " +
@@ -778,6 +816,7 @@ void SerialConsole::_cmdRawset(const String& args) {
 }
 
 void SerialConsole::_interruptMotion() {
+    cancelSleep();
     _gestures.stopAll();
     _planner.clearQueue();
     _smooth.stopAll();

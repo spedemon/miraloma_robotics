@@ -45,7 +45,7 @@ MotionPlanner planner(controller);
 SmoothMover smooth(controller);
 
 // --- Layer 3: Gestures ---
-GestureManager gestures;
+GestureManager gestures(smooth, planner);
 DanceGesture   danceGesture(controller, smooth);
 BowGesture     bowGesture(planner, controller, smooth);
 CrabGesture    crabGesture(planner, controller, smooth);
@@ -70,8 +70,23 @@ SwarmNode swarmNode;
 // --- BOOT button mode cycler ---
 BoostButton boostButton(gestures, controller);
 
-// --- Idle detection ---
+// --- Idle detection & deferred sleep ---
 bool wasGestureActive = false;
+bool sleepPending = false;  // true when sleep is requested but motion still active
+
+/**
+ * Request deferred sleep — servos will go to sleep once all motion
+ * (smooth moves, planner waypoints) has completed.
+ * Called by SerialConsole for 'sleep' and 'stop' commands.
+ */
+void requestSleep() {
+    sleepPending = true;
+}
+
+/** Cancel any pending sleep (e.g. when new motion starts). */
+void cancelSleep() {
+    sleepPending = false;
+}
 
 // ---------------------------------------------------------------------------
 // Swarm command handler — bridges ESP-NOW commands to SerialConsole
@@ -149,13 +164,22 @@ void loop() {
     swarmNode.update();   // Process swarm commands (ESP-NOW)
     boostButton.update(); // BOOT button mode cycling
 
-    // --- Auto-sleep when gesture finishes (one-shot) ---
+    // --- Auto-home when gesture finishes (but not during a transition) ---
     bool isActive = (gestures.active() != nullptr);
-    if (wasGestureActive && !isActive) {
-        // Gesture just finished — home and sleep
-        controller.home();
-        arm.sleep();
-        Serial.println("[Main] Gesture finished → idle (sleep)");
+    if (wasGestureActive && !isActive && !gestures.isTransitioning()) {
+        // Gesture just finished — smooth return to home (1 second)
+        smooth.startTimedMove(HOME_BASE, HOME_SHOULDER, HOME_ELBOW, HOME_GRIP, 1000);
+        sleepPending = true;
+        Serial.println("[Main] Gesture finished → smooth homing");
     }
     wasGestureActive = isActive;
+
+    // --- Deferred sleep: wait for all motion to complete ---
+    if (sleepPending && !smooth.isBusy() && !planner.isBusy()
+                     && gestures.active() == nullptr
+                     && !gestures.isTransitioning()) {
+        arm.sleep();
+        sleepPending = false;
+        Serial.println("[Main] Motion complete → idle (sleep)");
+    }
 }
