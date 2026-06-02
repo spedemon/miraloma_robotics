@@ -41,6 +41,8 @@ A swarm of 3-DOF robot arms built with **SG90 servo motors** and **ESP32-C3** mi
 - 🔌 USB bridge for browser ↔ swarm communication
 - 🧬 **One firmware for all robots** — each arm auto-identifies via its factory MAC address; no per-robot configuration
 
+**Four ways to use it:** ① **Standalone** — press the BOOT button to cycle gestures, no computer needed · ② **Direct USB** — plug one arm into a laptop for full web UI control · ③ **Wireless** — use a master ESP32-C3 to control an untethered arm via ESP-NOW · ④ **Swarm** — same setup with multiple arms for synchronized choreography. [Read more →](robot_arms/README.md#%EF%B8%8F-four-ways-to-use-mira)
+
 **How the swarm works:** Every robot arm runs the *exact same firmware*. On boot, each arm broadcasts its unique factory MAC address over ESP-NOW. A dedicated master MCU (connected to a laptop via USB) discovers robots automatically, assigns them names (R1, R2, …), and routes commands to individual arms or the entire swarm — all using MAC-based addressing inside broadcast packets. See the [full swarm documentation](robot_arms/README.md#-esp-now-swarm--how-it-works).
 
 **Tech:** ESP32-C3 · PCA9685 PWM · PlatformIO · Flask + SocketIO

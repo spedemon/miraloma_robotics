@@ -17,6 +17,41 @@ Mira is a **3-DOF robot arm** with 4 servos (base, shoulder, elbow, grip) driven
 
 A web interface provides real-time control with joint sliders, Cartesian (IK) positioning, a keyframe sequencer, and built-in gesture triggers — perfect for classroom demos and choreographed performances.
 
+### 🎛️ Four Ways to Use Mira
+
+Mira is designed to work at different levels of complexity, from a self-contained toy to a full wireless swarm:
+
+<table>
+<tr>
+<td width="5%" align="center">1️⃣</td>
+<td width="20%"><b>Standalone</b></td>
+<td>
+No computer needed. Power the robot arm with a USB-C cable (wall charger or battery pack) and press the <b>BOOT button</b> on the ESP32-C3 to cycle through built-in gesture modes — idle → wave → idle → bow → idle → circle → idle → crab → idle → dance — and back around. Perfect for demos and classroom showcases where you just want the arms to perform.
+</td>
+</tr>
+<tr>
+<td align="center">2️⃣</td>
+<td><b>Direct USB</b></td>
+<td>
+Connect <b>one robot arm</b> directly to a laptop via USB-C. Run the web application (<code>python3 mira.py</code>) and open the browser interface. The web app talks to the arm's serial console over USB, giving you full control — joint sliders, Cartesian positioning, keyframe sequencer, and gesture triggers. No master MCU needed; great for programming and testing a single arm.
+</td>
+</tr>
+<tr>
+<td align="center">3️⃣</td>
+<td><b>Wireless (single arm)</b></td>
+<td>
+Flash a second ESP32-C3 with the <b>master firmware</b> (<code>master_mcu</code>) and connect it to the laptop via USB. The master bridges USB serial to <b>ESP-NOW</b> wireless radio. The robot arm (running the standard <code>robotarm_mcu</code> firmware) is discovered automatically — no pairing, no configuration. The web app controls the arm wirelessly through the master, freeing the robot from any cable tether.
+</td>
+</tr>
+<tr>
+<td align="center">4️⃣</td>
+<td><b>Wireless Swarm</b></td>
+<td>
+Same setup as mode 3, but with <b>multiple robot arms</b> powered on. Every arm runs the same firmware and auto-discovers via its unique factory MAC address. The master tracks all connected arms (R1, R2, R3, …) and the web UI shows a live swarm panel. Send commands to individual robots or broadcast to all at once for synchronized choreography. See <a href="#-esp-now-swarm--how-it-works">ESP-NOW Swarm — How It Works</a> for the full technical details.
+</td>
+</tr>
+</table>
+
 ---
 
 ## 📂 Project Structure
