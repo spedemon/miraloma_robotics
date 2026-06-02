@@ -118,6 +118,87 @@ Servos are driven by a **PCA9685** 16-channel PWM driver, connected to the ESP32
 
 ---
 
+## 📡 ESP-NOW Swarm — How It Works
+
+The swarm uses **ESP-NOW**, Espressif's peer-to-peer radio protocol. ESP-NOW works at the Wi-Fi PHY layer but **does not require a Wi-Fi router or network connection** — robots communicate directly over the air on a shared Wi-Fi channel (channel 1 by default). This makes the system completely self-contained: power on the robots and they find each other automatically.
+
+### One Firmware, Many Robots
+
+A key design principle is that **every robot arm runs the exact same firmware** (`robotarm_mcu`). There is no per-robot configuration — no robot IDs, no assigned addresses, no DIP switches. Each ESP32-C3 has a unique **factory MAC address** burned in at manufacture, and the swarm protocol uses these MAC addresses to identify and target individual robots.
+
+This means deploying the swarm is as simple as:
+1. **Build the firmware once** (`pio run`)
+2. **Flash every robot arm with the same binary** (`./flash.sh`)
+3. **Power them on** — each one automatically joins the swarm
+
+### Auto-Discovery
+
+When a robot arm boots, it immediately begins broadcasting **HELLO** messages every 2 seconds via ESP-NOW. Each HELLO contains the sender's factory MAC address. The master MCU listens for these HELLOs and builds a live registry of discovered robots:
+
+```
+Boot sequence:
+  Robot arm powers on
+    → reads its own MAC address (e.g., AA:BB:CC:DD:EE:FF)
+    → initializes WiFi radio in STA mode (no connection)
+    → locks to WiFi channel 1
+    → starts ESP-NOW
+    → broadcasts HELLO every 2s: "I'm AA:BB:CC:DD:EE:FF"
+
+Master MCU receives HELLO
+    → registers robot as "R1" (auto-assigned sequential name)
+    → tracks last-seen timestamp
+    → notifies web UI via serial: "NEW_ROBOT: R1 [AA:BB:CC:DD:EE:FF]"
+```
+
+No pairing, no configuration, no handshake — robots appear in the web interface within seconds of powering on. If a robot stops sending HELLOs for 5 seconds, the master marks it as offline.
+
+### MAC-Based Addressing
+
+All ESP-NOW communication uses **broadcast** frames (`FF:FF:FF:FF:FF:FF`) at the radio level — every node hears every packet. The targeting is done **inside the payload** using a custom packet header:
+
+```
+SwarmPacket (max 250 bytes):
+  ┌──────────┬────────────┬────────────┬─────┬─────────────────────┐
+  │ msg_type │ target_mac │ sender_mac │ seq │      payload        │
+  │  1 byte  │  6 bytes   │  6 bytes   │ 1B  │  up to 236 bytes    │
+  └──────────┴────────────┴────────────┴─────┴─────────────────────┘
+```
+
+- **`target_mac`** — the intended recipient's MAC, or `FF:FF:FF:FF:FF:FF` for all robots
+- **`sender_mac`** — the sender's own factory MAC (so recipients know who sent it)
+- **`msg_type`** — `HELLO` (0x01), `CMD` (0x02), or `REPLY` (0x03)
+
+When a node receives a packet, it checks: *"Is `target_mac` my MAC or broadcast?"* If not, it ignores the packet. This gives the master the ability to address commands to a single robot or to all robots simultaneously, while using only a single broadcast peer — no need to register individual peers.
+
+### Command Flow
+
+```
+User clicks "Dance" in web UI
+  → Browser sends WebSocket event to mira.py
+  → mira.py writes "@R1 gesture dance\n" to master serial port
+  → Master MCU builds SwarmPacket:
+      msg_type=CMD, target_mac=R1's MAC, payload="gesture dance"
+  → Master broadcasts packet over ESP-NOW
+  → All robots hear it, but only R1's MAC matches
+  → R1 executes "gesture dance" through its SerialConsole engine
+  → R1 sends a REPLY packet back (also broadcast)
+  → Master reads the REPLY, prints "R1> OK" on serial
+  → mira.py forwards to browser via WebSocket
+```
+
+To command **all robots at once** (e.g., synchronized dance), the master sets `target_mac` to `FF:FF:FF:FF:FF:FF` — every robot executes the command simultaneously.
+
+### Why This Design?
+
+| Concern | Solution |
+|---------|----------|
+| **No Wi-Fi router needed** | ESP-NOW is peer-to-peer at the PHY layer |
+| **Zero per-robot configuration** | Factory MAC = unique ID, same firmware everywhere |
+| **Instant setup** | Plug in power → robot auto-discovers in 2 seconds |
+| **Classroom-friendly** | Kids flash one binary, no code changes between robots |
+| **Scalable** | Tested up to 32 robots; limited only by ESP-NOW broadcast bandwidth |
+| **Reliable** | No association/handshake; lost HELLOs simply retry every 2s |
+
 ## 🎮 Features
 
 - **Joint Control** — individual sliders for base, shoulder, elbow, grip

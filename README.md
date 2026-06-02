@@ -37,8 +37,11 @@ A swarm of 3-DOF robot arms built with **SG90 servo motors** and **ESP32-C3** mi
 - 🎯 Joint & Cartesian (IK) control with real-time sliders
 - 🎬 Keyframe sequencer for choreographed motions
 - 💃 Built-in gestures — dance, bow, wave, draw shapes
-- 📡 Wireless swarm control via **ESP-NOW** (no Wi-Fi needed)
+- 📡 Wireless swarm via **ESP-NOW** — no Wi-Fi router needed
 - 🔌 USB bridge for browser ↔ swarm communication
+- 🧬 **One firmware for all robots** — each arm auto-identifies via its factory MAC address; no per-robot configuration
+
+**How the swarm works:** Every robot arm runs the *exact same firmware*. On boot, each arm broadcasts its unique factory MAC address over ESP-NOW. A dedicated master MCU (connected to a laptop via USB) discovers robots automatically, assigns them names (R1, R2, …), and routes commands to individual arms or the entire swarm — all using MAC-based addressing inside broadcast packets. See the [full swarm documentation](robot_arms/README.md#-esp-now-swarm--how-it-works).
 
 **Tech:** ESP32-C3 · PCA9685 PWM · PlatformIO · Flask + SocketIO
 
