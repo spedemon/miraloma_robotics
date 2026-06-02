@@ -149,10 +149,10 @@
                             <div class="slider-row">
                                 <span class="slider-label grip">Grip</span>
                                 <div class="slider-track">
-                                    <input type="range" id="slider-grip" class="slider-grip" min="-60" max="30" step="1"
+                                    <input type="range" id="slider-grip" class="slider-grip" min="-30" max="45" step="1"
                                         value="0">
-                                    <div class="slider-ticks" data-min="-60" data-max="30" data-tick="30"
-                                        data-label="30"></div>
+                                    <div class="slider-ticks" data-min="-30" data-max="45" data-tick="15"
+                                        data-label="15"></div>
                                 </div>
                                 <span class="slider-value"><span id="value-grip">0</span><span
                                         class="slider-unit">°</span></span>
@@ -197,10 +197,10 @@
                             <div class="slider-row">
                                 <span class="slider-label grip">Grip</span>
                                 <div class="slider-track">
-                                    <input type="range" id="slider-grip-joint" class="slider-grip" min="-60" max="30"
+                                    <input type="range" id="slider-grip-joint" class="slider-grip" min="-30" max="45"
                                         step="1" value="0">
-                                    <div class="slider-ticks" data-min="-60" data-max="30" data-tick="30"
-                                        data-label="30"></div>
+                                    <div class="slider-ticks" data-min="-30" data-max="45" data-tick="15"
+                                        data-label="15"></div>
                                 </div>
                                 <span class="slider-value"><span id="value-grip-joint">0</span><span
                                         class="slider-unit">°</span></span>
@@ -211,7 +211,78 @@
                             <button class="btn btn-home" id="btn-home" onclick="sendHome()">
                                 <span class="icon">🏠</span> Home
                             </button>
+                            <button class="btn btn-calibrate" id="btn-calibrate"
+                                onclick="toggleCalibration()" style="display: none;">
+                                <span class="icon">🔧</span> Calibrate
+                            </button>
+                        </div>
+                    </div>
 
+                    <!-- Calibration Panel (hidden by default) -->
+                    <div class="card calibration-card" id="calibration-card" style="display: none;">
+                        <div class="card-title"><span class="icon">🔧</span> Servo Calibration</div>
+                        <p class="calibration-hint">
+                            Adjust each slider until the robot looks like it's standing in its home position.
+                            Click <strong>Apply</strong> to save the offsets permanently to the robot.
+                        </p>
+
+                        <div class="slider-group" id="calibration-sliders">
+                            <div class="slider-row">
+                                <span class="slider-label x">Base</span>
+                                <div class="slider-track">
+                                    <input type="range" id="cal-base" class="slider-x" min="-30" max="30" step="0.5"
+                                        value="0">
+                                    <div class="slider-ticks" data-min="-30" data-max="30" data-tick="5"
+                                        data-label="10"></div>
+                                </div>
+                                <span class="slider-value"><span id="value-cal-base">0.0</span><span
+                                        class="slider-unit">°</span></span>
+                            </div>
+                            <div class="slider-row">
+                                <span class="slider-label y">Shldr</span>
+                                <div class="slider-track">
+                                    <input type="range" id="cal-shoulder" class="slider-y" min="-30" max="30" step="0.5"
+                                        value="0">
+                                    <div class="slider-ticks" data-min="-30" data-max="30" data-tick="5"
+                                        data-label="10"></div>
+                                </div>
+                                <span class="slider-value"><span id="value-cal-shoulder">0.0</span><span
+                                        class="slider-unit">°</span></span>
+                            </div>
+                            <div class="slider-row">
+                                <span class="slider-label z">Elbow</span>
+                                <div class="slider-track">
+                                    <input type="range" id="cal-elbow" class="slider-z" min="-30" max="30" step="0.5"
+                                        value="0">
+                                    <div class="slider-ticks" data-min="-30" data-max="30" data-tick="5"
+                                        data-label="10"></div>
+                                </div>
+                                <span class="slider-value"><span id="value-cal-elbow">0.0</span><span
+                                        class="slider-unit">°</span></span>
+                            </div>
+                            <div class="slider-row">
+                                <span class="slider-label grip">Grip</span>
+                                <div class="slider-track">
+                                    <input type="range" id="cal-grip" class="slider-grip" min="-30" max="30" step="0.5"
+                                        value="0">
+                                    <div class="slider-ticks" data-min="-30" data-max="30" data-tick="5"
+                                        data-label="10"></div>
+                                </div>
+                                <span class="slider-value"><span id="value-cal-grip">0.0</span><span
+                                        class="slider-unit">°</span></span>
+                            </div>
+                        </div>
+
+                        <div class="calibration-actions">
+                            <button class="btn" onclick="calCancel()">
+                                Cancel
+                            </button>
+                            <button class="btn btn-danger" onclick="calReset()">
+                                <span class="icon">↺</span> Reset to Zero
+                            </button>
+                            <button class="btn btn-primary" onclick="calApply()">
+                                <span class="icon">✅</span> Apply Calibration
+                            </button>
                         </div>
                     </div>
 

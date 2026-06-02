@@ -1029,6 +1029,78 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
     transform: scale(1.01);
 }
 
+/* --- Calibrate Button --- */
+.btn-calibrate {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(234, 88, 12, 0.08));
+    border-color: rgba(245, 158, 11, 0.35);
+    color: #b45309;
+    padding: 10px 16px;
+    font-size: 12px;
+}
+
+.btn-calibrate:hover {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(234, 88, 12, 0.15));
+    border-color: rgba(245, 158, 11, 0.55);
+    transform: scale(1.01);
+}
+
+/* --- Calibration Panel --- */
+.calibration-card {
+    border: 2px solid rgba(245, 158, 11, 0.35) !important;
+    background: linear-gradient(
+        135deg,
+        rgba(255, 251, 235, 0.70),
+        rgba(254, 243, 199, 0.50)
+    ) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    position: relative;
+    overflow: hidden;
+}
+
+.calibration-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #f59e0b, #ea580c, #f59e0b);
+    border-radius: 20px 20px 0 0;
+}
+
+.calibration-card .card-title {
+    color: #92400e;
+}
+
+.calibration-hint {
+    font-size: 13px;
+    color: #78350f;
+    font-weight: 600;
+    line-height: 1.5;
+    margin: 0 0 16px 0;
+    padding: 10px 14px;
+    background: rgba(245, 158, 11, 0.08);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(245, 158, 11, 0.15);
+}
+
+.calibration-hint strong {
+    color: #b45309;
+}
+
+.calibration-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    justify-content: flex-end;
+}
+
+.calibration-actions .btn {
+    padding: 12px 20px;
+    font-weight: 700;
+}
+
 /* --- Keyframe Sequencer --- */
 .keyframe-card {
     min-height: 260px; /* Stable height whether empty or populated */

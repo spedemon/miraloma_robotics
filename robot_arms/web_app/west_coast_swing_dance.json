@@ -1,0 +1,616 @@
+{
+  "name": "West Coast Swing Dance",
+  "created": "2026-06-02T22:37:14.656840+00:00",
+  "totalDurationMs": 43195,
+  "keyframes": [
+    {
+      "base": 0.0,
+      "shoulder": 0.0,
+      "elbow": 0.0,
+      "grip": 45.0,
+      "durationMs": 1000
+    },
+    {
+      "base": 5.5,
+      "shoulder": 3.9,
+      "elbow": -2.4,
+      "grip": 0.0,
+      "durationMs": 468
+    },
+    {
+      "base": 7.0,
+      "shoulder": 5.9,
+      "elbow": 2.8,
+      "grip": 3.7,
+      "durationMs": 262
+    },
+    {
+      "base": 6.5,
+      "shoulder": 3.0,
+      "elbow": -4.5,
+      "grip": 31.5,
+      "durationMs": 248
+    },
+    {
+      "base": -9.1,
+      "shoulder": 0.0,
+      "elbow": 4.9,
+      "grip": 4.2,
+      "durationMs": 473
+    },
+    {
+      "base": -5.3,
+      "shoulder": -9.6,
+      "elbow": 8.7,
+      "grip": 5.0,
+      "durationMs": 524
+    },
+    {
+      "base": -5.3,
+      "shoulder": 2.6,
+      "elbow": 8.7,
+      "grip": 4.7,
+      "durationMs": 533
+    },
+    {
+      "base": 2.2,
+      "shoulder": 3.0,
+      "elbow": 4.5,
+      "grip": 37.3,
+      "durationMs": 472
+    },
+    {
+      "base": 8.2,
+      "shoulder": -15.0,
+      "elbow": 30.3,
+      "grip": -21.1,
+      "durationMs": 374
+    },
+    {
+      "base": 5.4,
+      "shoulder": -6.9,
+      "elbow": 35.3,
+      "grip": 6.9,
+      "durationMs": 404
+    },
+    {
+      "base": -6.6,
+      "shoulder": 11.0,
+      "elbow": 22.0,
+      "grip": 40.4,
+      "durationMs": 694
+    },
+    {
+      "base": 2.8,
+      "shoulder": -13.8,
+      "elbow": 38.5,
+      "grip": -13.9,
+      "durationMs": 525
+    },
+    {
+      "base": 63.8,
+      "shoulder": -76.5,
+      "elbow": 54.0,
+      "grip": -13.9,
+      "durationMs": 487
+    },
+    {
+      "base": 16.5,
+      "shoulder": -5.5,
+      "elbow": 38.5,
+      "grip": 45.0,
+      "durationMs": 516
+    },
+    {
+      "base": 0.0,
+      "shoulder": 0.0,
+      "elbow": 8.8,
+      "grip": 39.3,
+      "durationMs": 513
+    },
+    {
+      "base": -5.2,
+      "shoulder": 0.0,
+      "elbow": 6.3,
+      "grip": -8.3,
+      "durationMs": 532
+    },
+    {
+      "base": 3.1,
+      "shoulder": -3.5,
+      "elbow": -3.1,
+      "grip": 39.3,
+      "durationMs": 482
+    },
+    {
+      "base": 5.2,
+      "shoulder": -3.5,
+      "elbow": 3.1,
+      "grip": -3.8,
+      "durationMs": 490
+    },
+    {
+      "base": 4.4,
+      "shoulder": 4.2,
+      "elbow": 0.0,
+      "grip": 11.5,
+      "durationMs": 259
+    },
+    {
+      "base": 0.0,
+      "shoulder": 0.0,
+      "elbow": 8.8,
+      "grip": 34.5,
+      "durationMs": 245
+    },
+    {
+      "base": -7.7,
+      "shoulder": -9.9,
+      "elbow": 44.0,
+      "grip": -19.3,
+      "durationMs": 528
+    },
+    {
+      "base": -60.0,
+      "shoulder": -75.0,
+      "elbow": 67.5,
+      "grip": 14.5,
+      "durationMs": 785
+    },
+    {
+      "base": -19.9,
+      "shoulder": -30.3,
+      "elbow": 43.1,
+      "grip": -1.7,
+      "durationMs": 809
+    },
+    {
+      "base": -5.3,
+      "shoulder": -9.6,
+      "elbow": 8.7,
+      "grip": 28.3,
+      "durationMs": 479
+    },
+    {
+      "base": 3.3,
+      "shoulder": 3.9,
+      "elbow": 2.4,
+      "grip": 28.3,
+      "durationMs": 532
+    },
+    {
+      "base": 14.3,
+      "shoulder": -11.0,
+      "elbow": 36.3,
+      "grip": -24.0,
+      "durationMs": 497
+    },
+    {
+      "base": 0.0,
+      "shoulder": 5.5,
+      "elbow": 22.0,
+      "grip": 9.1,
+      "durationMs": 350
+    },
+    {
+      "base": 9.7,
+      "shoulder": -1.0,
+      "elbow": 31.7,
+      "grip": 2.6,
+      "durationMs": 363
+    },
+    {
+      "base": 2.5,
+      "shoulder": 7.8,
+      "elbow": 4.8,
+      "grip": 23.7,
+      "durationMs": 754
+    },
+    {
+      "base": -22.0,
+      "shoulder": 5.5,
+      "elbow": -11.0,
+      "grip": -19.9,
+      "durationMs": 349
+    },
+    {
+      "base": 3.9,
+      "shoulder": -8.2,
+      "elbow": 30.2,
+      "grip": 5.4,
+      "durationMs": 350
+    },
+    {
+      "base": -2.8,
+      "shoulder": 11.0,
+      "elbow": 24.8,
+      "grip": 22.7,
+      "durationMs": 780
+    },
+    {
+      "base": 0.0,
+      "shoulder": 0.0,
+      "elbow": 8.8,
+      "grip": 4.9,
+      "durationMs": 527
+    },
+    {
+      "base": 5.5,
+      "shoulder": 3.9,
+      "elbow": -2.4,
+      "grip": 9.9,
+      "durationMs": 247
+    },
+    {
+      "base": -3.1,
+      "shoulder": 3.5,
+      "elbow": 3.1,
+      "grip": 25.8,
+      "durationMs": 256
+    },
+    {
+      "base": 0.0,
+      "shoulder": -11.0,
+      "elbow": 38.5,
+      "grip": -13.4,
+      "durationMs": 465
+    },
+    {
+      "base": 0.0,
+      "shoulder": -78.8,
+      "elbow": -3.8,
+      "grip": -13.4,
+      "durationMs": 496
+    },
+    {
+      "base": 0.0,
+      "shoulder": -78.8,
+      "elbow": 74.2,
+      "grip": 10.2,
+      "durationMs": 519
+    },
+    {
+      "base": -63.8,
+      "shoulder": -76.5,
+      "elbow": 54.0,
+      "grip": 45.0,
+      "durationMs": 470
+    },
+    {
+      "base": 0.0,
+      "shoulder": 0.0,
+      "elbow": 44.0,
+      "grip": -2.5,
+      "durationMs": 487
+    },
+    {
+      "base": -2.8,
+      "shoulder": 16.5,
+      "elbow": 16.5,
+      "grip": -10.7,
+      "durationMs": 503
+    },
+    {
+      "base": -7.0,
+      "shoulder": 5.9,
+      "elbow": 2.8,
+      "grip": 31.7,
+      "durationMs": 464
+    },
+    {
+      "base": 0.0,
+      "shoulder": 0.0,
+      "elbow": 6.3,
+      "grip": 31.7,
+      "durationMs": 498
+    },
+    {
+      "base": 14.3,
+      "shoulder": 0.0,
+      "elbow": 36.3,
+      "grip": -20.5,
+      "durationMs": 386
+    },
+    {
+      "base": 15.8,
+      "shoulder": -2.8,
+      "elbow": 26.2,
+      "grip": 14.3,
+      "durationMs": 358
+    },
+    {
+      "base": -2.8,
+      "shoulder": 11.0,
+      "elbow": 24.8,
+      "grip": 37.4,
+      "durationMs": 733
+    },
+    {
+      "base": -33.0,
+      "shoulder": 0.0,
+      "elbow": 37.4,
+      "grip": -23.9,
+      "durationMs": 530
+    },
+    {
+      "base": -63.8,
+      "shoulder": -78.8,
+      "elbow": 74.2,
+      "grip": -23.9,
+      "durationMs": 481
+    },
+    {
+      "base": -9.9,
+      "shoulder": -8.2,
+      "elbow": 41.2,
+      "grip": 45.0,
+      "durationMs": 530
+    },
+    {
+      "base": 0.0,
+      "shoulder": 0.0,
+      "elbow": 8.8,
+      "grip": 40.4,
+      "durationMs": 484
+    },
+    {
+      "base": -9.1,
+      "shoulder": -7.0,
+      "elbow": 4.9,
+      "grip": -3.8,
+      "durationMs": 500
+    },
+    {
+      "base": 1.1,
+      "shoulder": 1.6,
+      "elbow": 5.8,
+      "grip": 40.4,
+      "durationMs": 471
+    },
+    {
+      "base": 4.1,
+      "shoulder": 7.8,
+      "elbow": -4.8,
+      "grip": -2.7,
+      "durationMs": 522
+    },
+    {
+      "base": 2.5,
+      "shoulder": 7.8,
+      "elbow": 4.8,
+      "grip": 10.5,
+      "durationMs": 480
+    },
+    {
+      "base": 4.4,
+      "shoulder": 4.2,
+      "elbow": 0.0,
+      "grip": 1.8,
+      "durationMs": 520
+    },
+    {
+      "base": 2.2,
+      "shoulder": 3.0,
+      "elbow": 4.5,
+      "grip": 39.2,
+      "durationMs": 523
+    },
+    {
+      "base": -8.2,
+      "shoulder": -5.5,
+      "elbow": 38.5,
+      "grip": -12.4,
+      "durationMs": 529
+    },
+    {
+      "base": -60.0,
+      "shoulder": -75.0,
+      "elbow": 67.5,
+      "grip": 8.6,
+      "durationMs": 804
+    },
+    {
+      "base": 3.9,
+      "shoulder": -8.2,
+      "elbow": 30.2,
+      "grip": 4.9,
+      "durationMs": 704
+    },
+    {
+      "base": -5.3,
+      "shoulder": 2.6,
+      "elbow": 8.7,
+      "grip": 34.4,
+      "durationMs": 496
+    },
+    {
+      "base": 3.3,
+      "shoulder": 3.9,
+      "elbow": 2.4,
+      "grip": 34.4,
+      "durationMs": 500
+    },
+    {
+      "base": 0.0,
+      "shoulder": -5.5,
+      "elbow": 38.5,
+      "grip": -14.4,
+      "durationMs": 529
+    },
+    {
+      "base": 24.4,
+      "shoulder": -2.5,
+      "elbow": 9.1,
+      "grip": 5.3,
+      "durationMs": 400
+    },
+    {
+      "base": 16.5,
+      "shoulder": -5.5,
+      "elbow": 38.5,
+      "grip": 8.8,
+      "durationMs": 357
+    },
+    {
+      "base": 0.0,
+      "shoulder": 0.0,
+      "elbow": 8.8,
+      "grip": 28.2,
+      "durationMs": 803
+    },
+    {
+      "base": -5.2,
+      "shoulder": 0.0,
+      "elbow": 6.3,
+      "grip": 3.3,
+      "durationMs": 500
+    },
+    {
+      "base": -5.3,
+      "shoulder": -9.6,
+      "elbow": 8.7,
+      "grip": 12.8,
+      "durationMs": 241
+    },
+    {
+      "base": 0.0,
+      "shoulder": 0.0,
+      "elbow": 6.3,
+      "grip": 23.6,
+      "durationMs": 254
+    },
+    {
+      "base": 14.3,
+      "shoulder": -11.0,
+      "elbow": 36.3,
+      "grip": -23.6,
+      "durationMs": 461
+    },
+    {
+      "base": -28.5,
+      "shoulder": -50.4,
+      "elbow": 52.1,
+      "grip": -23.6,
+      "durationMs": 492
+    },
+    {
+      "base": -60.0,
+      "shoulder": -75.0,
+      "elbow": 67.5,
+      "grip": 13.5,
+      "durationMs": 516
+    },
+    {
+      "base": 60.0,
+      "shoulder": -75.0,
+      "elbow": 67.5,
+      "grip": 45.0,
+      "durationMs": 667
+    },
+    {
+      "base": 8.2,
+      "shoulder": -15.0,
+      "elbow": 30.3,
+      "grip": -4.7,
+      "durationMs": 470
+    },
+    {
+      "base": 0.0,
+      "shoulder": 11.0,
+      "elbow": 19.2,
+      "grip": -7.6,
+      "durationMs": 519
+    },
+    {
+      "base": 3.3,
+      "shoulder": 3.9,
+      "elbow": 2.4,
+      "grip": 22.7,
+      "durationMs": 493
+    },
+    {
+      "base": 6.5,
+      "shoulder": 3.0,
+      "elbow": -4.5,
+      "grip": 22.7,
+      "durationMs": 492
+    },
+    {
+      "base": -6.6,
+      "shoulder": 11.0,
+      "elbow": 22.0,
+      "grip": -17.3,
+      "durationMs": 352
+    },
+    {
+      "base": 0.8,
+      "shoulder": 6.0,
+      "elbow": 20.8,
+      "grip": 14.9,
+      "durationMs": 380
+    },
+    {
+      "base": 0.0,
+      "shoulder": 22.0,
+      "elbow": 8.2,
+      "grip": 25.9,
+      "durationMs": 745
+    },
+    {
+      "base": 4.1,
+      "shoulder": 7.8,
+      "elbow": -4.8,
+      "grip": -3.8,
+      "durationMs": 517
+    },
+    {
+      "base": 5.6,
+      "shoulder": 3.2,
+      "elbow": -11.6,
+      "grip": 11.8,
+      "durationMs": 482
+    },
+    {
+      "base": 4.4,
+      "shoulder": 4.2,
+      "elbow": 0.0,
+      "grip": 0.5,
+      "durationMs": 464
+    },
+    {
+      "base": 5.2,
+      "shoulder": -3.5,
+      "elbow": 3.1,
+      "grip": 31.8,
+      "durationMs": 514
+    },
+    {
+      "base": 1.0,
+      "shoulder": 0.0,
+      "elbow": -6.3,
+      "grip": 0.7,
+      "durationMs": 503
+    },
+    {
+      "base": -3.1,
+      "shoulder": 3.5,
+      "elbow": 3.1,
+      "grip": 3.8,
+      "durationMs": 243
+    },
+    {
+      "base": 0.0,
+      "shoulder": 0.0,
+      "elbow": 6.3,
+      "grip": 37.5,
+      "durationMs": 241
+    },
+    {
+      "base": 0.0,
+      "shoulder": 0.0,
+      "elbow": 0.0,
+      "grip": 45.0,
+      "durationMs": 1000
+    }
+  ]
+}

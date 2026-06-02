@@ -130,6 +130,7 @@ let openMenuMac = null;     // MAC of robot whose context menu is open
 let deviceType = 'master';  // 'master' or 'robot' — set by server
 let renamingMac = null;     // MAC of robot currently being renamed (blocks re-render)
 let pendingRender = false;  // true if a render was skipped during rename
+let calibrationOpen = false; // true when calibration panel is visible
 
 // Control mode & motion type
 let controlMode = 'joint';  // 'cartesian' or 'joint'
@@ -376,6 +377,7 @@ function selectRobot(robot) {
     document.getElementById("all-robots-btn").classList.remove("active");
     renderRobotList();
     updateTargetBanner();
+    updateCalibrateButton();
 }
 
 function selectAllRobots() {
@@ -384,6 +386,8 @@ function selectAllRobots() {
     document.getElementById("all-robots-btn").classList.add("active");
     renderRobotList();
     updateTargetBanner();
+    updateCalibrateButton();
+    closeCalibration();  // Close calibration panel when deselecting
 }
 
 function updateTargetBanner() {
@@ -522,20 +526,27 @@ function sendCommand(cmd) {
     });
 }
 
-function sendHome() {
-    sendCommand("home");
-    // Reset joint sliders to home (all 0°)
+/** Reset all UI sliders to the home position (grip closed at 45°). */
+function resetSlidersToHome() {
+    const HOME_GRIP = 45;  // matches GRIP_CLOSED_ANGLE in config.h
+    // Joint sliders
     document.getElementById("slider-base").value = 0;
     document.getElementById("slider-shoulder").value = 0;
     document.getElementById("slider-elbow").value = 0;
-    document.getElementById("slider-grip-joint").value = 0;
-    document.getElementById("slider-grip").value = 0;
-    // Compute Cartesian home position from FK
+    document.getElementById("slider-grip-joint").value = HOME_GRIP;
+    document.getElementById("slider-grip").value = HOME_GRIP;
+    // Cartesian sliders via FK
     const homePos = fk(0, 0, 0);
     document.getElementById("slider-x").value = homePos.x.toFixed(1);
     document.getElementById("slider-y").value = homePos.y.toFixed(1);
     document.getElementById("slider-z").value = homePos.z.toFixed(1);
     updateSliderValues();
+}
+
+function sendHome() {
+    sendCommand("home");
+    // Reset sliders to home position
+    resetSlidersToHome();
     // Auto-sleep after idle period (gives servos time to reach home)
     resetSliderIdleTimer();
 }
@@ -552,6 +563,8 @@ function sendWhere() {
 function sendStop() {
     sendCommand("stop");
     setActiveGesture(null);
+    // MCU smooth-homes on stop — keep sliders in sync
+    resetSlidersToHome();
 }
 
 function sendCartesianMove() {
@@ -906,6 +919,140 @@ function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
+}
+
+// ---------------------------------------------------------------------------
+// Servo Calibration
+// ---------------------------------------------------------------------------
+
+let calThrottleTimers = {};  // per-joint throttle timers for calibration sliders
+
+/** Show/hide the Calibrate button based on whether a single robot is selected. */
+function updateCalibrateButton() {
+    const btn = document.getElementById("btn-calibrate");
+    if (btn) {
+        btn.style.display = selectedTarget ? "" : "none";
+    }
+}
+
+/** Toggle calibration panel — open if closed, cancel if open. */
+function toggleCalibration() {
+    if (calibrationOpen) {
+        calCancel();
+    } else {
+        openCalibration();
+    }
+}
+
+/** Open the calibration panel. Wakes and homes the robot first. */
+function openCalibration() {
+    calibrationOpen = true;
+    document.getElementById("calibration-card").style.display = "";
+
+    // Reset calibration sliders to 0
+    ["cal-base", "cal-shoulder", "cal-elbow", "cal-grip"].forEach(id => {
+        document.getElementById(id).value = 0;
+    });
+    updateCalValues();
+
+    // Re-init tick marks for calibration sliders (they're dynamically shown)
+    initSliderTicks();
+
+    // Wake the robot and home it so the user starts from a known position
+    sendCommand("wake");
+    sendCommand("home");
+
+    addConsoleLine("Calibration mode: adjust sliders until robot is in home position", "system");
+}
+
+/** Apply calibration: send cal_set command with current slider values. */
+function calApply() {
+    const base = parseFloat(document.getElementById("cal-base").value);
+    const shoulder = parseFloat(document.getElementById("cal-shoulder").value);
+    const elbow = parseFloat(document.getElementById("cal-elbow").value);
+    const grip = parseFloat(document.getElementById("cal-grip").value);
+
+    sendCommand(`cal_set ${base} ${shoulder} ${elbow} ${grip}`);
+    closeCalibration();
+
+    // Home with new offsets applied
+    setTimeout(() => {
+        sendCommand("home");
+        resetSlidersToHome();
+        resetSliderIdleTimer();
+    }, 200);
+}
+
+/** Reset calibration to zero on the robot. */
+function calReset() {
+    sendCommand("cal_reset");
+
+    // Reset sliders to zero
+    ["cal-base", "cal-shoulder", "cal-elbow", "cal-grip"].forEach(id => {
+        document.getElementById(id).value = 0;
+    });
+    updateCalValues();
+
+    // Re-home with cleared offsets
+    setTimeout(() => sendCommand("home"), 100);
+}
+
+/** Cancel calibration without saving. */
+function calCancel() {
+    closeCalibration();
+    // Return to home (offsets unchanged from before calibration)
+    sendCommand("home");
+    resetSlidersToHome();
+    resetSliderIdleTimer();
+}
+
+/** Close the calibration panel. */
+function closeCalibration() {
+    calibrationOpen = false;
+    document.getElementById("calibration-card").style.display = "none";
+}
+
+/** Update the displayed values next to each calibration slider. */
+function updateCalValues() {
+    document.getElementById("value-cal-base").textContent =
+        parseFloat(document.getElementById("cal-base").value).toFixed(1);
+    document.getElementById("value-cal-shoulder").textContent =
+        parseFloat(document.getElementById("cal-shoulder").value).toFixed(1);
+    document.getElementById("value-cal-elbow").textContent =
+        parseFloat(document.getElementById("cal-elbow").value).toFixed(1);
+    document.getElementById("value-cal-grip").textContent =
+        parseFloat(document.getElementById("cal-grip").value).toFixed(1);
+}
+
+/** Wire up calibration slider input events. */
+function initCalibrationSliders() {
+    // Home positions — slider value is an offset from these
+    const CAL_HOME = { base: 0, shoulder: 0, elbow: 0, grip: 45 };  // matches config.h
+
+    const joints = [
+        { id: "cal-base", joint: "base" },
+        { id: "cal-shoulder", joint: "shoulder" },
+        { id: "cal-elbow", joint: "elbow" },
+        { id: "cal-grip", joint: "grip" },
+    ];
+
+    joints.forEach(({ id, joint }) => {
+        document.getElementById(id).addEventListener("input", () => {
+            updateCalValues();
+
+            // Throttled instant servo move so the user can see the effect
+            if (calThrottleTimers[joint]) clearTimeout(calThrottleTimers[joint]);
+            calThrottleTimers[joint] = setTimeout(() => {
+                const offset = parseFloat(document.getElementById(id).value);
+                // Send absolute angle = home + offset
+                const angle = CAL_HOME[joint] + offset;
+                sendCommand(`set ${joint} ${angle}`);
+                calThrottleTimers[joint] = null;
+            }, SLIDER_THROTTLE_MS);
+
+            resetSliderIdleTimer();
+        });
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -1757,6 +1904,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initSliderTicks();
     initSliders();
     initGestures();
+    initCalibrationSliders();
     updateSliderValues();
     kfRender();
     initKfZoom();
