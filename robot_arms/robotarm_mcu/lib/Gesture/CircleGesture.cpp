@@ -31,6 +31,13 @@ void CircleGesture::start() {
     _planner.clearQueue();
     _angleRad = 0.0f;
     _lastTickMs = millis();
+
+    // Smooth lead-in: travel to the starting point of the circle
+    float startX = CX + CR;  // cos(0) = 1
+    float startZ = CZ;       // sin(0) = 0
+    _planner.enqueue(startX, 0.0f, startZ, _ctrl.getGrip(), _speed);
+    _leadIn = true;
+
     Serial.println("[Gesture] Circle started");
 }
 
@@ -42,6 +49,15 @@ void CircleGesture::stop() {
 
 void CircleGesture::update() {
     if (!_running) return;
+
+    // Wait for lead-in to finish before starting parametric loop
+    if (_leadIn) {
+        if (_planner.isIdle()) {
+            _leadIn = false;
+            _lastTickMs = millis();
+        }
+        return;
+    }
 
     uint32_t now = millis();
     uint32_t dt = now - _lastTickMs;

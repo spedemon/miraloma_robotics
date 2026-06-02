@@ -1,77 +1,114 @@
 /**
- * BreakGesture.cpp — Break dance gesture
+ * BreakGesture.cpp — 50-keyframe data-driven break dance
  *
- * A 20-keyframe loop that simulates breakdance moves:
- *   - Toprock: snappy side-to-side groove
- *   - Drop & Sweep: explosive drop to low, wide floor sweeps
- *   - Freeze: dramatic back-lean pose with long hold
- *   - Windmill: continuous circular power sweep
- *   - Mirror Freeze: opposite-side freeze
+ * A looping sequence of explosive, dramatic joint-space moves.
+ * Patterns inspired by the Animation Maker export (last 12 fast keyframes):
+ *   - Toprock: snappy standing groove
+ *   - Power drops: explosive drops to floor
+ *   - Freezes: dramatic held poses
+ *   - Windmills: circular full-range sweeps
+ *   - Power moves: rapid direction reversals
+ *   - Grand finale: maximum range explosions
  *
- * Loops until stop(), then returns home.
+ * Uses extreme joint angles and fast/varied timing (400–1000ms)
+ * for an aggressive, breakdance feel.
  *
- * Workspace reference (L1=40, L2=86, d0=22):
- *   Home:  X≈0, Y=0, Z=148       Max reach ≈ 126 mm
- *   Back-lean (freeze):  X=-5, Z=138-140  →  negative shoulder servo
- *   Floor sweep:         X=95, Z=28       →  large positive elbow servo
+ * Joint limits: base ±90°, shoulder -109..+104°, elbow ±100°, grip ±90°
  */
 
 #include "BreakGesture.h"
 
-// Break keyframe: {X, Y, Z, speed_multiplier}
+// Joint-space keyframe: {base, shoulder, elbow, grip, durationMs}
 struct BreakKey {
-    float x, y, z, speedMul;
+    float    base;
+    float    shoulder;
+    float    elbow;
+    float    grip;
+    uint16_t durationMs;
 };
 
-static const BreakKey BREAK_KEYS[] = {
-    // --- Section 1: Toprock (standing groove) ---
-    {  40.0f, -45.0f,  95.0f, 1.4f },  //  0: SNAP right
-    {  40.0f, -45.0f,  95.0f, 0.1f },  //  1: hold beat
-    {  40.0f,  45.0f,  95.0f, 1.4f },  //  2: SNAP left
-    {  40.0f,  45.0f,  95.0f, 0.1f },  //  3: hold beat
+// 50 keyframes — explosive, dramatic break dance loop
+static const BreakKey BREAK_KEYS[] PROGMEM = {
+    // === Section 1: Toprock (snappy standing groove, 8 keyframes) ===
+    {   0.0f,    0.0f,    0.0f,   0.0f,  800 },  //  0: start from home
+    {  79.0f,    0.0f,    0.0f,   0.0f,  700 },  //  1: whip right
+    {  79.0f,    0.0f,  -98.0f,   0.0f,  600 },  //  2: arm snap back
+    { -79.0f,    0.0f,  -98.0f,   0.0f,  600 },  //  3: cross to left
+    { -79.0f,    0.0f,   50.0f,   0.0f,  700 },  //  4: arm forward
+    {   0.0f,  -20.0f,   70.0f,   0.0f,  800 },  //  5: center recover
+    {  40.0f,   25.0f,  -40.0f,   0.0f,  600 },  //  6: right punch
+    { -40.0f,   25.0f,  -40.0f,   0.0f,  600 },  //  7: left punch
 
-    // --- Section 2: Drop & Floor Sweep ---
-    {  80.0f,   0.0f,  35.0f, 1.6f },  //  4: explosive drop
-    {  95.0f, -55.0f,  28.0f, 1.2f },  //  5: low sweep right
-    {  95.0f,  55.0f,  28.0f, 1.0f },  //  6: low sweep left (wide arc)
-    {  95.0f, -55.0f,  28.0f, 1.2f },  //  7: low sweep back right
+    // === Section 2: Power Drop & Floor Sweep (8 keyframes) ===
+    {   0.0f,   90.0f,  -90.0f,   0.0f,  500 },  //  8: explosive drop
+    {  60.0f,   85.0f,  -80.0f,   0.0f,  700 },  //  9: floor sweep right
+    { -60.0f,   85.0f,  -80.0f,   0.0f,  800 },  // 10: floor sweep left (wide arc)
+    {  70.0f,   80.0f,  -85.0f,   0.0f,  700 },  // 11: sweep back right
+    { -70.0f,   80.0f,  -85.0f,   0.0f,  700 },  // 12: sweep back left
+    {   0.0f,   95.0f,  -95.0f,   0.0f,  500 },  // 13: center slam
+    {   0.0f,   50.0f,  -50.0f,   0.0f,  600 },  // 14: partial rise
+    {   0.0f,    0.0f,    0.0f,   0.0f,  700 },  // 15: full stand
 
-    // --- Section 3: Freeze ---
-    {  -5.0f,  35.0f, 140.0f, 1.6f },  //  8: SNAP to freeze pose
-    {  -5.0f,  35.0f, 140.0f, 0.05f},  //  9: HOLD freeze
-    {  15.0f,   0.0f, 145.0f, 1.0f },  // 10: release to center tall
+    // === Section 3: Freeze #1 — Back Lean (6 keyframes) ===
+    {  80.0f, -100.0f,   90.0f,  20.0f,  500 },  // 16: SNAP to freeze right
+    {  80.0f, -100.0f,   90.0f,  20.0f,  900 },  // 17: HOLD freeze
+    {   0.0f,  -50.0f,   45.0f,   0.0f,  600 },  // 18: release
+    { -80.0f, -100.0f,   90.0f,  20.0f,  500 },  // 19: SNAP to freeze left
+    { -80.0f, -100.0f,   90.0f,  20.0f,  900 },  // 20: HOLD freeze
+    {   0.0f,    0.0f,    0.0f,   0.0f,  600 },  // 21: release to home
 
-    // --- Section 4: Windmill (circular power sweep) ---
-    {  30.0f, -55.0f, 120.0f, 1.4f },  // 11: sweep up-right
-    {  90.0f, -20.0f,  35.0f, 1.3f },  // 12: sweep forward-low
-    {  60.0f,  50.0f,  80.0f, 1.3f },  // 13: sweep left-mid
-    {  20.0f,  40.0f, 135.0f, 1.3f },  // 14: sweep up-left
-    {  10.0f,   0.0f, 145.0f, 1.3f },  // 15: sweep back-center-tall
-    {  70.0f, -40.0f,  50.0f, 1.4f },  // 16: sweep down-right
+    // === Section 4: Windmill (circular power sweep, 10 keyframes) ===
+    {  85.0f,  100.0f,  -98.0f,   0.0f,  600 },  // 22: full reach right-forward
+    { -85.0f, -105.0f,   99.0f,   0.0f,  700 },  // 23: full reach left-back
+    {  85.0f,  100.0f,  -98.0f,   0.0f,  600 },  // 24: reverse right
+    {  85.0f,    0.0f,  -93.0f,   0.0f,  500 },  // 25: horizontal right
+    { -88.0f,    0.0f,  -93.0f,   0.0f,  500 },  // 26: whip to left
+    {  88.0f,    0.0f,  -93.0f,   0.0f,  500 },  // 27: whip back right
+    { -85.0f,   -3.0f,   -1.0f,   0.0f,  450 },  // 28: left neutral snap
+    {  85.0f,   -3.0f,   -1.0f,   0.0f,  450 },  // 29: right neutral snap
+    {   0.0f,  -50.0f,   80.0f,   0.0f,  600 },  // 30: back lean center
+    {   0.0f,    0.0f,    0.0f,   0.0f,  700 },  // 31: home reset
 
-    // --- Section 5: Mirror Freeze ---
-    {  -5.0f, -40.0f, 138.0f, 1.6f },  // 17: SNAP to mirror freeze
-    {  -5.0f, -40.0f, 138.0f, 0.05f},  // 18: HOLD freeze
-    {  15.0f,   0.0f, 145.0f, 1.0f },  // 19: release to center tall
+    // === Section 5: Power Moves (rapid reversals, 10 keyframes) ===
+    {  90.0f, -100.0f,   89.0f,   0.0f,  500 },  // 32: extreme right-back
+    {  90.0f,   88.0f,  -91.0f,   0.0f,  500 },  // 33: snap forward
+    {  90.0f,   88.0f,   31.0f,   0.0f,  600 },  // 34: elbow fold
+    { -90.0f,  -99.0f,  -25.0f,   0.0f,  500 },  // 35: cross to left extreme
+    { -45.0f,  -99.0f,  -25.0f,   0.0f,  600 },  // 36: partial right shift
+    {  45.0f,   80.0f,  -70.0f,  15.0f,  500 },  // 37: power reach right
+    { -45.0f,   80.0f,  -70.0f,  15.0f,  500 },  // 38: power reach left
+    {   0.0f, -105.0f,   95.0f,  25.0f,  600 },  // 39: max back lean + grip
+    {   0.0f,  100.0f,  -98.0f,   0.0f,  500 },  // 40: max forward slam
+    {   0.0f,    0.0f,    0.0f,   0.0f,  700 },  // 41: home reset
+
+    // === Section 6: Grand Finale (explosive combos, 8 keyframes) ===
+    {  85.0f, -102.0f,   72.0f,  20.0f,  500 },  // 42: dramatic lean right
+    { -85.0f, -102.0f,   72.0f,  20.0f,  500 },  // 43: mirror lean left
+    {   0.0f,  100.0f,  -98.0f,   0.0f,  450 },  // 44: forward explosion
+    {   0.0f, -105.0f,   99.0f,   0.0f,  450 },  // 45: backward explosion
+    {  90.0f,    0.0f,  -95.0f,   0.0f,  400 },  // 46: right whip
+    { -90.0f,    0.0f,  -95.0f,   0.0f,  400 },  // 47: left whip
+    {   0.0f, -105.0f,   -5.0f,  20.0f,  600 },  // 48: back lean arms tight
+    {   0.0f,    0.0f,    0.0f,   0.0f,  800 },  // 49: home (loop reset)
 };
 static const int BREAK_KEY_COUNT = sizeof(BREAK_KEYS) / sizeof(BREAK_KEYS[0]);
 
-BreakGesture::BreakGesture(MotionPlanner& planner, ArmController& ctrl)
-    : _planner(planner), _ctrl(ctrl),
-      _running(false), _speed(80.0f), _phase(0) {
+BreakGesture::BreakGesture(ArmController& ctrl, SmoothMover& smooth)
+    : _ctrl(ctrl), _smooth(smooth),
+      _running(false), _timeScale(1.0f), _phase(0) {
 }
 
 void BreakGesture::start() {
     _running = true;
     _phase = 0;
-    _planner.clearQueue();
-    _enqueueNextPhase();
+    _smooth.stopAll();
+    _enqueueNextKeyframe();
     Serial.println("[Gesture] Break started");
 }
 
 void BreakGesture::stop() {
     _running = false;
-    _planner.clearQueue();
+    _smooth.stopAll();
     _ctrl.home();
     Serial.println("[Gesture] Break stopped");
 }
@@ -79,8 +116,9 @@ void BreakGesture::stop() {
 void BreakGesture::update() {
     if (!_running) return;
 
-    if (_planner.isIdle()) {
-        _enqueueNextPhase();
+    // When the SmoothMover finishes the current keyframe, advance
+    if (!_smooth.isBusy()) {
+        _enqueueNextKeyframe();
     }
 }
 
@@ -89,16 +127,22 @@ bool BreakGesture::isRunning() {
 }
 
 void BreakGesture::setSpeed(float speed) {
-    _speed = speed;
+    // Convert speed (mm/s conceptually) to a time-scale:
+    //   speed=80 → scale=1.0 (default)
+    //   speed=160 → scale=2.0 (twice as fast)
+    //   speed=40 → scale=0.5 (half speed)
+    if (speed > 0.0f) {
+        _timeScale = speed / 80.0f;
+    }
 }
 
-void BreakGesture::_enqueueNextPhase() {
-    float grip = _ctrl.getGrip();
+void BreakGesture::_enqueueNextKeyframe() {
+    const BreakKey& k = BREAK_KEYS[_phase % BREAK_KEY_COUNT];
 
-    // Batch-enqueue 4 keyframes at a time for continuous flow.
-    for (int i = 0; i < 4; i++) {
-        const BreakKey& k = BREAK_KEYS[_phase % BREAK_KEY_COUNT];
-        _planner.enqueue(k.x, k.y, k.z, grip, _speed * k.speedMul);
-        _phase++;
-    }
+    // Scale duration by time factor (faster timeScale = shorter duration)
+    uint32_t duration = (uint32_t)(k.durationMs / _timeScale);
+    if (duration < 50) duration = 50;  // Minimum duration guard
+
+    _smooth.startTimedMove(k.base, k.shoulder, k.elbow, k.grip, duration);
+    _phase++;
 }

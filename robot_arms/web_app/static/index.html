@@ -5,13 +5,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Control panel for the Mira robot arm swarm — manage 30 robots via ESP-NOW">
-    <title>Mira Swarm</title>
+    <title>Mira Robot Squad!</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
     <link rel="icon"
         href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🤖</text></svg>">
 </head>
 
 <body>
+    <!-- Decorative floating emoji (CSS animated) -->
+    <div class="bg-deco" aria-hidden="true">
+        <span class="deco deco-1">⭐</span>
+        <span class="deco deco-2">🌈</span>
+        <span class="deco deco-3">✨</span>
+        <span class="deco deco-4">🚀</span>
+        <span class="deco deco-5">💫</span>
+        <span class="deco deco-6">🎉</span>
+    </div>
+
     <div class="app" id="app">
 
         <!-- Header -->
@@ -20,8 +33,8 @@
                 <div class="header-logo">
                     <span>🤖</span>
                     <div>
-                        <div class="header-title">Mira Swarm - Miraloma Elementary</div>
-                        <div class="header-subtitle">ESP-NOW Robot Arm Swarm</div>
+                        <div class="header-title">Mira Robot Squad!</div>
+                        <div class="header-subtitle">Control your robot arms!</div>
                     </div>
                 </div>
             </div>
@@ -47,7 +60,7 @@
             <!-- Sidebar: Robot List -->
             <aside class="sidebar">
                 <div class="sidebar-header">
-                    <div class="sidebar-title">Swarm</div>
+                    <div class="sidebar-title">🤖 My Robots</div>
                     <button class="all-robots-btn active" id="all-robots-btn" onclick="selectAllRobots()">
                         <span class="icon">📡</span>
                         <span>All Robots</span>
@@ -68,38 +81,38 @@
 
                 <!-- Target Banner -->
                 <div class="target-banner">
-                    <span class="target-label">Controlling:</span>
+                    <span class="target-label">Talking to:</span>
                     <span class="target-name all" id="target-name">All Robots</span>
-                    <span class="target-badge all" id="target-badge">BROADCAST</span>
+                    <span class="target-badge all" id="target-badge">ALL ROBOTS! 📢</span>
                 </div>
 
-                <!-- Control Panel -->
-                <div class="control-panel">
+                <!-- Scrollable Control Panel — contains ALL cards now -->
+                <div class="control-panel" id="control-panel">
 
                     <!-- Position / Joint Sliders -->
                     <div class="card">
-                        <div class="card-title"><span class="icon">🎯</span> Control</div>
+                        <div class="card-title"><span class="icon">🎮</span> Move the Arm!</div>
 
                         <!-- Mode & Motion toggle selectors -->
                         <div class="toggle-row">
                             <div class="toggle-group">
                                 <span class="toggle-group-label">Mode</span>
-                                <button class="toggle-btn active" id="mode-cartesian"
-                                    onclick="setControlMode('cartesian')">Cartesian</button>
-                                <button class="toggle-btn" id="mode-joint"
-                                    onclick="setControlMode('joint')">Joint</button>
+                                <button class="toggle-btn active" id="mode-joint"
+                                    onclick="setControlMode('joint')">Joint Mode</button>
+                                <button class="toggle-btn" id="mode-cartesian"
+                                    onclick="setControlMode('cartesian')">XYZ Mode</button>
                             </div>
                             <div class="toggle-group">
                                 <span class="toggle-group-label">Motion</span>
                                 <button class="toggle-btn active" id="motion-smooth"
-                                    onclick="setMotionType('smooth')">Smooth</button>
+                                    onclick="setMotionType('smooth')">Glide 🌊</button>
                                 <button class="toggle-btn" id="motion-instant"
-                                    onclick="setMotionType('instant')">Instant</button>
+                                    onclick="setMotionType('instant')">Snap ⚡</button>
                             </div>
                         </div>
 
                         <!-- Cartesian sliders (X, Y, Z, Grip) -->
-                        <div class="slider-group" id="sliders-cartesian">
+                        <div class="slider-group" id="sliders-cartesian" style="display: none;">
                             <div class="slider-row">
                                 <span class="slider-label x">X</span>
                                 <div class="slider-track">
@@ -147,7 +160,7 @@
                         </div>
 
                         <!-- Joint sliders (Base, Shoulder, Elbow, Grip) — hidden by default -->
-                        <div class="slider-group" id="sliders-joint" style="display: none;">
+                        <div class="slider-group" id="sliders-joint">
                             <div class="slider-row">
                                 <span class="slider-label x">Base</span>
                                 <div class="slider-track">
@@ -198,121 +211,122 @@
                             <button class="btn btn-home" id="btn-home" onclick="sendHome()">
                                 <span class="icon">🏠</span> Home
                             </button>
-                            <button class="btn" id="btn-where" onclick="sendWhere()">
-                                <span class="icon">📍</span> Where
-                            </button>
+
                         </div>
                     </div>
 
                     <!-- Gestures -->
                     <div class="card">
-                        <div class="card-title"><span class="icon">💃</span> Gestures</div>
+                        <div class="card-title"><span class="icon">💃</span> Dance Moves!</div>
                         <div class="gesture-grid" id="gesture-grid">
                             <!-- Populated by JS -->
                         </div>
                         <div class="stop-all-row">
                             <button class="btn btn-danger" id="btn-stop" onclick="sendStop()">
-                                <span class="icon">⏹</span> Stop All
+                                <span class="icon">🛑</span> STOP!
                             </button>
                         </div>
                     </div>
 
-                </div> <!-- /control-panel -->
+                    <!-- Keyframe Sequencer — NOW INSIDE the scrollable control-panel -->
+                    <div class="card keyframe-card" id="keyframe-card">
+                        <div class="card-title"><span class="icon">🎬</span> Animation Maker</div>
 
-                <!-- Keyframe Sequencer -->
-                <div class="card keyframe-card" id="keyframe-card">
-                    <div class="card-title"><span class="icon">🎬</span> Keyframe Sequencer</div>
-
-                    <!-- Toolbar -->
-                    <div class="kf-toolbar">
-                        <button class="btn kf-play-btn" id="kf-play-btn" onclick="kfTogglePlay()">
-                            <span class="icon" id="kf-play-icon">▶</span>
-                            <span id="kf-play-label">Play</span>
-                        </button>
-                        <button class="btn kf-transport-btn" id="kf-rewind-btn" onclick="kfRewind()"
-                            title="Rewind to start">
-                            <span class="icon">⏮</span>
-                        </button>
-                        <button class="btn kf-loop-btn" id="kf-loop-btn" onclick="kfToggleLoop()" title="Loop playback">
-                            <span class="icon">🔁</span>
-                        </button>
-                        <button class="btn btn-primary" id="kf-add-btn" onclick="kfAddKeyframe()">
-                            <span class="icon">＋</span> Add Keyframe
-                        </button>
-                        <button class="btn" id="kf-download-btn" onclick="kfDownloadJSON()">
-                            <span class="icon">⬇</span> JSON
-                        </button>
-                        <button class="btn" id="kf-load-btn" onclick="kfTriggerLoad()">
-                            <span class="icon">⬆</span> Load
-                        </button>
-                        <input type="file" id="kf-file-input" accept=".json" style="display:none"
-                            onchange="kfLoadJSON(event)">
-                        <div class="kf-speed-control">
-                            <label class="kf-speed-label" for="kf-speed">Speed</label>
-                            <input type="number" class="kf-speed-input" id="kf-speed" min="0.1" max="10" step="0.1"
-                                value="1.0" onchange="kfSetSpeed(this.value)">
-                            <span class="kf-speed-x">×</span>
-                        </div>
-                        <div class="kf-zoom-control" id="kf-zoom-control">
-                            <button class="kf-zoom-btn" id="kf-zoom-out" onclick="kfZoomOut()"
-                                title="Zoom out (Ctrl+Scroll Down)">−</button>
-                            <input type="range" class="kf-zoom-slider" id="kf-zoom-slider" min="0" max="100" step="1"
-                                value="30" oninput="kfZoomFromSlider(this.value)">
-                            <button class="kf-zoom-btn" id="kf-zoom-in" onclick="kfZoomIn()"
-                                title="Zoom in (Ctrl+Scroll Up)">+</button>
-                            <span class="kf-zoom-label" id="kf-zoom-label">100%</span>
-                            <button class="kf-zoom-fit-btn" id="kf-zoom-fit" onclick="kfZoomFit()"
-                                title="Fit timeline to view">Fit</button>
-                        </div>
-                        <span class="kf-total-time" id="kf-total-time">Total: 0.0s</span>
-                    </div>
-
-                    <!-- Timeline -->
-                    <div class="kf-timeline-wrapper" id="kf-timeline-wrapper">
-                        <div class="kf-timeline-container" id="kf-timeline-container">
-                            <!-- Time ruler -->
-                            <div class="kf-ruler" id="kf-ruler"></div>
-
-                            <!-- Track lanes -->
-                            <div class="kf-tracks" id="kf-tracks">
-                                <div class="kf-track">
-                                    <div class="kf-track-label" style="color: var(--slider-x)">Base</div>
-                                    <div class="kf-track-lane" id="kf-lane-base" data-joint="base"></div>
-                                </div>
-                                <div class="kf-track">
-                                    <div class="kf-track-label" style="color: var(--slider-y)">Shldr</div>
-                                    <div class="kf-track-lane" id="kf-lane-shoulder" data-joint="shoulder"></div>
-                                </div>
-                                <div class="kf-track">
-                                    <div class="kf-track-label" style="color: var(--slider-z)">Elbow</div>
-                                    <div class="kf-track-lane" id="kf-lane-elbow" data-joint="elbow"></div>
-                                </div>
-                                <div class="kf-track">
-                                    <div class="kf-track-label" style="color: var(--slider-grip)">Grip</div>
-                                    <div class="kf-track-lane" id="kf-lane-grip" data-joint="grip"></div>
-                                </div>
+                        <!-- Toolbar -->
+                        <div class="kf-toolbar">
+                            <button class="btn kf-play-btn" id="kf-play-btn" onclick="kfTogglePlay()">
+                                <span class="icon" id="kf-play-icon">▶</span>
+                                <span id="kf-play-label">Play</span>
+                            </button>
+                            <button class="btn kf-transport-btn" id="kf-rewind-btn" onclick="kfRewind()"
+                                title="Rewind to start">
+                                <span class="icon">⏮</span>
+                            </button>
+                            <button class="btn kf-loop-btn" id="kf-loop-btn" onclick="kfToggleLoop()" title="Loop playback">
+                                <span class="icon">🔁</span>
+                            </button>
+                            <button class="btn btn-primary" id="kf-add-btn" onclick="kfAddKeyframe()">
+                                <span class="icon">📸</span> Capture Pose
+                            </button>
+                            <button class="btn" id="kf-download-btn" onclick="kfDownloadJSON()">
+                                <span class="icon">💾</span> Save
+                            </button>
+                            <button class="btn" id="kf-load-btn" onclick="kfTriggerLoad()">
+                                <span class="icon">📂</span> Open
+                            </button>
+                            <input type="file" id="kf-file-input" accept=".json" style="display:none"
+                                onchange="kfLoadJSON(event)">
+                            <div class="kf-speed-control">
+                                <label class="kf-speed-label" for="kf-speed">Speed</label>
+                                <input type="number" class="kf-speed-input" id="kf-speed" min="0.1" max="10" step="0.1"
+                                    value="1.0" onchange="kfSetSpeed(this.value)">
+                                <span class="kf-speed-x">×</span>
                             </div>
+                            <div class="kf-zoom-control" id="kf-zoom-control">
+                                <button class="kf-zoom-btn" id="kf-zoom-out" onclick="kfZoomOut()"
+                                    title="Zoom out (Ctrl+Scroll Down)">−</button>
+                                <input type="range" class="kf-zoom-slider" id="kf-zoom-slider" min="0" max="100" step="1"
+                                    value="30" oninput="kfZoomFromSlider(this.value)">
+                                <button class="kf-zoom-btn" id="kf-zoom-in" onclick="kfZoomIn()"
+                                    title="Zoom in (Ctrl+Scroll Up)">+</button>
+                                <span class="kf-zoom-label" id="kf-zoom-label">100%</span>
+                                <button class="kf-zoom-fit-btn" id="kf-zoom-fit" onclick="kfZoomFit()"
+                                    title="Fit timeline to view">Fit</button>
+                            </div>
+                            <span class="kf-total-time" id="kf-total-time">Total: 0.0s</span>
+                        </div>
 
-                            <!-- Playhead -->
-                            <div class="kf-playhead" id="kf-playhead"></div>
+                        <!-- Timeline -->
+                        <div class="kf-timeline-wrapper" id="kf-timeline-wrapper">
+                            <div class="kf-timeline-container" id="kf-timeline-container">
+                                <!-- Time ruler -->
+                                <div class="kf-ruler" id="kf-ruler"></div>
+
+                                <!-- Track lanes -->
+                                <div class="kf-tracks" id="kf-tracks">
+                                    <div class="kf-track">
+                                        <div class="kf-track-label" style="color: var(--slider-x)">Base</div>
+                                        <div class="kf-track-lane" id="kf-lane-base" data-joint="base"></div>
+                                    </div>
+                                    <div class="kf-track">
+                                        <div class="kf-track-label" style="color: var(--slider-y)">Shldr</div>
+                                        <div class="kf-track-lane" id="kf-lane-shoulder" data-joint="shoulder"></div>
+                                    </div>
+                                    <div class="kf-track">
+                                        <div class="kf-track-label" style="color: var(--slider-z)">Elbow</div>
+                                        <div class="kf-track-lane" id="kf-lane-elbow" data-joint="elbow"></div>
+                                    </div>
+                                    <div class="kf-track">
+                                        <div class="kf-track-label" style="color: var(--slider-grip)">Grip</div>
+                                        <div class="kf-track-lane" id="kf-lane-grip" data-joint="grip"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Playhead -->
+                                <div class="kf-playhead" id="kf-playhead"></div>
+                            </div>
+                        </div>
+
+                        <!-- Empty state -->
+                        <div class="kf-empty" id="kf-empty">
+                            Click <strong>📸 Capture Pose</strong> to save the robot's current position!
                         </div>
                     </div>
 
-                    <!-- Empty state -->
-                    <div class="kf-empty" id="kf-empty">
-                        Click <strong>Add Keyframe</strong> to capture the robot's current joint position
-                    </div>
-                </div>
+                </div> <!-- /control-panel -->
             </div> <!-- /control-area -->
 
         </div> <!-- /main -->
 
-        <!-- Console -->
-        <div class="console" id="console-panel">
+        <!-- Console (collapsible) -->
+        <div class="console collapsed" id="console-panel">
             <div class="console-resize-handle" id="console-resize-handle"></div>
-            <div class="console-header">
-                <div class="console-title"><span class="icon">💻</span> Console</div>
-                <button class="console-clear-btn" onclick="clearConsole()">Clear</button>
+            <div class="console-header" id="console-header">
+                <div class="console-title"><span class="icon">🔧</span> Debug Console</div>
+                <div class="console-header-right">
+                    <button class="console-clear-btn" onclick="clearConsole()">Clear</button>
+                    <button class="console-toggle-btn" id="console-toggle-btn" onclick="toggleConsole()">▲ Show</button>
+                </div>
             </div>
             <div class="console-body" id="console-body">
                 <!-- Console lines appended by JS -->

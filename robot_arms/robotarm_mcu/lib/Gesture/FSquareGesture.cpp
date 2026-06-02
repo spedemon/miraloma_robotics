@@ -28,6 +28,11 @@ void FSquareGesture::start() {
     _planner.clearQueue();
     _edge = 0; _t = 0.0f; _holding = false;
     _lastTickMs = millis();
+
+    // Smooth lead-in: travel to the first corner
+    _planner.enqueue(FSQ_X, FCORNERS[0].y, FCORNERS[0].z, _ctrl.getGrip(), _speed);
+    _leadIn = true;
+
     Serial.println("[Gesture] FSquare started");
 }
 
@@ -39,6 +44,15 @@ void FSquareGesture::stop() {
 
 void FSquareGesture::update() {
     if (!_running) return;
+
+    // Wait for lead-in to finish before starting edge-walk
+    if (_leadIn) {
+        if (_planner.isIdle()) {
+            _leadIn = false;
+            _lastTickMs = millis();
+        }
+        return;
+    }
 
     uint32_t now = millis();
     uint32_t dt = now - _lastTickMs;

@@ -24,6 +24,7 @@ private:
     float    _speed;
     float    _angleRad;
     uint32_t _lastTickMs;
+    bool     _leadIn;      // Smooth approach to start position
 };
 
 #endif

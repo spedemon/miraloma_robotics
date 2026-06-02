@@ -1,15 +1,20 @@
 /**
- * DanceGesture.h — Looping side-to-side sway with bobbing
+ * DanceGesture.h — Data-driven dance gesture (50 joint-angle keyframes)
+ *
+ * Plays a looping sequence of joint-space keyframes using SmoothMover's
+ * timed moves. Each keyframe specifies base/shoulder/elbow/grip angles
+ * and a duration. Speed parameter acts as a global time-scale multiplier.
  */
 
 #ifndef MIRA_DANCE_GESTURE_H
 #define MIRA_DANCE_GESTURE_H
 
 #include "Gesture.h"
+#include "SmoothMover.h"
 
 class DanceGesture : public Gesture {
 public:
-    DanceGesture(MotionPlanner& planner, ArmController& ctrl);
+    DanceGesture(ArmController& ctrl, SmoothMover& smooth);
 
     const char* name() override { return "dance"; }
     void start() override;
@@ -20,13 +25,13 @@ public:
     void setSpeed(float speed) override;
 
 private:
-    MotionPlanner&  _planner;
     ArmController&  _ctrl;
+    SmoothMover&    _smooth;
     bool            _running;
-    float           _speed;
+    float           _timeScale;   // 1.0 = normal, <1 = slower, >1 = faster
     uint8_t         _phase;
 
-    void _enqueueNextPhase();
+    void _enqueueNextKeyframe();
 };
 
 #endif // MIRA_DANCE_GESTURE_H

@@ -25,6 +25,7 @@ private:
     uint8_t  _phase;
     float    _angleRad;
     uint32_t _lastTickMs;
+    bool     _leadIn;      // Smooth approach to start position
 
     void _enqueueNextPhase();
 };

@@ -27,6 +27,7 @@ private:
     uint32_t _lastTickMs;
     uint32_t _holdStartMs;
     bool     _holding;
+    bool     _leadIn;      // Smooth approach to start position
 };
 
 #endif

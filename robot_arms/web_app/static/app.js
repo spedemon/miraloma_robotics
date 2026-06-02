@@ -104,16 +104,17 @@ function ik(x, y, z) {
 // ---------------------------------------------------------------------------
 
 const GESTURES = [
-    { id: "dance",     label: "Dance",          continuous: true  },
-    { id: "break",     label: "Break",          continuous: true  },
-    { id: "crab",      label: "Crab",           continuous: true  },
-    { id: "circle",    label: "Side Circle",    continuous: true  },
-    { id: "square",    label: "Side Square",    continuous: true  },
-    { id: "triangle",  label: "Side Triangle",  continuous: true  },
-    { id: "fcircle",   label: "Front Circle",   continuous: true  },
-    { id: "fsquare",   label: "Front Square",   continuous: true  },
-    { id: "ftriangle", label: "Front Triangle",  continuous: true  },
-    { id: "bow",       label: "Bow",            continuous: false },
+    { id: "dance",     label: "💃 Dance",          continuous: true  },
+    { id: "break",     label: "🕺 Break",          continuous: true  },
+    { id: "crab",      label: "🦀 Crab",           continuous: true  },
+    { id: "circle",    label: "⭕ Side Circle",    continuous: true  },
+    { id: "square",    label: "🟦 Side Square",    continuous: true  },
+    { id: "triangle",  label: "🔺 Side Triangle",  continuous: true  },
+    { id: "fcircle",   label: "🌀 Front Circle",   continuous: true  },
+    { id: "fsquare",   label: "🎯 Front Square",   continuous: true  },
+    { id: "ftriangle", label: "📐 Front Triangle",  continuous: true  },
+    { id: "bow",       label: "🎩 Bow",            continuous: false },
+    { id: "wave",      label: "🌊 Wave",           continuous: true  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -128,7 +129,7 @@ let serialConnected = false;
 let openMenuMac = null;     // MAC of robot whose context menu is open
 
 // Control mode & motion type
-let controlMode = 'cartesian';  // 'cartesian' or 'joint'
+let controlMode = 'joint';  // 'cartesian' or 'joint'
 let motionType = 'smooth';      // 'smooth' or 'instant'
 
 // Slider throttle
@@ -373,16 +374,14 @@ function updateTargetBanner() {
     if (selectedTarget) {
         nameEl.textContent = selectedTarget.name;
         nameEl.className = "target-name single";
-        badgeEl.textContent = "SINGLE";
+        badgeEl.textContent = "THIS ONE ☝️";
         badgeEl.className = "target-badge single";
         document.getElementById("all-robots-btn").classList.remove("active");
     } else {
-        const onlineCount = robots.filter((r) => r.online).length;
-        const totalCount = robots.length;
-        nameEl.textContent = `All Robots (${onlineCount}/${totalCount})`;
+        nameEl.textContent = "All Robots";
         nameEl.className = "target-name all";
-        badgeEl.textContent = "BROADCAST";
-        badgeEl.className = "target-badge all";
+        badgeEl.textContent = "";
+        badgeEl.className = "target-badge";
         document.getElementById("all-robots-btn").classList.add("active");
     }
 }
@@ -513,6 +512,11 @@ function sendHome() {
 
 function sendWhere() {
     sendCommand("where");
+    // Auto-show the debug console so the user can see the response
+    const panel = document.getElementById("console-panel");
+    if (panel && panel.classList.contains("collapsed")) {
+        toggleConsole();
+    }
 }
 
 function sendStop() {
@@ -1672,6 +1676,25 @@ function initConsoleResize() {
 }
 
 // ---------------------------------------------------------------------------
+// Console Toggle (collapse / expand)
+// ---------------------------------------------------------------------------
+
+function toggleConsole() {
+    const panel = document.getElementById("console-panel");
+    const btn = document.getElementById("console-toggle-btn");
+    if (!panel || !btn) return;
+
+    const isCollapsed = panel.classList.toggle("collapsed");
+    if (isCollapsed) {
+        btn.textContent = "▲ Show";
+        panel.style.height = ""; // reset inline height so CSS var takes over
+    } else {
+        btn.textContent = "▼ Hide";
+        panel.style.height = ""; // reset so CSS expanded height applies
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 
@@ -1684,7 +1707,32 @@ document.addEventListener("DOMContentLoaded", () => {
     kfRender();
     initKfZoom();
     initConsoleResize();
+    initSectionBackground();
 });
+
+// ---------------------------------------------------------------------------
+// Section-aware Background
+// ---------------------------------------------------------------------------
+
+const BG_CLASSES = ['bg-arm', 'bg-dance', 'bg-animation'];
+
+function setSectionBackground(cls) {
+    BG_CLASSES.forEach(c => document.body.classList.remove(c));
+    if (cls) document.body.classList.add(cls);
+}
+
+function initSectionBackground() {
+    const cards = document.querySelectorAll('#control-panel > .card');
+    // Card order: 0 = Move the Arm, 1 = Dance Moves, 2 = Animation Maker
+    const mapping = ['bg-arm', 'bg-dance', 'bg-animation'];
+
+    cards.forEach((card, i) => {
+        const cls = mapping[i];
+        if (!cls) return;
+        card.addEventListener('pointerenter', () => setSectionBackground(cls));
+        card.addEventListener('click', () => setSectionBackground(cls));
+    });
+}
 
 // Close modal on overlay click
 document.getElementById("settings-modal").addEventListener("click", (e) => {

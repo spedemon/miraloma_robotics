@@ -27,6 +27,11 @@ void FTriangleGesture::start() {
     _planner.clearQueue();
     _edge = 0; _t = 0.0f; _holding = false;
     _lastTickMs = millis();
+
+    // Smooth lead-in: travel to the first vertex
+    _planner.enqueue(FTRI_X, FVERTICES[0].y, FVERTICES[0].z, _ctrl.getGrip(), _speed);
+    _leadIn = true;
+
     Serial.println("[Gesture] FTriangle started");
 }
 
@@ -38,6 +43,15 @@ void FTriangleGesture::stop() {
 
 void FTriangleGesture::update() {
     if (!_running) return;
+
+    // Wait for lead-in to finish before starting edge-walk
+    if (_leadIn) {
+        if (_planner.isIdle()) {
+            _leadIn = false;
+            _lastTickMs = millis();
+        }
+        return;
+    }
 
     uint32_t now = millis();
     uint32_t dt = now - _lastTickMs;
