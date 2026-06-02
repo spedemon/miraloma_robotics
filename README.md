@@ -11,11 +11,9 @@
 
 <div align="center">
 
-<video src="media/miraloma_robots_demo.mp4" width="320" autoplay loop muted playsinline>
-  Your browser does not support the video tag.
-</video>
+[![Robot arms demo](media/demo_preview.gif)](media/miraloma_robots_demo.mp4)
 
-*Robot arms performing a synchronized dance routine 🤖💃*
+*🎬 Robot arms performing a synchronized dance — click to watch the full video!*
 
 </div>
 
