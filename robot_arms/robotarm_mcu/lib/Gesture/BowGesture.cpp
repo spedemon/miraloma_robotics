@@ -59,7 +59,8 @@ void BowGesture::stop() {
     _running = false;
     _smooth.stopAll();
     _planner.clearQueue();
-    _ctrl.home();
+    // Smooth return to home (1s) instead of instant snap
+    _smooth.startTimedMove(HOME_BASE, HOME_SHOULDER, HOME_ELBOW, HOME_GRIP, 1000);
     Serial.println("[Gesture] Bow stopped");
 }
 

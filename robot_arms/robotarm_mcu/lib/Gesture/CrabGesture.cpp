@@ -10,8 +10,8 @@
 
 #include "CrabGesture.h"
 
-CrabGesture::CrabGesture(MotionPlanner& planner, ArmController& ctrl)
-    : _planner(planner), _ctrl(ctrl),
+CrabGesture::CrabGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth)
+    : _planner(planner), _ctrl(ctrl), _smooth(smooth),
       _running(false), _speed(50.0f), _phase(0) {
 }
 
@@ -29,7 +29,8 @@ void CrabGesture::start() {
 void CrabGesture::stop() {
     _running = false;
     _planner.clearQueue();
-    _ctrl.home();
+    // Smooth return to home (1s) instead of instant snap
+    _smooth.startTimedMove(HOME_BASE, HOME_SHOULDER, HOME_ELBOW, HOME_GRIP, 1000);
     Serial.println("[Gesture] Crab bites stopped");
 }
 

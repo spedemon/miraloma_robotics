@@ -17,8 +17,8 @@ static const Vec2 VERTICES[] = {
     { 77.9f, 100.0f },  // 2: bottom-right
 };
 
-TriangleGesture::TriangleGesture(MotionPlanner& planner, ArmController& ctrl)
-    : _planner(planner), _ctrl(ctrl),
+TriangleGesture::TriangleGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth)
+    : _planner(planner), _ctrl(ctrl), _smooth(smooth),
       _running(false), _speed(75.0f),
       _edge(0), _t(0.0f), _lastTickMs(0), _holdStartMs(0), _holding(false) {
 }
@@ -38,7 +38,8 @@ void TriangleGesture::start() {
 
 void TriangleGesture::stop() {
     _running = false;
-    _ctrl.home();
+    // Smooth return to home (1s) instead of instant snap
+    _smooth.startTimedMove(HOME_BASE, HOME_SHOULDER, HOME_ELBOW, HOME_GRIP, 1000);
     Serial.println("[Gesture] Triangle stopped");
 }
 

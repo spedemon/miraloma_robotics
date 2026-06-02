@@ -5,10 +5,11 @@
 #define MIRA_FTRIANGLE_GESTURE_H
 
 #include "Gesture.h"
+#include "SmoothMover.h"
 
 class FTriangleGesture : public Gesture {
 public:
-    FTriangleGesture(MotionPlanner& planner, ArmController& ctrl);
+    FTriangleGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth);
     const char* name() override { return "ftriangle"; }
     void start() override;
     void stop() override;
@@ -20,6 +21,7 @@ public:
 private:
     MotionPlanner& _planner;
     ArmController& _ctrl;
+    SmoothMover&   _smooth;
     bool     _running;
     float    _speed;
     uint8_t  _edge;

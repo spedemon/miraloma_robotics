@@ -13,8 +13,8 @@ static const float FCY = -2.0f;
 static const float FCZ = 58.0f;
 static const float FR  = 44.0f;
 
-FCircleGesture::FCircleGesture(MotionPlanner& planner, ArmController& ctrl)
-    : _planner(planner), _ctrl(ctrl),
+FCircleGesture::FCircleGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth)
+    : _planner(planner), _ctrl(ctrl), _smooth(smooth),
       _running(false), _speed(75.0f), _angleRad(0.0f), _lastTickMs(0) {
 }
 
@@ -35,7 +35,8 @@ void FCircleGesture::start() {
 
 void FCircleGesture::stop() {
     _running = false;
-    _ctrl.home();
+    // Smooth return to home (1s) instead of instant snap
+    _smooth.startTimedMove(HOME_BASE, HOME_SHOULDER, HOME_ELBOW, HOME_GRIP, 1000);
     Serial.println("[Gesture] FCircle stopped");
 }
 

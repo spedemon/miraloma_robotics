@@ -5,10 +5,11 @@
 #define MIRA_FSQUARE_GESTURE_H
 
 #include "Gesture.h"
+#include "SmoothMover.h"
 
 class FSquareGesture : public Gesture {
 public:
-    FSquareGesture(MotionPlanner& planner, ArmController& ctrl);
+    FSquareGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth);
     const char* name() override { return "fsquare"; }
     void start() override;
     void stop() override;
@@ -20,6 +21,7 @@ public:
 private:
     MotionPlanner& _planner;
     ArmController& _ctrl;
+    SmoothMover&   _smooth;
     bool     _running;
     float    _speed;
     uint8_t  _edge;

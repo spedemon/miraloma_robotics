@@ -28,8 +28,8 @@ static const float ELBOW_AMP    = 18.0f;
 static const float BASE_AMP = 80.0f;
 
 // Wave frequency at default speed (Hz)
-// 1.5 Hz ≈ one full wave cycle every 667ms
-static const float BASE_WAVE_FREQ = 1.5f;
+// 0.75 Hz ≈ one full wave cycle every 1.33s — slow and graceful
+static const float BASE_WAVE_FREQ = 0.75f;
 
 // Base rotates at 1/10 the wave frequency
 static const float BASE_FREQ_RATIO = 0.1f;
@@ -41,8 +41,8 @@ static const uint32_t RAMP_MS = 800;
 static const uint32_t TICK_MS = 5;  // ~200 Hz
 
 
-WaveGesture::WaveGesture(MotionPlanner& planner, ArmController& ctrl)
-    : _planner(planner), _ctrl(ctrl),
+WaveGesture::WaveGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth)
+    : _planner(planner), _ctrl(ctrl), _smooth(smooth),
       _running(false), _speed(75.0f), _startMs(0), _lastTickMs(0) {
 }
 
@@ -57,7 +57,8 @@ void WaveGesture::start() {
 void WaveGesture::stop() {
     _running = false;
     _planner.clearQueue();
-    _ctrl.home();
+    // Smooth return to home (1s) instead of instant snap
+    _smooth.startTimedMove(HOME_BASE, HOME_SHOULDER, HOME_ELBOW, HOME_GRIP, 1000);
     Serial.println("[Gesture] Wave stopped");
 }
 

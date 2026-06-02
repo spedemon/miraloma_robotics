@@ -5,10 +5,11 @@
 #define MIRA_CIRCLE_GESTURE_H
 
 #include "Gesture.h"
+#include "SmoothMover.h"
 
 class CircleGesture : public Gesture {
 public:
-    CircleGesture(MotionPlanner& planner, ArmController& ctrl);
+    CircleGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth);
     const char* name() override { return "circle"; }
     void start() override;
     void stop() override;
@@ -20,6 +21,7 @@ public:
 private:
     MotionPlanner& _planner;
     ArmController& _ctrl;
+    SmoothMover&   _smooth;
     bool     _running;
     float    _speed;
     uint8_t  _phase;

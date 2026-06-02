@@ -20,8 +20,8 @@ static const float CR = 16.0f;
 // At default speed=40: one full revolution = 2*pi*R / speed ≈ 2.5 seconds.
 static const float BASE_ANGULAR_SPEED = 1.0f / 1000.0f;  // rad/ms at speed=1
 
-CircleGesture::CircleGesture(MotionPlanner& planner, ArmController& ctrl)
-    : _planner(planner), _ctrl(ctrl),
+CircleGesture::CircleGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth)
+    : _planner(planner), _ctrl(ctrl), _smooth(smooth),
       _running(false), _speed(75.0f), _phase(0) {
 }
 
@@ -43,7 +43,8 @@ void CircleGesture::start() {
 
 void CircleGesture::stop() {
     _running = false;
-    _ctrl.home();
+    // Smooth return to home (1s) instead of instant snap
+    _smooth.startTimedMove(HOME_BASE, HOME_SHOULDER, HOME_ELBOW, HOME_GRIP, 1000);
     Serial.println("[Gesture] Circle stopped");
 }
 

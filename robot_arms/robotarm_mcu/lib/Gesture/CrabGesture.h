@@ -6,10 +6,11 @@
 #define MIRA_CRAB_GESTURE_H
 
 #include "Gesture.h"
+#include "SmoothMover.h"
 
 class CrabGesture : public Gesture {
 public:
-    CrabGesture(MotionPlanner& planner, ArmController& ctrl);
+    CrabGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth);
 
     const char* name() override { return "crab"; }
     void start() override;
@@ -22,6 +23,7 @@ public:
 private:
     MotionPlanner&  _planner;
     ArmController&  _ctrl;
+    SmoothMover&    _smooth;
     bool            _running;
     float           _speed;
     uint8_t         _phase;

@@ -44,13 +44,13 @@ static const DanceKey DANCE_KEYS[] PROGMEM = {
     {   0.0f,   15.0f,   45.0f,   0.0f,  800 },  // 10: center reset
     {   0.0f,   -5.0f,   55.0f,   0.0f,  800 },  // 11: slight pull back
 
-    // === Phrase 3: Wave (elbow-driven wave while base rocks) ===
-    {  -8.0f,   10.0f,   80.0f,   0.0f, 1000 },  // 12: elbow up, lean right
-    {   8.0f,   10.0f,   30.0f,   0.0f, 1000 },  // 13: elbow down, lean left
-    { -10.0f,    5.0f,   75.0f,   0.0f, 1000 },  // 14: elbow up, lean right
-    {  10.0f,    5.0f,   25.0f,   0.0f, 1000 },  // 15: elbow down, lean left
-    {   0.0f,   10.0f,   50.0f,   0.0f,  900 },  // 16: center hold
-    {   0.0f,  -10.0f,   65.0f,   0.0f,  900 },  // 17: back lean transition
+    // === Phrase 3: Wave (sinusoidal wave with slow base sweep) ===
+    { -15.0f,    0.0f,   18.0f,   0.0f, 1000 },  // 12: wave start, lean right
+    {  -9.0f,   10.0f,    9.0f,   0.0f, 1000 },  // 13: shoulder up, elbow half
+    {  -3.0f,   10.0f,   -9.0f,   0.0f, 1000 },  // 14: shoulder up, elbow down
+    {   3.0f,    0.0f,  -18.0f,   0.0f, 1000 },  // 15: wave trough
+    {   9.0f,  -10.0f,   -9.0f,   0.0f, 1000 },  // 16: shoulder down, elbow half
+    {  15.0f,  -10.0f,    9.0f,   0.0f,  900 },  // 17: wave end, lean left
 
     // === Phrase 4: Shoulder Roll (shoulder sweeps with base accent) ===
     {   5.0f,  -25.0f,   70.0f,   0.0f, 1100 },  // 18: shoulder back high
@@ -112,7 +112,8 @@ void DanceGesture::start() {
 void DanceGesture::stop() {
     _running = false;
     _smooth.stopAll();
-    _ctrl.home();
+    // Smooth return to home (1s) instead of instant snap
+    _smooth.startTimedMove(HOME_BASE, HOME_SHOULDER, HOME_ELBOW, HOME_GRIP, 1000);
     Serial.println("[Gesture] Dance stopped");
 }
 

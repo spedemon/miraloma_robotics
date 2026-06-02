@@ -16,8 +16,8 @@ static const FVec2 FVERTICES[] = {
     {  36.3f,  35.9f },  // 2: bottom-right
 };
 
-FTriangleGesture::FTriangleGesture(MotionPlanner& planner, ArmController& ctrl)
-    : _planner(planner), _ctrl(ctrl),
+FTriangleGesture::FTriangleGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth)
+    : _planner(planner), _ctrl(ctrl), _smooth(smooth),
       _running(false), _speed(75.0f),
       _edge(0), _t(0.0f), _lastTickMs(0), _holdStartMs(0), _holding(false) {
 }
@@ -37,7 +37,8 @@ void FTriangleGesture::start() {
 
 void FTriangleGesture::stop() {
     _running = false;
-    _ctrl.home();
+    // Smooth return to home (1s) instead of instant snap
+    _smooth.startTimedMove(HOME_BASE, HOME_SHOULDER, HOME_ELBOW, HOME_GRIP, 1000);
     Serial.println("[Gesture] FTriangle stopped");
 }
 

@@ -10,10 +10,11 @@
 #define MIRA_WAVE_GESTURE_H
 
 #include "Gesture.h"
+#include "SmoothMover.h"
 
 class WaveGesture : public Gesture {
 public:
-    WaveGesture(MotionPlanner& planner, ArmController& ctrl);
+    WaveGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth);
 
     const char* name() override { return "wave"; }
     void start() override;
@@ -26,6 +27,7 @@ public:
 private:
     MotionPlanner& _planner;
     ArmController& _ctrl;
+    SmoothMover&   _smooth;
     bool     _running;
     float    _speed;
     uint32_t _startMs;

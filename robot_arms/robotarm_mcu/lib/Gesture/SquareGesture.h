@@ -5,10 +5,11 @@
 #define MIRA_SQUARE_GESTURE_H
 
 #include "Gesture.h"
+#include "SmoothMover.h"
 
 class SquareGesture : public Gesture {
 public:
-    SquareGesture(MotionPlanner& planner, ArmController& ctrl);
+    SquareGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth);
     const char* name() override { return "square"; }
     void start() override;
     void stop() override;
@@ -20,6 +21,7 @@ public:
 private:
     MotionPlanner& _planner;
     ArmController& _ctrl;
+    SmoothMover&   _smooth;
     bool     _running;
     float    _speed;
     uint8_t  _edge;       // Current edge (0-3)

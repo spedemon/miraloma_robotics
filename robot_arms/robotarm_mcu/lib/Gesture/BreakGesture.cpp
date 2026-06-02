@@ -69,16 +69,16 @@ static const BreakKey BREAK_KEYS[] PROGMEM = {
     {   0.0f,  -50.0f,   80.0f,   0.0f,  600 },  // 30: back lean center
     {   0.0f,    0.0f,    0.0f,   0.0f,  700 },  // 31: home reset
 
-    // === Section 5: Power Moves (rapid reversals, 10 keyframes) ===
-    {  90.0f, -100.0f,   89.0f,   0.0f,  500 },  // 32: extreme right-back
-    {  90.0f,   88.0f,  -91.0f,   0.0f,  500 },  // 33: snap forward
-    {  90.0f,   88.0f,   31.0f,   0.0f,  600 },  // 34: elbow fold
-    { -90.0f,  -99.0f,  -25.0f,   0.0f,  500 },  // 35: cross to left extreme
-    { -45.0f,  -99.0f,  -25.0f,   0.0f,  600 },  // 36: partial right shift
-    {  45.0f,   80.0f,  -70.0f,  15.0f,  500 },  // 37: power reach right
-    { -45.0f,   80.0f,  -70.0f,  15.0f,  500 },  // 38: power reach left
-    {   0.0f, -105.0f,   95.0f,  25.0f,  600 },  // 39: max back lean + grip
-    {   0.0f,  100.0f,  -98.0f,   0.0f,  500 },  // 40: max forward slam
+    // === Section 5: Power Wave (fast wave with aggressive base sweep) ===
+    {   0.0f,    0.0f,   25.0f,   0.0f,  450 },  // 32: wave start center
+    {  20.0f,   17.0f,    8.0f,   0.0f,  400 },  // 33: shoulder peak, sweep right
+    {  40.0f,   10.0f,  -20.0f,   0.0f,  400 },  // 34: elbow dip, far right
+    {  40.0f,  -10.0f,  -20.0f,   0.0f,  400 },  // 35: shoulder valley, far right
+    {  20.0f,  -17.0f,    8.0f,   0.0f,  450 },  // 36: rising, sweep back
+    {   0.0f,    0.0f,   25.0f,   0.0f,  400 },  // 37: wave restart center
+    { -20.0f,   17.0f,    8.0f,   0.0f,  400 },  // 38: shoulder peak, sweep left
+    { -40.0f,   10.0f,  -20.0f,   0.0f,  400 },  // 39: elbow dip, far left
+    { -40.0f,  -10.0f,  -20.0f,   0.0f,  400 },  // 40: shoulder valley, far left
     {   0.0f,    0.0f,    0.0f,   0.0f,  700 },  // 41: home reset
 
     // === Section 6: Grand Finale (explosive combos, 8 keyframes) ===
@@ -109,7 +109,8 @@ void BreakGesture::start() {
 void BreakGesture::stop() {
     _running = false;
     _smooth.stopAll();
-    _ctrl.home();
+    // Smooth return to home (1s) instead of instant snap
+    _smooth.startTimedMove(HOME_BASE, HOME_SHOULDER, HOME_ELBOW, HOME_GRIP, 1000);
     Serial.println("[Gesture] Break stopped");
 }
 
