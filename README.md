@@ -9,6 +9,16 @@
 
 ---
 
+<div align="center">
+
+<video src="media/miraloma_robots_demo.mp4" width="320" autoplay loop muted playsinline>
+  Your browser does not support the video tag.
+</video>
+
+*Robot arms performing a synchronized dance routine 🤖💃*
+
+</div>
+
 Miraloma Robotics is a collection of open-source robotics projects designed for elementary school kids. Students build real robots, flash custom firmware, and control them through beautiful web interfaces — using sliders, voice commands, or plain-English conversations powered by Google Gemini AI.
 
 This monorepo contains two independent projects that share a common mission: **making robotics accessible, fun, and educational**.
@@ -79,6 +89,7 @@ miraloma_robotics/
 │   ├── robots_firmware/     #    Firmware for Mecanum car & Spider
 │   ├── static/              #    Web UI assets
 │   └── *.py                 #    Python backend (NiceGUI + Gemini)
+├── media/                   # 🎬 Demo videos & media assets
 ├── README.md                # ← You are here
 └── .gitignore
 ```
