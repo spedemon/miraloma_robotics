@@ -1,9 +1,10 @@
 /**
- * DanceGesture.h — Data-driven dance gesture (50 joint-angle keyframes)
+ * DanceGesture.h — Data-driven dance gesture (87 joint-angle keyframes)
  *
- * Plays a looping sequence of joint-space keyframes using SmoothMover's
- * timed moves. Each keyframe specifies base/shoulder/elbow/grip angles
- * and a duration. Speed parameter acts as a global time-scale multiplier.
+ * Plays a looping West Coast Swing sequence of joint-space keyframes
+ * using SmoothMover's timed moves. Each keyframe specifies
+ * base/shoulder/elbow/grip angles and a duration.
+ * Speed parameter acts as a global time-scale multiplier.
  */
 
 #ifndef MIRA_DANCE_GESTURE_H

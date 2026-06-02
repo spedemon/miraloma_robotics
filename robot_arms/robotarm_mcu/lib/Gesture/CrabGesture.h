@@ -27,6 +27,7 @@ private:
     bool            _running;
     float           _speed;
     uint8_t         _phase;
+    float           _attackY;   // Random lateral offset for current bite
 
     void _enqueueNextPhase();
 };

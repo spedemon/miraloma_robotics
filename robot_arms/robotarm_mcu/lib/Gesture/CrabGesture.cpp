@@ -1,27 +1,28 @@
 /**
  * CrabGesture.cpp — Crab-bites sequence
  *
- * Pattern: The arm holds a horizontal position with the grip acting
- * like a claw. It lunges forward while closing the grip (bite),
- * then retracts while opening the grip. Loops until stop().
- *
- * The arm stays low and horizontal to look like a crab claw.
+ * Pattern: The arm tucks into a high retracted pose (shoulder ≈ -60°,
+ * elbow ≈ 90°), then lunges forward in a random direction at peak
+ * speed while the grip starts closing. On arrival, the grip is
+ * force-snapped shut via direct PWM step. Holds briefly, then
+ * slowly retracts back. Loops until stop().
  */
 
 #include "CrabGesture.h"
 
 CrabGesture::CrabGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth)
     : _planner(planner), _ctrl(ctrl), _smooth(smooth),
-      _running(false), _speed(50.0f), _phase(0) {
+      _running(false), _speed(50.0f), _phase(0), _attackY(0.0f) {
 }
 
 void CrabGesture::start() {
     _running = true;
     _phase = 0;
+    _attackY = 0.0f;
     _planner.clearQueue();
 
-    // Move to starting "crab ready" position: low, forward, grip open
-    _planner.enqueue(70.0f, 0.0f, 30.0f, GRIP_OPEN_ANGLE, _speed);
+    // Move to retracted "crab ready" position (shoulder ≈ -60°, elbow ≈ 90°)
+    _planner.enqueue(10.0f, 0.0f, 116.0f, GRIP_OPEN_ANGLE, _speed);
 
     Serial.println("[Gesture] Crab bites started");
 }
@@ -51,18 +52,17 @@ void CrabGesture::setSpeed(float speed) {
 }
 
 void CrabGesture::_enqueueNextPhase() {
-    switch (_phase % 4) {
-        case 0: // Lunge forward + close grip (BITE!)
-            _planner.enqueue(110.0f, 0.0f, 28.0f, GRIP_CLOSED_ANGLE, _speed);
+    switch (_phase % 3) {
+        case 0: // Lunge forward in random direction, grip starts closing — peak speed
+            _attackY = (float)random(-60, 61);
+            _planner.enqueue(110.0f, _attackY, 68.0f, GRIP_CLOSED_ANGLE, 500.0f);
             break;
-        case 1: // Hold bite briefly (tiny move)
-            _planner.enqueue(110.0f, 0.0f, 32.0f, GRIP_CLOSED_ANGLE, 15.0f);
+        case 1: // Force grip fully closed (direct PWM step) + hold bite briefly
+            _ctrl.setGrip(GRIP_CLOSED_ANGLE);
+            _planner.enqueue(112.0f, _attackY, 69.0f, GRIP_CLOSED_ANGLE, 15.0f);
             break;
-        case 2: // Retract + open grip
-            _planner.enqueue(60.0f, 0.0f, 35.0f, GRIP_OPEN_ANGLE, _speed * 0.7f);
-            break;
-        case 3: // Reset to ready position
-            _planner.enqueue(70.0f, 0.0f, 30.0f, GRIP_OPEN_ANGLE, _speed * 0.5f);
+        case 2: // Retract + open grip, back to center — slow
+            _planner.enqueue(10.0f, 0.0f, 116.0f, GRIP_OPEN_ANGLE, _speed * 0.4f);
             break;
     }
 
