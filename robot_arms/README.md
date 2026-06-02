@@ -7,6 +7,8 @@
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-ESP32--C3-FF7F00?logo=platformio&logoColor=white)](https://platformio.org)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
 
+![Mira Robot Arm UI](screenshot.png)
+
 ---
 
 ## ✨ What Is This?
@@ -21,6 +23,7 @@ A web interface provides real-time control with joint sliders, Cartesian (IK) po
 
 ```
 robot_arms/
+├── 3d_models/       # CAD files, STLs, and slicer projects for 3D printing
 ├── robotarm_mcu/    # Firmware for each robot arm (ESP32-C3 Super Mini)
 ├── master_mcu/      # Firmware for the USB bridge / swarm coordinator (ESP32-C3)
 └── web_app/         # Web UI + Python server (Flask + SocketIO)
@@ -64,6 +67,18 @@ python3 mira.py
 ```
 
 Open **http://localhost:5000** in your browser. Click the serial badge in the header to connect to the master's USB port. Any powered-on robot arms will appear in the swarm panel within a few seconds.
+
+---
+
+## 🖨️ 3D Printing
+
+All 3D models and print files live in [`3d_models/`](3d_models/):
+
+- **STEP file** — full assembly for CAD editing (`sg90_robot.step`)
+- **STL files** — individual parts ready for any slicer (`stl/`)
+- **Print files** — pre-configured Bambu Studio project (`print_files/mira_arm_2x_bambulam_mini.3mf`)
+
+See the [3D Models README](3d_models/README.md) for full details, part lists, and printing tips.
 
 ---
 
