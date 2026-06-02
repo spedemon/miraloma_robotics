@@ -1,0 +1,87 @@
+/**
+ * Gesture.h — Mira Gesture System (Layer 3)
+ *
+ * Base class for all gestures and a GestureManager that registers
+ * and dispatches them. Gestures feed waypoints into the MotionPlanner.
+ */
+
+#ifndef MIRA_GESTURE_H
+#define MIRA_GESTURE_H
+
+#include <Arduino.h>
+#include "MotionPlanner.h"
+
+// ---------------------------------------------------------------------------
+// Gesture base class
+// ---------------------------------------------------------------------------
+
+class Gesture {
+public:
+    virtual ~Gesture() {}
+
+    /** Human-readable name (used by console). */
+    virtual const char* name() = 0;
+
+    /** Start the gesture. */
+    virtual void start() = 0;
+
+    /** Request stop (gesture finishes cleanly). */
+    virtual void stop() = 0;
+
+    /**
+     * Called every loop() iteration while running.
+     * Feed new waypoints to the planner as needed.
+     */
+    virtual void update() = 0;
+
+    /** Is this gesture currently running? */
+    virtual bool isRunning() = 0;
+
+    /** Does this gesture support a speed parameter? */
+    virtual bool hasSpeed() { return false; }
+
+    /** Set speed (mm/s). Override in gestures that support it. */
+    virtual void setSpeed(float speed) { (void)speed; }
+};
+
+// ---------------------------------------------------------------------------
+// GestureManager — registry and dispatcher
+// ---------------------------------------------------------------------------
+
+class GestureManager {
+public:
+    static const uint8_t MAX_GESTURES = 16;
+
+    GestureManager();
+
+    /** Register a gesture. Call during setup(). */
+    void registerGesture(Gesture* g);
+
+    /**
+     * Update active gesture. Call every loop() iteration.
+     */
+    void update();
+
+    /** Find a gesture by name (case-sensitive). Returns nullptr if not found. */
+    Gesture* find(const char* name);
+
+    /** Start a gesture by name. Stops any running gesture first. */
+    bool startGesture(const char* name);
+
+    /** Stop whatever gesture is currently running. */
+    void stopAll();
+
+    /** Get the currently active gesture (or nullptr). */
+    Gesture* active();
+
+    // Iteration for listing
+    uint8_t count() const;
+    Gesture* get(uint8_t index) const;
+
+private:
+    Gesture* _gestures[MAX_GESTURES];
+    uint8_t  _count;
+    Gesture* _active;
+};
+
+#endif // MIRA_GESTURE_H

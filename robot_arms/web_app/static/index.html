@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Control panel for the Mira robot arm swarm — manage 30 robots via ESP-NOW">
+    <title>Mira Swarm</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🤖</text></svg>">
+</head>
+
+<body>
+    <div class="app" id="app">
+
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="header-logo">
+                    <span>🤖</span>
+                    <div>
+                        <div class="header-title">Mira Swarm - Miraloma Elementary</div>
+                        <div class="header-subtitle">ESP-NOW Robot Arm Swarm</div>
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="serial-badge" id="serial-badge" onclick="openSettings()"
+                    title="Serial connection settings">
+                    <span class="dot"></span>
+                    <span id="serial-label">Disconnected</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Disconnected Banner (hidden when connected) -->
+        <div class="disconnected-banner" id="disconnected-banner" style="display: none;">
+            <span>⚠️</span>
+            <span>Not connected to master MCU</span>
+            <button class="btn" onclick="openSettings()">Configure</button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main">
+
+            <!-- Sidebar: Robot List -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-title">Swarm</div>
+                    <button class="all-robots-btn active" id="all-robots-btn" onclick="selectAllRobots()">
+                        <span class="icon">📡</span>
+                        <span>All Robots</span>
+                        <span class="count" id="robot-count">0</span>
+                    </button>
+                </div>
+                <div class="robot-list" id="robot-list">
+                    <div class="empty-state" id="empty-state">
+                        <div class="icon">📡</div>
+                        <div class="message">Waiting for robots to check in...<br>Power on robot arms for
+                            auto-discovery.</div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Control Area -->
+            <div class="control-area">
+
+                <!-- Target Banner -->
+                <div class="target-banner">
+                    <span class="target-label">Controlling:</span>
+                    <span class="target-name all" id="target-name">All Robots</span>
+                    <span class="target-badge all" id="target-badge">BROADCAST</span>
+                </div>
+
+                <!-- Control Panel -->
+                <div class="control-panel">
+
+                    <!-- Position / Joint Sliders -->
+                    <div class="card">
+                        <div class="card-title"><span class="icon">🎯</span> Control</div>
+
+                        <!-- Mode & Motion toggle selectors -->
+                        <div class="toggle-row">
+                            <div class="toggle-group">
+                                <span class="toggle-group-label">Mode</span>
+                                <button class="toggle-btn active" id="mode-cartesian"
+                                    onclick="setControlMode('cartesian')">Cartesian</button>
+                                <button class="toggle-btn" id="mode-joint"
+                                    onclick="setControlMode('joint')">Joint</button>
+                            </div>
+                            <div class="toggle-group">
+                                <span class="toggle-group-label">Motion</span>
+                                <button class="toggle-btn active" id="motion-smooth"
+                                    onclick="setMotionType('smooth')">Smooth</button>
+                                <button class="toggle-btn" id="motion-instant"
+                                    onclick="setMotionType('instant')">Instant</button>
+                            </div>
+                        </div>
+
+                        <!-- Cartesian sliders (X, Y, Z, Grip) -->
+                        <div class="slider-group" id="sliders-cartesian">
+                            <div class="slider-row">
+                                <span class="slider-label x">X</span>
+                                <div class="slider-track">
+                                    <input type="range" id="slider-x" class="slider-x" min="0" max="126" step="0.5"
+                                        value="0">
+                                    <div class="slider-ticks" data-min="0" data-max="126" data-tick="10"
+                                        data-label="20"></div>
+                                </div>
+                                <span class="slider-value"><span id="value-x">0.0</span><span class="slider-unit">
+                                        mm</span></span>
+                            </div>
+                            <div class="slider-row">
+                                <span class="slider-label y">Y</span>
+                                <div class="slider-track">
+                                    <input type="range" id="slider-y" class="slider-y" min="-126" max="126" step="0.5"
+                                        value="0">
+                                    <div class="slider-ticks" data-min="-126" data-max="126" data-tick="10"
+                                        data-label="20"></div>
+                                </div>
+                                <span class="slider-value"><span id="value-y">0.0</span><span class="slider-unit">
+                                        mm</span></span>
+                            </div>
+                            <div class="slider-row">
+                                <span class="slider-label z">Z</span>
+                                <div class="slider-track">
+                                    <input type="range" id="slider-z" class="slider-z" min="-104" max="148" step="0.5"
+                                        value="148">
+                                    <div class="slider-ticks" data-min="-104" data-max="148" data-tick="10"
+                                        data-label="50"></div>
+                                </div>
+                                <span class="slider-value"><span id="value-z">148.0</span><span class="slider-unit">
+                                        mm</span></span>
+                            </div>
+                            <div class="slider-row">
+                                <span class="slider-label grip">Grip</span>
+                                <div class="slider-track">
+                                    <input type="range" id="slider-grip" class="slider-grip" min="-60" max="30" step="1"
+                                        value="0">
+                                    <div class="slider-ticks" data-min="-60" data-max="30" data-tick="30"
+                                        data-label="30"></div>
+                                </div>
+                                <span class="slider-value"><span id="value-grip">0</span><span
+                                        class="slider-unit">°</span></span>
+                            </div>
+                        </div>
+
+                        <!-- Joint sliders (Base, Shoulder, Elbow, Grip) — hidden by default -->
+                        <div class="slider-group" id="sliders-joint" style="display: none;">
+                            <div class="slider-row">
+                                <span class="slider-label x">Base</span>
+                                <div class="slider-track">
+                                    <input type="range" id="slider-base" class="slider-x" min="-90" max="90" step="0.5"
+                                        value="0">
+                                    <div class="slider-ticks" data-min="-90" data-max="90" data-tick="30"
+                                        data-label="30"></div>
+                                </div>
+                                <span class="slider-value"><span id="value-base">0.0</span><span
+                                        class="slider-unit">°</span></span>
+                            </div>
+                            <div class="slider-row">
+                                <span class="slider-label y">Shldr</span>
+                                <div class="slider-track">
+                                    <input type="range" id="slider-shoulder" class="slider-y" min="-109" max="104"
+                                        step="0.5" value="0">
+                                    <div class="slider-ticks" data-min="-109" data-max="104" data-tick="30"
+                                        data-label="30"></div>
+                                </div>
+                                <span class="slider-value"><span id="value-shoulder">0.0</span><span
+                                        class="slider-unit">°</span></span>
+                            </div>
+                            <div class="slider-row">
+                                <span class="slider-label z">Elbow</span>
+                                <div class="slider-track">
+                                    <input type="range" id="slider-elbow" class="slider-z" min="-100" max="100"
+                                        step="0.5" value="0">
+                                    <div class="slider-ticks" data-min="-100" data-max="100" data-tick="30"
+                                        data-label="30"></div>
+                                </div>
+                                <span class="slider-value"><span id="value-elbow">0.0</span><span
+                                        class="slider-unit">°</span></span>
+                            </div>
+                            <div class="slider-row">
+                                <span class="slider-label grip">Grip</span>
+                                <div class="slider-track">
+                                    <input type="range" id="slider-grip-joint" class="slider-grip" min="-60" max="30"
+                                        step="1" value="0">
+                                    <div class="slider-ticks" data-min="-60" data-max="30" data-tick="30"
+                                        data-label="30"></div>
+                                </div>
+                                <span class="slider-value"><span id="value-grip-joint">0</span><span
+                                        class="slider-unit">°</span></span>
+                            </div>
+                        </div>
+
+                        <div class="slider-actions">
+                            <button class="btn btn-home" id="btn-home" onclick="sendHome()">
+                                <span class="icon">🏠</span> Home
+                            </button>
+                            <button class="btn" id="btn-where" onclick="sendWhere()">
+                                <span class="icon">📍</span> Where
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Gestures -->
+                    <div class="card">
+                        <div class="card-title"><span class="icon">💃</span> Gestures</div>
+                        <div class="gesture-grid" id="gesture-grid">
+                            <!-- Populated by JS -->
+                        </div>
+                        <div class="stop-all-row">
+                            <button class="btn btn-danger" id="btn-stop" onclick="sendStop()">
+                                <span class="icon">⏹</span> Stop All
+                            </button>
+                        </div>
+                    </div>
+
+                </div> <!-- /control-panel -->
+
+                <!-- Keyframe Sequencer -->
+                <div class="card keyframe-card" id="keyframe-card">
+                    <div class="card-title"><span class="icon">🎬</span> Keyframe Sequencer</div>
+
+                    <!-- Toolbar -->
+                    <div class="kf-toolbar">
+                        <button class="btn kf-play-btn" id="kf-play-btn" onclick="kfTogglePlay()">
+                            <span class="icon" id="kf-play-icon">▶</span>
+                            <span id="kf-play-label">Play</span>
+                        </button>
+                        <button class="btn kf-transport-btn" id="kf-rewind-btn" onclick="kfRewind()"
+                            title="Rewind to start">
+                            <span class="icon">⏮</span>
+                        </button>
+                        <button class="btn kf-loop-btn" id="kf-loop-btn" onclick="kfToggleLoop()" title="Loop playback">
+                            <span class="icon">🔁</span>
+                        </button>
+                        <button class="btn btn-primary" id="kf-add-btn" onclick="kfAddKeyframe()">
+                            <span class="icon">＋</span> Add Keyframe
+                        </button>
+                        <button class="btn" id="kf-download-btn" onclick="kfDownloadJSON()">
+                            <span class="icon">⬇</span> JSON
+                        </button>
+                        <button class="btn" id="kf-load-btn" onclick="kfTriggerLoad()">
+                            <span class="icon">⬆</span> Load
+                        </button>
+                        <input type="file" id="kf-file-input" accept=".json" style="display:none"
+                            onchange="kfLoadJSON(event)">
+                        <div class="kf-speed-control">
+                            <label class="kf-speed-label" for="kf-speed">Speed</label>
+                            <input type="number" class="kf-speed-input" id="kf-speed" min="0.1" max="10" step="0.1"
+                                value="1.0" onchange="kfSetSpeed(this.value)">
+                            <span class="kf-speed-x">×</span>
+                        </div>
+                        <div class="kf-zoom-control" id="kf-zoom-control">
+                            <button class="kf-zoom-btn" id="kf-zoom-out" onclick="kfZoomOut()"
+                                title="Zoom out (Ctrl+Scroll Down)">−</button>
+                            <input type="range" class="kf-zoom-slider" id="kf-zoom-slider" min="0" max="100" step="1"
+                                value="30" oninput="kfZoomFromSlider(this.value)">
+                            <button class="kf-zoom-btn" id="kf-zoom-in" onclick="kfZoomIn()"
+                                title="Zoom in (Ctrl+Scroll Up)">+</button>
+                            <span class="kf-zoom-label" id="kf-zoom-label">100%</span>
+                            <button class="kf-zoom-fit-btn" id="kf-zoom-fit" onclick="kfZoomFit()"
+                                title="Fit timeline to view">Fit</button>
+                        </div>
+                        <span class="kf-total-time" id="kf-total-time">Total: 0.0s</span>
+                    </div>
+
+                    <!-- Timeline -->
+                    <div class="kf-timeline-wrapper" id="kf-timeline-wrapper">
+                        <div class="kf-timeline-container" id="kf-timeline-container">
+                            <!-- Time ruler -->
+                            <div class="kf-ruler" id="kf-ruler"></div>
+
+                            <!-- Track lanes -->
+                            <div class="kf-tracks" id="kf-tracks">
+                                <div class="kf-track">
+                                    <div class="kf-track-label" style="color: var(--slider-x)">Base</div>
+                                    <div class="kf-track-lane" id="kf-lane-base" data-joint="base"></div>
+                                </div>
+                                <div class="kf-track">
+                                    <div class="kf-track-label" style="color: var(--slider-y)">Shldr</div>
+                                    <div class="kf-track-lane" id="kf-lane-shoulder" data-joint="shoulder"></div>
+                                </div>
+                                <div class="kf-track">
+                                    <div class="kf-track-label" style="color: var(--slider-z)">Elbow</div>
+                                    <div class="kf-track-lane" id="kf-lane-elbow" data-joint="elbow"></div>
+                                </div>
+                                <div class="kf-track">
+                                    <div class="kf-track-label" style="color: var(--slider-grip)">Grip</div>
+                                    <div class="kf-track-lane" id="kf-lane-grip" data-joint="grip"></div>
+                                </div>
+                            </div>
+
+                            <!-- Playhead -->
+                            <div class="kf-playhead" id="kf-playhead"></div>
+                        </div>
+                    </div>
+
+                    <!-- Empty state -->
+                    <div class="kf-empty" id="kf-empty">
+                        Click <strong>Add Keyframe</strong> to capture the robot's current joint position
+                    </div>
+                </div>
+            </div> <!-- /control-area -->
+
+        </div> <!-- /main -->
+
+        <!-- Console -->
+        <div class="console" id="console-panel">
+            <div class="console-resize-handle" id="console-resize-handle"></div>
+            <div class="console-header">
+                <div class="console-title"><span class="icon">💻</span> Console</div>
+                <button class="console-clear-btn" onclick="clearConsole()">Clear</button>
+            </div>
+            <div class="console-body" id="console-body">
+                <!-- Console lines appended by JS -->
+            </div>
+        </div>
+
+    </div> <!-- /app -->
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal">
+            <div class="modal-title">⚙️ Serial Connection</div>
+            <div class="modal-label">Serial Port</div>
+            <select class="modal-select" id="port-select">
+                <option value="">Scanning...</option>
+            </select>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeSettings()">Cancel</button>
+                <button class="btn" onclick="disconnectSerial()">Disconnect</button>
+                <button class="btn btn-primary" onclick="connectSerial()">Connect</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Socket.IO (from CDN, bundled with Flask-SocketIO) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

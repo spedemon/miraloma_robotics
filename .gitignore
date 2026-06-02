@@ -1,8 +1,17 @@
+# Python
 *.pyc
 __pycache__/
-.DS_Store
 .venv/
 venv/
 .env
+
+# PlatformIO
+.pio/
+
+# macOS
+.DS_Store
+
+# Project-specific
 settings.json
 static/tts/
+robot_names.json
