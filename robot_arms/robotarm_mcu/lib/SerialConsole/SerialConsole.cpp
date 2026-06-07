@@ -7,6 +7,7 @@
 
 #include "SerialConsole.h"
 #include <WiFi.h>
+#include "SequenceGesture.h"
 
 // Deferred sleep functions defined in main.cpp
 extern void requestSleep();
@@ -182,6 +183,12 @@ void SerialConsole::_processCommand(const String& line) {
         _cmdCalGet();
     } else if (cmd == "cal_reset") {
         _cmdCalReset();
+    } else if (cmd == "seq_clear") {
+        _cmdSeqClear();
+    } else if (cmd.startsWith("seq_add ")) {
+        _cmdSeqAdd(cmd.substring(8));
+    } else if (cmd == "seq_add") {
+        _outln("Usage: seq_add <base> <shoulder> <elbow> <grip> <time_ms>");
     } else {
         _out("Unknown command: '");
         _out(cmd);
@@ -886,4 +893,63 @@ void SerialConsole::_cmdCalGet() {
 void SerialConsole::_cmdCalReset() {
     _arm.getCalStore().resetOffsets();
     _outln("OK \xE2\x80\x94 calibration reset (all offsets = 0)");
+}
+
+void SerialConsole::_cmdSeqClear() {
+    Gesture* g = _gestures.find("custom");
+    if (g) {
+        SequenceGesture* seq = (SequenceGesture*)g;
+        seq->clear();
+        _outln("OK — sequence cleared");
+    } else {
+        _outln("ERROR — 'custom' gesture not found");
+    }
+}
+
+void SerialConsole::_cmdSeqAdd(const String& args) {
+    float base, shoulder, elbow, grip;
+    float timeF;
+
+    String a = args;
+    a.trim();
+
+    int sp1 = a.indexOf(' ');
+    if (sp1 < 0) { _outln("Usage: seq_add <base> <shoulder> <elbow> <grip> <time_ms>"); return; }
+    int sp2 = a.indexOf(' ', sp1 + 1);
+    if (sp2 < 0) { _outln("Usage: seq_add <base> <shoulder> <elbow> <grip> <time_ms>"); return; }
+    int sp3 = a.indexOf(' ', sp2 + 1);
+    if (sp3 < 0) { _outln("Usage: seq_add <base> <shoulder> <elbow> <grip> <time_ms>"); return; }
+    int sp4 = a.indexOf(' ', sp3 + 1);
+    if (sp4 < 0) { _outln("Usage: seq_add <base> <shoulder> <elbow> <grip> <time_ms>"); return; }
+
+    String sBase     = a.substring(0, sp1);
+    String sShoulder = a.substring(sp1 + 1, sp2);
+    String sElbow    = a.substring(sp2 + 1, sp3);
+    String sGrip     = a.substring(sp3 + 1, sp4);
+    String sTime     = a.substring(sp4 + 1);
+
+    if (!_parseFloat(sBase, base) || !_parseFloat(sShoulder, shoulder) ||
+        !_parseFloat(sElbow, elbow) || !_parseFloat(sGrip, grip) ||
+        !_parseFloat(sTime, timeF)) {
+        _outln("Invalid arguments");
+        return;
+    }
+
+    uint32_t timeMs = (uint32_t)timeF;
+    if (timeMs < 50) {
+        _outln("Time must be >= 50 ms");
+        return;
+    }
+
+    Gesture* g = _gestures.find("custom");
+    if (g) {
+        SequenceGesture* seq = (SequenceGesture*)g;
+        if (seq->addKeyframe(base, shoulder, elbow, grip, timeMs)) {
+            _outln("OK — keyframe added");
+        } else {
+            _outln("ERROR — sequence full");
+        }
+    } else {
+        _outln("ERROR — 'custom' gesture not found");
+    }
 }

@@ -26,6 +26,7 @@
 #include "FSquareGesture.h"
 #include "FTriangleGesture.h"
 #include "WaveGesture.h"
+#include "SequenceGesture.h"
 #include "StatusLed.h"
 #include "SmoothMover.h"
 #include "SerialConsole.h"
@@ -57,6 +58,7 @@ FCircleGesture  fcircleGesture(planner, controller, smooth);
 FSquareGesture  fsquareGesture(planner, controller, smooth);
 FTriangleGesture ftriangleGesture(planner, controller, smooth);
 WaveGesture     waveGesture(planner, controller, smooth);
+SequenceGesture customGesture(smooth);
 
 // --- Peripherals ---
 StatusLed led;
@@ -142,6 +144,7 @@ void setup() {
     gestures.registerGesture(&fsquareGesture);
     gestures.registerGesture(&ftriangleGesture);
     gestures.registerGesture(&waveGesture);
+    gestures.registerGesture(&customGesture);
 
     console.begin();
 

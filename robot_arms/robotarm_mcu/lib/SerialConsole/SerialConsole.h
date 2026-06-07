@@ -109,6 +109,8 @@ private:
     void _cmdCalSet(const String& args);
     void _cmdCalGet();
     void _cmdCalReset();
+    void _cmdSeqClear();
+    void _cmdSeqAdd(const String& args);
 
     // --- Test routines (blocking, for servo-level debugging) ---
     void _testBase();

@@ -15,6 +15,8 @@
 
 const char* const BoostButton::MODE_TABLE[] = {
     nullptr,     // 0 - idle (initial)
+    "custom",    // NEW!
+    nullptr,
     "wave",      // 1
     nullptr,     // 2 - idle
     "bow",       // 3
