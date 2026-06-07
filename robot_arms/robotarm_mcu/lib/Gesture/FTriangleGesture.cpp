@@ -29,7 +29,10 @@ void FTriangleGesture::start() {
     _lastTickMs = millis();
 
     // Smooth lead-in: travel to the first vertex
-    _planner.enqueue(FTRI_X, FVERTICES[0].y, FVERTICES[0].z, _ctrl.getGrip(), _speed);
+    float startY = FVERTICES[0].y;
+    float rotX = FTRI_X * cosf(M_PI_4) - startY * sinf(M_PI_4);
+    float rotY = FTRI_X * sinf(M_PI_4) + startY * cosf(M_PI_4);
+    _planner.enqueue(rotX, rotY, FVERTICES[0].z, _ctrl.getGrip(), _speed);
     _leadIn = true;
 
     Serial.println("[Gesture] FTriangle started");
@@ -77,7 +80,10 @@ void FTriangleGesture::update() {
 
     if (_t >= 1.0f) {
         _t = 1.0f;
-        _ctrl.moveTo(FTRI_X, FVERTICES[next].y, FVERTICES[next].z);
+        float nextY = FVERTICES[next].y;
+        float rotX = FTRI_X * cosf(M_PI_4) - nextY * sinf(M_PI_4);
+        float rotY = FTRI_X * sinf(M_PI_4) + nextY * cosf(M_PI_4);
+        _ctrl.moveTo(rotX, rotY, FVERTICES[next].z);
         _holding = true;
         _holdStartMs = now;
         return;
@@ -85,7 +91,9 @@ void FTriangleGesture::update() {
 
     float y = FVERTICES[_edge].y + dy * _t;
     float z = FVERTICES[_edge].z + dz * _t;
-    _ctrl.moveTo(FTRI_X, y, z);
+    float rotX = FTRI_X * cosf(M_PI_4) - y * sinf(M_PI_4);
+    float rotY = FTRI_X * sinf(M_PI_4) + y * cosf(M_PI_4);
+    _ctrl.moveTo(rotX, rotY, z);
 }
 
 bool FTriangleGesture::isRunning() { return _running; }

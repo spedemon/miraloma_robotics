@@ -30,7 +30,10 @@ void FSquareGesture::start() {
     _lastTickMs = millis();
 
     // Smooth lead-in: travel to the first corner
-    _planner.enqueue(FSQ_X, FCORNERS[0].y, FCORNERS[0].z, _ctrl.getGrip(), _speed);
+    float startY = FCORNERS[0].y;
+    float rotX = FSQ_X * cosf(M_PI_4) - startY * sinf(M_PI_4);
+    float rotY = FSQ_X * sinf(M_PI_4) + startY * cosf(M_PI_4);
+    _planner.enqueue(rotX, rotY, FCORNERS[0].z, _ctrl.getGrip(), _speed);
     _leadIn = true;
 
     Serial.println("[Gesture] FSquare started");
@@ -78,7 +81,10 @@ void FSquareGesture::update() {
 
     if (_t >= 1.0f) {
         _t = 1.0f;
-        _ctrl.moveTo(FSQ_X, FCORNERS[next].y, FCORNERS[next].z);
+        float nextY = FCORNERS[next].y;
+        float rotX = FSQ_X * cosf(M_PI_4) - nextY * sinf(M_PI_4);
+        float rotY = FSQ_X * sinf(M_PI_4) + nextY * cosf(M_PI_4);
+        _ctrl.moveTo(rotX, rotY, FCORNERS[next].z);
         _holding = true;
         _holdStartMs = now;
         return;
@@ -86,7 +92,9 @@ void FSquareGesture::update() {
 
     float y = FCORNERS[_edge].y + dy * _t;
     float z = FCORNERS[_edge].z + dz * _t;
-    _ctrl.moveTo(FSQ_X, y, z);
+    float rotX = FSQ_X * cosf(M_PI_4) - y * sinf(M_PI_4);
+    float rotY = FSQ_X * sinf(M_PI_4) + y * cosf(M_PI_4);
+    _ctrl.moveTo(rotX, rotY, z);
 }
 
 bool FSquareGesture::isRunning() { return _running; }

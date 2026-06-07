@@ -27,7 +27,9 @@ void FCircleGesture::start() {
     // Smooth lead-in: travel to the starting point of the circle
     float startY = FCY + FR;  // cos(0) = 1
     float startZ = FCZ;       // sin(0) = 0
-    _planner.enqueue(FX, startY, startZ, _ctrl.getGrip(), _speed);
+    float rotX = FX * cosf(M_PI_4) - startY * sinf(M_PI_4);
+    float rotY = FX * sinf(M_PI_4) + startY * cosf(M_PI_4);
+    _planner.enqueue(rotX, rotY, startZ, _ctrl.getGrip(), _speed);
     _leadIn = true;
 
     Serial.println("[Gesture] FCircle started");
@@ -64,7 +66,10 @@ void FCircleGesture::update() {
     float y = FCY + FR * cosf(_angleRad);
     float z = FCZ + FR * sinf(_angleRad);
 
-    _ctrl.moveTo(FX, y, z);
+    float rotX = FX * cosf(M_PI_4) - y * sinf(M_PI_4);
+    float rotY = FX * sinf(M_PI_4) + y * cosf(M_PI_4);
+
+    _ctrl.moveTo(rotX, rotY, z);
 }
 
 bool FCircleGesture::isRunning() { return _running; }
