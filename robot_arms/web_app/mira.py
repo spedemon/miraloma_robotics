@@ -27,6 +27,7 @@ from flask_socketio import SocketIO, emit
 
 BAUD_RATE = 115200
 NAMES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "robot_names.json")
+AUTOSAVE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".sequence_autosave.json")
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 # ---------------------------------------------------------------------------
@@ -533,6 +534,23 @@ def api_serial_disconnect():
     disconnect_serial()
     socketio.emit("serial_status", {"connected": False, "port": None})
     return jsonify({"ok": True})
+
+@app.route("/api/sequence/autosave", methods=["POST"])
+def api_sequence_autosave():
+    data = request.json
+    with open(AUTOSAVE_FILE, "w") as f:
+        json.dump(data, f)
+    return jsonify({"ok": True})
+
+@app.route("/api/sequence/autoload", methods=["GET"])
+def api_sequence_autoload():
+    if os.path.exists(AUTOSAVE_FILE):
+        try:
+            with open(AUTOSAVE_FILE, "r") as f:
+                return jsonify(json.load(f))
+        except (json.JSONDecodeError, IOError):
+            pass
+    return jsonify({"keyframes": []})
 
 # ---------------------------------------------------------------------------
 # WebSocket events

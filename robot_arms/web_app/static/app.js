@@ -561,6 +561,7 @@ function sendWhere() {
 }
 
 function sendStop() {
+    if (kfPlaying) kfPause();
     sendCommand("stop");
     setActiveGesture(null);
     // MCU smooth-homes on stop — keep sliders in sync
@@ -844,6 +845,7 @@ function initGestures() {
 }
 
 function toggleGesture(gesture) {
+    if (kfPlaying) kfPause();
     clearSliderIdleTimer();  // Don't sleep during gesture playback
     if (gesture.continuous) {
         if (activeGesture === gesture.id) {
@@ -932,6 +934,12 @@ function updateCalibrateButton() {
     const btn = document.getElementById("btn-calibrate");
     if (btn) {
         btn.style.display = selectedTarget ? "" : "none";
+    }
+    
+    const uploadBtn = document.getElementById("kf-upload-btn");
+    if (uploadBtn) {
+        const canUpload = deviceType === "robot" || selectedTarget !== null;
+        uploadBtn.style.display = canUpload ? "" : "none";
     }
 }
 
@@ -1069,6 +1077,27 @@ let kfSpeedMultiplier = 1.0;
 let kfPlayheadTimeMs = 0;  // current playhead position in ms (for seek)
 let kfLooping = false;     // loop playback
 let kfPlayStartOffsetMs = 0; // timeline offset when play started (for resume)
+
+function kfAutosave() {
+    fetch("/api/sequence/autosave", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyframes })
+    }).catch(e => console.error("Autosave failed", e));
+}
+
+async function kfAutoload() {
+    try {
+        const res = await fetch("/api/sequence/autoload");
+        const data = await res.json();
+        if (data && data.keyframes && data.keyframes.length > 0) {
+            keyframes = data.keyframes;
+            kfRender();
+        }
+    } catch (e) {
+        console.error("Autoload failed", e);
+    }
+}
 
 // Zoom: px per ms — mutable, drives timeline scale
 const KF_ZOOM_MIN = 0.02;   // very zoomed out
@@ -1242,6 +1271,7 @@ function kfAddKeyframe() {
     };
     keyframes.push(kf);
     kfRender();
+    kfAutosave();
     addConsoleLine(`Keyframe ${keyframes.length} added: B=${kf.base.toFixed(1)} S=${kf.shoulder.toFixed(1)} E=${kf.elbow.toFixed(1)} G=${kf.grip.toFixed(0)} (${kf.durationMs}ms)`, "system");
 }
 
@@ -1249,6 +1279,19 @@ function kfRemoveKeyframe(index) {
     if (kfPlaying) return;
     keyframes.splice(index, 1);
     kfRender();
+    kfAutosave();
+}
+
+function kfClear() {
+    if (keyframes.length === 0) return;
+    if (confirm("Are you sure you want to clear all keyframes?")) {
+        if (kfPlaying) kfPause();
+        keyframes = [];
+        kfPlayheadTimeMs = 0;
+        kfRender();
+        kfAutosave();
+        addConsoleLine("Cleared all keyframes", "system");
+    }
 }
 
 function kfGetTotalDuration() {
@@ -1376,6 +1419,7 @@ function kfRender() {
                         if (toIdx > fromIdx) toIdx--;
                         keyframes.splice(toIdx, 0, moved);
                         kfRender();
+                        kfAutosave();
                     }
                     document.querySelectorAll(".kf-bar").forEach(b => {
                         b.classList.remove("drag-over-left", "drag-over-right");
@@ -1469,6 +1513,7 @@ function kfStartResize(e, index, edge) {
     const onUp = () => {
         document.removeEventListener("mousemove", onMove);
         document.removeEventListener("mouseup", onUp);
+        kfAutosave();
     };
 
     document.addEventListener("mousemove", onMove);
@@ -1504,6 +1549,7 @@ function kfStartEdit(barEl, kfIndex, joint) {
             }
         }
         kfRender();
+        if (save) kfAutosave();
     };
 
     input.addEventListener("keydown", (e) => {
@@ -1749,6 +1795,35 @@ function kfAnimatePlayhead() {
     }
 }
 
+// --- Upload to Robot ---
+function kfUploadToRobot() {
+    if (keyframes.length === 0) {
+        addConsoleLine("No keyframes to upload", "warning");
+        return;
+    }
+    
+    // First clear sequence
+    sendCommand("seq_clear");
+    
+    // Then add each keyframe up to 50
+    const limit = Math.min(keyframes.length, 50);
+    if (keyframes.length > 50) {
+        addConsoleLine(`Sequence too long. Truncating to first 50 keyframes.`, "warning");
+    }
+    
+    for (let i = 0; i < limit; i++) {
+        const kf = keyframes[i];
+        const base = parseFloat(kf.base.toFixed(1));
+        const shoulder = parseFloat(kf.shoulder.toFixed(1));
+        const elbow = parseFloat(kf.elbow.toFixed(1));
+        const grip = parseFloat(kf.grip.toFixed(1));
+        
+        sendCommand(`seq_add ${base} ${shoulder} ${elbow} ${grip} ${kf.durationMs}`);
+    }
+    
+    addConsoleLine(`Uploaded ${limit} keyframes to robot. Use the physical Boost button to play the sequence!`, "system");
+}
+
 // --- Download JSON ---
 function kfDownloadJSON() {
     if (keyframes.length === 0) {
@@ -1833,6 +1908,7 @@ function kfLoadJSON(event) {
 
             // Re-render
             kfRender();
+            kfAutosave();
 
             const name = data.name || file.name;
             addConsoleLine(`Loaded ${keyframes.length} keyframes from "${name}"`, "system");
@@ -1908,6 +1984,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateSliderValues();
     kfRender();
     initKfZoom();
+    kfAutoload();
     initConsoleResize();
     initSectionBackground();
 });
@@ -1925,8 +2002,8 @@ function setSectionBackground(cls) {
 
 function initSectionBackground() {
     const cards = document.querySelectorAll('#control-panel > .card');
-    // Card order: 0 = Move the Arm, 1 = Dance Moves, 2 = Animation Maker
-    const mapping = ['bg-arm', 'bg-dance', 'bg-animation'];
+    // Card order: 0 = Move the Arm, 1 = Calibration, 2 = Animation Maker, 3 = Dance Moves
+    const mapping = ['bg-arm', null, 'bg-animation', 'bg-dance'];
 
     cards.forEach((card, i) => {
         const cls = mapping[i];
