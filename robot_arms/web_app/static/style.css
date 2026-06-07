@@ -1131,8 +1131,8 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
 }
 
 .kf-loop-btn {
-    min-width: 0;
-    padding: 10px 12px;
+    min-width: 80px;
+    padding: 10px 16px;
     transition: var(--transition-bounce);
 }
 

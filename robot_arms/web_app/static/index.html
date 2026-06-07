@@ -286,20 +286,7 @@
                         </div>
                     </div>
 
-                    <!-- Gestures -->
-                    <div class="card">
-                        <div class="card-title"><span class="icon">💃</span> Dance Moves!</div>
-                        <div class="gesture-grid" id="gesture-grid">
-                            <!-- Populated by JS -->
-                        </div>
-                        <div class="stop-all-row">
-                            <button class="btn btn-danger" id="btn-stop" onclick="sendStop()">
-                                <span class="icon">🛑</span> STOP!
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Keyframe Sequencer — NOW INSIDE the scrollable control-panel -->
+                    <!-- Keyframe Sequencer — right under the sliders -->
                     <div class="card keyframe-card" id="keyframe-card">
                         <div class="card-title"><span class="icon">🎬</span> Animation Maker</div>
 
@@ -314,16 +301,22 @@
                                 <span class="icon">⏮</span>
                             </button>
                             <button class="btn kf-loop-btn" id="kf-loop-btn" onclick="kfToggleLoop()" title="Loop playback">
-                                <span class="icon">🔁</span>
+                                <span class="icon">🔁</span> Loop
                             </button>
                             <button class="btn btn-primary" id="kf-add-btn" onclick="kfAddKeyframe()">
                                 <span class="icon">📸</span> Capture Pose
+                            </button>
+                            <button class="btn btn-danger" id="kf-clear-btn" onclick="kfClear()">
+                                <span class="icon">🗑️</span> Clear
                             </button>
                             <button class="btn" id="kf-download-btn" onclick="kfDownloadJSON()">
                                 <span class="icon">💾</span> Save
                             </button>
                             <button class="btn" id="kf-load-btn" onclick="kfTriggerLoad()">
                                 <span class="icon">📂</span> Open
+                            </button>
+                            <button class="btn" id="kf-upload-btn" onclick="kfUploadToRobot()" style="display: none;">
+                                <span class="icon">🚀</span> Upload to Robot
                             </button>
                             <input type="file" id="kf-file-input" accept=".json" style="display:none"
                                 onchange="kfLoadJSON(event)">
@@ -381,6 +374,19 @@
                         <!-- Empty state -->
                         <div class="kf-empty" id="kf-empty">
                             Click <strong>📸 Capture Pose</strong> to save the robot's current position!
+                        </div>
+                    </div>
+
+                    <!-- Gestures — at the bottom -->
+                    <div class="card">
+                        <div class="card-title"><span class="icon">💃</span> Dance Moves!</div>
+                        <div class="gesture-grid" id="gesture-grid">
+                            <!-- Populated by JS -->
+                        </div>
+                        <div class="stop-all-row">
+                            <button class="btn btn-danger" id="btn-stop" onclick="sendStop()">
+                                <span class="icon">🛑</span> STOP!
+                            </button>
                         </div>
                     </div>
 
