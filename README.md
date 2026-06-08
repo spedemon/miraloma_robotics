@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="media/logo.png" alt="Miraloma Robotics Logo" width="150">
+</div>
+
 # 🤖 Miraloma Robotics
 
 > **Building, programming, and talking to real robots — at Miraloma Elementary School.**
