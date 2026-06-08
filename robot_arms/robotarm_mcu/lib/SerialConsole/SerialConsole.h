@@ -43,12 +43,13 @@
 #include "MotionPlanner.h"
 #include "Gesture.h"
 #include "SmoothMover.h"
+#include "CustomGestureStore.h"
 
 class SerialConsole {
 public:
     SerialConsole(MiraArm& arm, ArmController& ctrl,
                   MotionPlanner& planner, GestureManager& gestures,
-                  SmoothMover& smooth);
+                  SmoothMover& smooth, CustomGestureStore& customStore);
 
     void begin();
     void update();
@@ -72,8 +73,9 @@ private:
     MiraArm&        _arm;
     ArmController&  _ctrl;
     MotionPlanner&  _planner;
-    GestureManager& _gestures;
-    SmoothMover&    _smooth;
+    GestureManager&     _gestures;
+    SmoothMover&        _smooth;
+    CustomGestureStore& _customStore;
     String          _inputBuffer;
 
     // --- Output redirection ---
@@ -111,6 +113,11 @@ private:
     void _cmdCalReset();
     void _cmdSeqClear();
     void _cmdSeqAdd(const String& args);
+    void _cmdSeqLoop(const String& args);
+    void _cmdSeqSave(const String& args);
+    void _cmdSeqDelete(const String& args);
+    void _cmdSeqList();
+    void _cmdSeqCount();
 
     // --- Test routines (blocking, for servo-level debugging) ---
     void _testBase();

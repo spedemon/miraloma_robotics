@@ -15,9 +15,9 @@ extern void cancelSleep();
 
 SerialConsole::SerialConsole(MiraArm& arm, ArmController& ctrl,
                              MotionPlanner& planner, GestureManager& gestures,
-                             SmoothMover& smooth)
+                             SmoothMover& smooth, CustomGestureStore& customStore)
     : _arm(arm), _ctrl(ctrl), _planner(planner), _gestures(gestures),
-      _smooth(smooth), _captureBuffer(nullptr) {
+      _smooth(smooth), _customStore(customStore), _captureBuffer(nullptr) {
 }
 
 void SerialConsole::begin() {
@@ -189,6 +189,22 @@ void SerialConsole::_processCommand(const String& line) {
         _cmdSeqAdd(cmd.substring(8));
     } else if (cmd == "seq_add") {
         _outln("Usage: seq_add <base> <shoulder> <elbow> <grip> <time_ms>");
+    } else if (cmd.startsWith("seq_loop ")) {
+        _cmdSeqLoop(cmd.substring(9));
+    } else if (cmd == "seq_loop") {
+        _outln("Usage: seq_loop <0|1>");
+    } else if (cmd.startsWith("seq_save ")) {
+        _cmdSeqSave(cmd.substring(9));
+    } else if (cmd == "seq_save") {
+        _outln("Usage: seq_save <name>");
+    } else if (cmd.startsWith("seq_delete ")) {
+        _cmdSeqDelete(cmd.substring(11));
+    } else if (cmd == "seq_delete") {
+        _outln("Usage: seq_delete <name>");
+    } else if (cmd == "seq_list") {
+        _cmdSeqList();
+    } else if (cmd == "seq_count") {
+        _cmdSeqCount();
     } else {
         _out("Unknown command: '");
         _out(cmd);
@@ -896,14 +912,8 @@ void SerialConsole::_cmdCalReset() {
 }
 
 void SerialConsole::_cmdSeqClear() {
-    Gesture* g = _gestures.find("custom");
-    if (g) {
-        SequenceGesture* seq = (SequenceGesture*)g;
-        seq->clear();
-        _outln("OK — sequence cleared");
-    } else {
-        _outln("ERROR — 'custom' gesture not found");
-    }
+    _customStore.clearStaging();
+    _outln("OK — staging cleared");
 }
 
 void SerialConsole::_cmdSeqAdd(const String& args) {
@@ -941,15 +951,77 @@ void SerialConsole::_cmdSeqAdd(const String& args) {
         return;
     }
 
-    Gesture* g = _gestures.find("custom");
-    if (g) {
-        SequenceGesture* seq = (SequenceGesture*)g;
-        if (seq->addKeyframe(base, shoulder, elbow, grip, timeMs)) {
-            _outln("OK — keyframe added");
-        } else {
-            _outln("ERROR — sequence full");
-        }
+    if (_customStore.addStagingKeyframe(base, shoulder, elbow, grip, timeMs)) {
+        _outln("OK — keyframe added to staging");
     } else {
-        _outln("ERROR — 'custom' gesture not found");
+        _outln("ERROR — staging full (max 50 keyframes)");
     }
+}
+
+void SerialConsole::_cmdSeqSave(const String& args) {
+    String name = args;
+    name.trim();
+
+    CustomGestureStore::SaveResult result = _customStore.save(name.c_str());
+
+    if (result == CustomGestureStore::SAVE_OK) {
+        // Register with gesture manager for immediate playback
+        SequenceGesture* g = _customStore.find(name.c_str());
+        if (g) _gestures.registerGesture(g);
+
+        String msg = "SEQ_SAVE_OK " + name + " " + String(_customStore.stagingCount());
+        _outln(msg);
+    } else {
+        String msg = "SEQ_SAVE_ERR " + String((int)result) + " " +
+                     String(CustomGestureStore::errorString(result));
+        _outln(msg);
+    }
+}
+
+void SerialConsole::_cmdSeqLoop(const String& args) {
+    String val = args;
+    val.trim();
+
+    if (val == "1" || val == "true") {
+        _customStore.setStagingLoop(true);
+        _outln("OK — staging loop = ON");
+    } else if (val == "0" || val == "false") {
+        _customStore.setStagingLoop(false);
+        _outln("OK — staging loop = OFF");
+    } else {
+        _outln("Usage: seq_loop <0|1>");
+    }
+}
+
+void SerialConsole::_cmdSeqDelete(const String& args) {
+    String name = args;
+    name.trim();
+
+    // Unregister from gesture manager first
+    SequenceGesture* g = _customStore.find(name.c_str());
+    if (g) {
+        _gestures.unregisterGesture(g);
+    }
+
+    if (_customStore.remove(name.c_str())) {
+        _outln("SEQ_DELETE_OK " + name);
+    } else {
+        _outln("SEQ_DELETE_ERR " + name + " not_found");
+    }
+}
+
+void SerialConsole::_cmdSeqList() {
+    uint8_t n = _customStore.count();
+    String msg = "SEQ_LIST " + String(n);
+    for (uint8_t i = 0; i < CustomGestureStore::MAX_CUSTOM_GESTURES; i++) {
+        const char* name = _customStore.getName(i);
+        if (name) {
+            msg += " " + String(name);
+        }
+    }
+    _outln(msg);
+}
+
+void SerialConsole::_cmdSeqCount() {
+    _outln("SEQ_COUNT " + String(_customStore.stagingCount()));
 }

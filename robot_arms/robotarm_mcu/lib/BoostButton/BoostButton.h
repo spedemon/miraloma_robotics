@@ -20,9 +20,12 @@
 #include "Gesture.h"
 #include "ArmController.h"
 
+class CustomGestureStore;  // forward declaration
+
 class BoostButton {
 public:
-    BoostButton(GestureManager& gestures, ArmController& controller);
+    BoostButton(GestureManager& gestures, ArmController& controller,
+                CustomGestureStore* customStore = nullptr);
 
     /** Call once in setup() after gestures are registered. */
     void begin();
@@ -33,6 +36,7 @@ public:
 private:
     GestureManager& _gestures;
     ArmController&  _controller;
+    CustomGestureStore* _customStore;
 
     // ISR state (volatile for ISR ↔ loop communication)
     static volatile bool     _isrFlag;
@@ -49,7 +53,14 @@ private:
     static const char* const MODE_TABLE[];
     static const uint8_t     MODE_COUNT;
 
-    uint8_t _modeIndex;          // Current position in MODE_TABLE
+    uint8_t _modeIndex;          // Current position in combined sequence
+    bool    _inCustomRange;      // true when cycling through custom gestures
+    uint8_t _customSlotIndex;    // Current slot in CustomGestureStore
+
+    /** Get the name for the current mode (handles both built-in and custom). */
+    const char* _currentModeName();
+    /** Advance to the next mode (wrapping from custom back to built-in). */
+    void _advanceMode();
 };
 
 #endif // MIRA_BOOST_BUTTON_H

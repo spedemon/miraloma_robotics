@@ -26,7 +26,7 @@
 #include "FSquareGesture.h"
 #include "FTriangleGesture.h"
 #include "WaveGesture.h"
-#include "SequenceGesture.h"
+#include "CustomGestureStore.h"
 #include "StatusLed.h"
 #include "SmoothMover.h"
 #include "SerialConsole.h"
@@ -58,19 +58,19 @@ FCircleGesture  fcircleGesture(planner, controller, smooth);
 FSquareGesture  fsquareGesture(planner, controller, smooth);
 FTriangleGesture ftriangleGesture(planner, controller, smooth);
 WaveGesture     waveGesture(planner, controller, smooth);
-SequenceGesture customGesture(smooth);
+CustomGestureStore customStore(smooth);
 
 // --- Peripherals ---
 StatusLed led;
 
 // --- Console ---
-SerialConsole console(arm, controller, planner, gestures, smooth);
+SerialConsole console(arm, controller, planner, gestures, smooth, customStore);
 
 // --- Swarm (ESP-NOW) ---
 SwarmNode swarmNode;
 
 // --- BOOT button mode cycler ---
-BoostButton boostButton(gestures, controller);
+BoostButton boostButton(gestures, controller, &customStore);
 
 // --- Idle detection & deferred sleep ---
 bool wasGestureActive = false;
@@ -144,7 +144,10 @@ void setup() {
     gestures.registerGesture(&fsquareGesture);
     gestures.registerGesture(&ftriangleGesture);
     gestures.registerGesture(&waveGesture);
-    gestures.registerGesture(&customGesture);
+
+    // Load and register custom gestures from flash
+    customStore.begin();
+    customStore.registerAll(gestures);
 
     console.begin();
 
