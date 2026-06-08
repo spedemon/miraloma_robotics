@@ -2,12 +2,14 @@
  * FTriangleGesture.cpp — Smooth front-facing triangle via edge-walking
  *
  * YZ plane at X=90. Center (Y=-2, Z=58), R=44mm, equilateral.
+ * Rotated -30° from frontal.
  */
 
 #include "FTriangleGesture.h"
 
 static const float FTRI_X = 90.0f;
 static const uint32_t VERTEX_HOLD_MS = 200;
+static const float ROT_ANGLE = -M_PI / 6.0f;  // -30° rotation
 
 struct FVec2 { float y, z; };
 static const FVec2 FVERTICES[] = {
@@ -30,8 +32,8 @@ void FTriangleGesture::start() {
 
     // Smooth lead-in: travel to the first vertex
     float startY = FVERTICES[0].y;
-    float rotX = FTRI_X * cosf(M_PI_4) - startY * sinf(M_PI_4);
-    float rotY = FTRI_X * sinf(M_PI_4) + startY * cosf(M_PI_4);
+    float rotX = FTRI_X * cosf(ROT_ANGLE) - startY * sinf(ROT_ANGLE);
+    float rotY = FTRI_X * sinf(ROT_ANGLE) + startY * cosf(ROT_ANGLE);
     _planner.enqueue(rotX, rotY, FVERTICES[0].z, _ctrl.getGrip(), _speed);
     _leadIn = true;
 
@@ -81,8 +83,8 @@ void FTriangleGesture::update() {
     if (_t >= 1.0f) {
         _t = 1.0f;
         float nextY = FVERTICES[next].y;
-        float rotX = FTRI_X * cosf(M_PI_4) - nextY * sinf(M_PI_4);
-        float rotY = FTRI_X * sinf(M_PI_4) + nextY * cosf(M_PI_4);
+        float rotX = FTRI_X * cosf(ROT_ANGLE) - nextY * sinf(ROT_ANGLE);
+        float rotY = FTRI_X * sinf(ROT_ANGLE) + nextY * cosf(ROT_ANGLE);
         _ctrl.moveTo(rotX, rotY, FVERTICES[next].z);
         _holding = true;
         _holdStartMs = now;
@@ -91,8 +93,8 @@ void FTriangleGesture::update() {
 
     float y = FVERTICES[_edge].y + dy * _t;
     float z = FVERTICES[_edge].z + dz * _t;
-    float rotX = FTRI_X * cosf(M_PI_4) - y * sinf(M_PI_4);
-    float rotY = FTRI_X * sinf(M_PI_4) + y * cosf(M_PI_4);
+    float rotX = FTRI_X * cosf(ROT_ANGLE) - y * sinf(ROT_ANGLE);
+    float rotY = FTRI_X * sinf(ROT_ANGLE) + y * cosf(ROT_ANGLE);
     _ctrl.moveTo(rotX, rotY, z);
 }
 

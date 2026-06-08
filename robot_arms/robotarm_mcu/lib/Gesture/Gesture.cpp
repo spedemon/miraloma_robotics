@@ -28,6 +28,27 @@ void GestureManager::registerGesture(Gesture* g) {
     }
 }
 
+void GestureManager::unregisterGesture(Gesture* g) {
+    for (uint8_t i = 0; i < _count; i++) {
+        if (_gestures[i] == g) {
+            // Shift remaining gestures down
+            for (uint8_t j = i; j < _count - 1; j++) {
+                _gestures[j] = _gestures[j + 1];
+            }
+            _count--;
+            // Clear active/pending if they reference this gesture
+            if (_active == g) {
+                _active->stop();
+                _active = nullptr;
+            }
+            if (_pending == g) {
+                _pending = nullptr;
+            }
+            return;
+        }
+    }
+}
+
 void GestureManager::update() {
     // --- Transition logic: wait for homing to finish, then start pending ---
     if (_transitioning) {

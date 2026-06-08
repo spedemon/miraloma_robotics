@@ -2,12 +2,14 @@
  * FSquareGesture.cpp — Smooth front-facing square via edge-walking
  *
  * YZ plane at X=90. Center (Y=-2, Z=58), side≈62.5mm.
+ * Rotated -30° from frontal.
  */
 
 #include "FSquareGesture.h"
 
 static const float FSQ_X = 90.0f;
 static const uint32_t CORNER_HOLD_MS = 200;
+static const float ROT_ANGLE = -M_PI / 6.0f;  // -30° rotation
 
 struct FVec2 { float y, z; };
 static const FVec2 FCORNERS[] = {
@@ -31,8 +33,8 @@ void FSquareGesture::start() {
 
     // Smooth lead-in: travel to the first corner
     float startY = FCORNERS[0].y;
-    float rotX = FSQ_X * cosf(M_PI_4) - startY * sinf(M_PI_4);
-    float rotY = FSQ_X * sinf(M_PI_4) + startY * cosf(M_PI_4);
+    float rotX = FSQ_X * cosf(ROT_ANGLE) - startY * sinf(ROT_ANGLE);
+    float rotY = FSQ_X * sinf(ROT_ANGLE) + startY * cosf(ROT_ANGLE);
     _planner.enqueue(rotX, rotY, FCORNERS[0].z, _ctrl.getGrip(), _speed);
     _leadIn = true;
 
@@ -82,8 +84,8 @@ void FSquareGesture::update() {
     if (_t >= 1.0f) {
         _t = 1.0f;
         float nextY = FCORNERS[next].y;
-        float rotX = FSQ_X * cosf(M_PI_4) - nextY * sinf(M_PI_4);
-        float rotY = FSQ_X * sinf(M_PI_4) + nextY * cosf(M_PI_4);
+        float rotX = FSQ_X * cosf(ROT_ANGLE) - nextY * sinf(ROT_ANGLE);
+        float rotY = FSQ_X * sinf(ROT_ANGLE) + nextY * cosf(ROT_ANGLE);
         _ctrl.moveTo(rotX, rotY, FCORNERS[next].z);
         _holding = true;
         _holdStartMs = now;
@@ -92,8 +94,8 @@ void FSquareGesture::update() {
 
     float y = FCORNERS[_edge].y + dy * _t;
     float z = FCORNERS[_edge].z + dz * _t;
-    float rotX = FSQ_X * cosf(M_PI_4) - y * sinf(M_PI_4);
-    float rotY = FSQ_X * sinf(M_PI_4) + y * cosf(M_PI_4);
+    float rotX = FSQ_X * cosf(ROT_ANGLE) - y * sinf(ROT_ANGLE);
+    float rotY = FSQ_X * sinf(ROT_ANGLE) + y * cosf(ROT_ANGLE);
     _ctrl.moveTo(rotX, rotY, z);
 }
 

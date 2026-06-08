@@ -2,7 +2,7 @@
  * FCircleGesture.cpp — Smooth front-facing circle via parametric computation
  *
  * Circle in YZ plane at X=90. Center: (Y=-2, Z=58), R=44mm.
- * Computes exact position using sin/cos every tick.
+ * Rotated -30° from frontal. Computes exact position using sin/cos every tick.
  */
 
 #include "FCircleGesture.h"
@@ -12,6 +12,7 @@ static const float FX  = 90.0f;
 static const float FCY = -2.0f;
 static const float FCZ = 58.0f;
 static const float FR  = 44.0f;
+static const float ROT_ANGLE = -M_PI / 6.0f;  // -30° rotation
 
 FCircleGesture::FCircleGesture(MotionPlanner& planner, ArmController& ctrl, SmoothMover& smooth)
     : _planner(planner), _ctrl(ctrl), _smooth(smooth),
@@ -27,8 +28,8 @@ void FCircleGesture::start() {
     // Smooth lead-in: travel to the starting point of the circle
     float startY = FCY + FR;  // cos(0) = 1
     float startZ = FCZ;       // sin(0) = 0
-    float rotX = FX * cosf(M_PI_4) - startY * sinf(M_PI_4);
-    float rotY = FX * sinf(M_PI_4) + startY * cosf(M_PI_4);
+    float rotX = FX * cosf(ROT_ANGLE) - startY * sinf(ROT_ANGLE);
+    float rotY = FX * sinf(ROT_ANGLE) + startY * cosf(ROT_ANGLE);
     _planner.enqueue(rotX, rotY, startZ, _ctrl.getGrip(), _speed);
     _leadIn = true;
 
@@ -66,8 +67,8 @@ void FCircleGesture::update() {
     float y = FCY + FR * cosf(_angleRad);
     float z = FCZ + FR * sinf(_angleRad);
 
-    float rotX = FX * cosf(M_PI_4) - y * sinf(M_PI_4);
-    float rotY = FX * sinf(M_PI_4) + y * cosf(M_PI_4);
+    float rotX = FX * cosf(ROT_ANGLE) - y * sinf(ROT_ANGLE);
+    float rotY = FX * sinf(ROT_ANGLE) + y * cosf(ROT_ANGLE);
 
     _ctrl.moveTo(rotX, rotY, z);
 }

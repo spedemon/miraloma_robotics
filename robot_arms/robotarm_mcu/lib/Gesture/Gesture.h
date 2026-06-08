@@ -41,6 +41,9 @@ public:
     /** Is this gesture currently running? */
     virtual bool isRunning() = 0;
 
+    /** Is this gesture empty / has no content loaded? */
+    virtual bool isEmpty() { return false; }
+
     /** Does this gesture support a speed parameter? */
     virtual bool hasSpeed() { return false; }
 
@@ -54,7 +57,7 @@ public:
 
 class GestureManager {
 public:
-    static const uint8_t MAX_GESTURES = 16;
+    static const uint8_t MAX_GESTURES = 32;
 
     /** Duration of the smooth home transition between gestures (ms). */
     static const uint32_t TRANSITION_HOME_MS = 800;
@@ -63,6 +66,9 @@ public:
 
     /** Register a gesture. Call during setup(). */
     void registerGesture(Gesture* g);
+
+    /** Remove a gesture from the registry. Used when deleting custom gestures. */
+    void unregisterGesture(Gesture* g);
 
     /**
      * Update active gesture and transition logic.
