@@ -1,7 +1,14 @@
 #include "SequenceGesture.h"
+#include <string.h>
 
-SequenceGesture::SequenceGesture(SmoothMover& smooth)
-    : _smooth(smooth), _running(false), _phase(0), _keyframeCount(0) {
+SequenceGesture::SequenceGesture(SmoothMover& smooth, const char* gestureName)
+    : _smooth(smooth), _running(false), _loop(true), _phase(0), _keyframeCount(0) {
+    setName(gestureName);
+}
+
+void SequenceGesture::setName(const char* name) {
+    strncpy(_name, name, sizeof(_name) - 1);
+    _name[sizeof(_name) - 1] = '\0';
 }
 
 void SequenceGesture::clear() {
@@ -46,6 +53,14 @@ bool SequenceGesture::isRunning() {
 
 void SequenceGesture::_enqueueNextKeyframe() {
     if (_keyframeCount == 0) return;
+
+    // One-shot: stop after the last keyframe has been played
+    if (!_loop && _phase >= _keyframeCount) {
+        _running = false;
+        Serial.println("[Gesture] Custom sequence finished (one-shot)");
+        return;
+    }
+
     const SequenceKeyframe& k = _keyframes[_phase % _keyframeCount];
     _smooth.startTimedMove(k.base, k.shoulder, k.elbow, k.grip, k.durationMs);
     _phase++;
