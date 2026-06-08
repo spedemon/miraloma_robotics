@@ -210,6 +210,55 @@ def process_serial_line(text):
         socketio.emit("console_line", {"text": text, "type": "system", "time": timestamp})
         return
 
+    # --- Custom gesture protocol responses ---
+
+    # SEQ_SAVE_OK <name> <count> [<loop>]
+    m = re.match(r"SEQ_SAVE_OK\s+(\S+)\s+(\d+)(?:\s+(0|1))?", text)
+    if m:
+        name, count = m.group(1), int(m.group(2))
+        loop = m.group(3) != "0" if m.group(3) else True  # default to looping
+        socketio.emit("upload_result", {"ok": True, "name": name, "count": count, "loop": loop})
+        socketio.emit("console_line", {"text": text, "type": "system", "time": timestamp})
+        return
+
+    # SEQ_SAVE_ERR <code> <reason>
+    m = re.match(r"SEQ_SAVE_ERR\s+(\d+)\s+(.*)", text)
+    if m:
+        code, reason = int(m.group(1)), m.group(2)
+        socketio.emit("upload_result", {"ok": False, "code": code, "reason": reason})
+        socketio.emit("console_line", {"text": text, "type": "error", "time": timestamp})
+        return
+
+    # SEQ_LIST <count> [name1 name2 ...]
+    m = re.match(r"SEQ_LIST\s+(\d+)(.*)", text)
+    if m:
+        count = int(m.group(1))
+        names = m.group(2).strip().split() if m.group(2).strip() else []
+        socketio.emit("custom_gestures", {"count": count, "names": names})
+        socketio.emit("console_line", {"text": text, "type": "system", "time": timestamp})
+        return
+
+    # SEQ_DELETE_OK <name>
+    m = re.match(r"SEQ_DELETE_OK\s+(\S+)", text)
+    if m:
+        socketio.emit("delete_result", {"ok": True, "name": m.group(1)})
+        socketio.emit("console_line", {"text": text, "type": "system", "time": timestamp})
+        return
+
+    # SEQ_DELETE_ERR <name> <reason>
+    m = re.match(r"SEQ_DELETE_ERR\s+(\S+)\s+(.*)", text)
+    if m:
+        socketio.emit("delete_result", {"ok": False, "name": m.group(1), "reason": m.group(2)})
+        socketio.emit("console_line", {"text": text, "type": "error", "time": timestamp})
+        return
+
+    # SEQ_COUNT <count>
+    m = re.match(r"SEQ_COUNT\s+(\d+)", text)
+    if m:
+        socketio.emit("staging_count", {"count": int(m.group(1))})
+        socketio.emit("console_line", {"text": text, "type": "system", "time": timestamp})
+        return
+
     # --- NEW_ROBOT: R1 [AA:BB:CC:DD:EE:FF] ---
     m = re.match(r"NEW_ROBOT:\s+(\S+)\s+\[([0-9A-Fa-f:]{17})\]", text)
     if m:
@@ -271,7 +320,11 @@ def process_serial_line(text):
     # --- Robot replies: R1> OK — ... ---
     m = re.match(r"(\S+)>\s+(.*)", text)
     if m:
+        reply_body = m.group(2)
         socketio.emit("console_line", {"text": text, "type": "response", "time": timestamp})
+        # Re-process structured protocol responses (SEQ_*)
+        if reply_body.startswith("SEQ_"):
+            process_serial_line(reply_body)
         return
 
     # --- Command echo: [→ ALL] ... or [→ R1] ... ---

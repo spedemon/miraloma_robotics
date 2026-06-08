@@ -131,6 +131,7 @@ let deviceType = 'master';  // 'master' or 'robot' — set by server
 let renamingMac = null;     // MAC of robot currently being renamed (blocks re-render)
 let pendingRender = false;  // true if a render was skipped during rename
 let calibrationOpen = false; // true when calibration panel is visible
+let customGestures = [];     // Array of custom gesture names from robot
 
 // Control mode & motion type
 let controlMode = 'joint';  // 'cartesian' or 'joint'
@@ -177,6 +178,23 @@ function initSocket() {
     socket.on("device_type", (data) => {
         deviceType = data.type;
         renderRobotList();  // re-render to show/hide rename option
+        // Query custom gestures when in robot mode
+        if (deviceType === "robot") {
+            sendCommand("seq_list");
+        }
+    });
+
+    socket.on("upload_result", (data) => {
+        handleUploadResult(data);
+    });
+
+    socket.on("custom_gestures", (data) => {
+        customGestures = data.names || [];
+        renderCustomGestures();
+    });
+
+    socket.on("delete_result", (data) => {
+        handleDeleteResult(data);
     });
 }
 
@@ -378,6 +396,14 @@ function selectRobot(robot) {
     renderRobotList();
     updateTargetBanner();
     updateCalibrateButton();
+
+    // Query custom gestures for this robot
+    if (selectedTarget && deviceType === "robot") {
+        sendCommand("seq_list");
+    } else {
+        customGestures = [];
+        renderCustomGestures();
+    }
 }
 
 function selectAllRobots() {
@@ -388,6 +414,8 @@ function selectAllRobots() {
     updateTargetBanner();
     updateCalibrateButton();
     closeCalibration();  // Close calibration panel when deselecting
+    customGestures = [];
+    renderCustomGestures();
 }
 
 function updateTargetBanner() {
@@ -879,6 +907,19 @@ function setActiveGesture(id) {
             btn.innerHTML = `<span class="play-icon">▶</span> ${g.label}`;
         }
     });
+
+    // Update custom gesture buttons
+    customGestures.forEach(name => {
+        const btn = document.getElementById(`gesture-custom-${name}`);
+        if (!btn) return;
+        if (name === id) {
+            btn.classList.add("active");
+            btn.innerHTML = `<span class="play-icon">⏹</span> ${name}`;
+        } else {
+            btn.classList.remove("active");
+            btn.innerHTML = `<span class="play-icon">▶</span> ${name}`;
+        }
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -1088,11 +1129,12 @@ function kfAutosave() {
 
 async function kfAutoload() {
     try {
-        const res = await fetch("/api/sequence/autoload");
+        const res = await fetch("/api/sequence/autoload?t=" + new Date().getTime(), { cache: "no-store" });
         const data = await res.json();
         if (data && data.keyframes && data.keyframes.length > 0) {
             keyframes = data.keyframes;
             kfRender();
+            addConsoleLine(`Loaded autosaved sequence (${keyframes.length} keyframes)`, "system");
         }
     } catch (e) {
         console.error("Autoload failed", e);
@@ -1284,14 +1326,21 @@ function kfRemoveKeyframe(index) {
 
 function kfClear() {
     if (keyframes.length === 0) return;
-    if (confirm("Are you sure you want to clear all keyframes?")) {
-        if (kfPlaying) kfPause();
-        keyframes = [];
-        kfPlayheadTimeMs = 0;
-        kfRender();
-        kfAutosave();
-        addConsoleLine("Cleared all keyframes", "system");
-    }
+    document.getElementById("confirm-clear-modal").classList.add("visible");
+}
+
+function closeConfirmClearModal() {
+    document.getElementById("confirm-clear-modal").classList.remove("visible");
+}
+
+function executeKfClear() {
+    closeConfirmClearModal();
+    if (kfPlaying) kfPause();
+    keyframes = [];
+    kfPlayheadTimeMs = 0;
+    kfRender();
+    kfAutosave();
+    addConsoleLine("Cleared all keyframes", "system");
 }
 
 function kfGetTotalDuration() {
@@ -1801,27 +1850,185 @@ function kfUploadToRobot() {
         addConsoleLine("No keyframes to upload", "warning");
         return;
     }
-    
-    // First clear sequence
+    // Open naming modal
+    document.getElementById("name-gesture-modal").classList.add("visible");
+    const input = document.getElementById("gesture-name-input");
+    input.value = "";
+    input.focus();
+    document.getElementById("gesture-name-error").style.display = "none";
+}
+
+function closeNameGestureModal() {
+    document.getElementById("name-gesture-modal").classList.remove("visible");
+}
+
+function showGestureNameError(msg) {
+    const err = document.getElementById("gesture-name-error");
+    err.textContent = msg;
+    err.style.display = "";
+}
+
+function submitGestureName() {
+    const input = document.getElementById("gesture-name-input");
+    const name = input.value.trim();
+
+    // Validation
+    if (!name) {
+        showGestureNameError("Please enter a name");
+        return;
+    }
+    if (name.length > 15) {
+        showGestureNameError("Name must be 15 characters or less");
+        return;
+    }
+    if (/\s/.test(name)) {
+        showGestureNameError("Name cannot contain spaces (use underscores)");
+        return;
+    }
+
+    closeNameGestureModal();
+
+    // Show uploading state on button
+    const btn = document.getElementById("kf-upload-btn");
+    btn.disabled = true;
+    btn.classList.add("uploading");
+    btn.querySelector(".icon").textContent = "⏳";
+
+    // 1. Clear staging
     sendCommand("seq_clear");
-    
-    // Then add each keyframe up to 50
+
+    // 2. Set loop flag from the Loop toggle
+    sendCommand(`seq_loop ${kfLooping ? 1 : 0}`);
+
+    // 3. Add keyframes to staging (max 50)
     const limit = Math.min(keyframes.length, 50);
     if (keyframes.length > 50) {
-        addConsoleLine(`Sequence too long. Truncating to first 50 keyframes.`, "warning");
+        addConsoleLine("Truncating to first 50 keyframes", "warning");
     }
-    
     for (let i = 0; i < limit; i++) {
         const kf = keyframes[i];
-        const base = parseFloat(kf.base.toFixed(1));
-        const shoulder = parseFloat(kf.shoulder.toFixed(1));
-        const elbow = parseFloat(kf.elbow.toFixed(1));
-        const grip = parseFloat(kf.grip.toFixed(1));
-        
-        sendCommand(`seq_add ${base} ${shoulder} ${elbow} ${grip} ${kf.durationMs}`);
+        sendCommand(`seq_add ${kf.base.toFixed(1)} ${kf.shoulder.toFixed(1)} ${kf.elbow.toFixed(1)} ${kf.grip.toFixed(1)} ${kf.durationMs}`);
     }
-    
-    addConsoleLine(`Uploaded ${limit} keyframes to robot. Use the physical Boost button to play the sequence!`, "system");
+
+    // 4. Save with name (triggers SEQ_SAVE_OK or SEQ_SAVE_ERR)
+    setTimeout(() => {
+        sendCommand(`seq_save ${name}`);
+    }, 200);
+
+    // 4. Safety timeout
+    setTimeout(() => {
+        if (btn.disabled) {
+            handleUploadResult({ ok: false, reason: "Timeout \u2014 no response from robot" });
+        }
+    }, 5000);
+}
+
+function handleUploadResult(data) {
+    const btn = document.getElementById("kf-upload-btn");
+    btn.disabled = false;
+    btn.classList.remove("uploading");
+
+    const icon = btn.querySelector(".icon");
+
+    if (data.ok) {
+        btn.classList.add("upload-success");
+        icon.textContent = "✅";
+        addConsoleLine(`Gesture "${data.name}" uploaded (${data.count} keyframes, ${data.loop ? "looping" : "one-shot"})!`, "system");
+        // Refresh the custom gesture list from the robot
+        sendCommand("seq_list");
+    } else {
+        btn.classList.add("upload-error");
+        icon.textContent = "❌";
+        addConsoleLine(`Upload failed: ${data.reason || 'Unknown error'}`, "error");
+    }
+
+    // Reset button after 3s
+    setTimeout(() => {
+        btn.classList.remove("upload-success", "upload-error");
+        icon.textContent = "🚀";
+    }, 3000);
+}
+
+// --- Custom Gesture Grid ---
+function renderCustomGestures() {
+    let container = document.getElementById("custom-gesture-section");
+
+    // Only show when a single robot is selected (or direct robot mode)
+    const canShow = (deviceType === "robot" || selectedTarget !== null) && customGestures.length > 0;
+
+    if (!canShow) {
+        if (container) container.style.display = "none";
+        return;
+    }
+
+    // Create section if it doesn't exist
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "custom-gesture-section";
+        const grid = document.getElementById("gesture-grid");
+        grid.parentNode.insertBefore(container, grid.nextSibling);
+    }
+    container.style.display = "";
+
+    container.innerHTML = `
+        <div class="custom-gestures-label">✨ Custom Gestures</div>
+        <div class="gesture-grid" id="custom-gesture-grid"></div>
+    `;
+
+    const grid = container.querySelector("#custom-gesture-grid");
+    customGestures.forEach(name => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "gesture-btn-wrapper";
+
+        const btn = document.createElement("button");
+        btn.className = "gesture-btn custom-gesture-btn";
+        btn.id = `gesture-custom-${name}`;
+        btn.innerHTML = `<span class="play-icon">▶</span> ${name}`;
+
+        btn.addEventListener("click", () => {
+            toggleCustomGesture(name);
+        });
+
+        // Delete button (✕)
+        const del = document.createElement("button");
+        del.className = "custom-gesture-delete";
+        del.textContent = "✕";
+        del.title = `Delete "${name}"`;
+        del.addEventListener("click", (e) => {
+            e.stopPropagation();
+            deleteCustomGesture(name);
+        });
+
+        wrapper.appendChild(btn);
+        wrapper.appendChild(del);
+        grid.appendChild(wrapper);
+    });
+}
+
+function toggleCustomGesture(name) {
+    if (kfPlaying) kfPause();
+    clearSliderIdleTimer();
+
+    if (activeGesture === name) {
+        sendCommand(`gesture ${name} stop`);
+        setActiveGesture(null);
+    } else {
+        sendCommand(`gesture ${name}`);
+        setActiveGesture(name);
+    }
+}
+
+function deleteCustomGesture(name) {
+    sendCommand(`seq_delete ${name}`);
+}
+
+function handleDeleteResult(data) {
+    if (data.ok) {
+        addConsoleLine(`Gesture "${data.name}" deleted`, "system");
+        sendCommand("seq_list");
+    } else {
+        addConsoleLine(`Delete failed: ${data.reason}`, "error");
+    }
 }
 
 // --- Download JSON ---
@@ -2025,6 +2232,7 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
         closeAllMenus();
         closeSettings();
+        closeNameGestureModal();
     }
 });
 
@@ -2032,5 +2240,19 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("click", (e) => {
     if (!e.target.closest(".robot-menu-btn") && !e.target.closest(".robot-context-menu")) {
         closeAllMenus();
+    }
+});
+
+// Close modals on overlay click
+document.getElementById("name-gesture-modal").addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) {
+        closeNameGestureModal();
+    }
+});
+
+// Submit gesture name on Enter key
+document.getElementById("gesture-name-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+        submitGestureName();
     }
 });

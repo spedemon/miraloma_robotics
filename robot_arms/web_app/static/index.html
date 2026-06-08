@@ -5,13 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Control panel for the Mira robot arm swarm — manage 30 robots via ESP-NOW">
-    <title>Mira Robot Squad!</title>
+    <title>Mira — Miraloma Robots</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
-    <link rel="icon"
-        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🤖</text></svg>">
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 </head>
 
 <body>
@@ -31,10 +31,10 @@
         <header class="header">
             <div class="header-left">
                 <div class="header-logo">
-                    <span>🤖</span>
+                    <img src="/static/logo.png" alt="Mira Robot" class="header-logo-img">
                     <div>
-                        <div class="header-title">Mira Robot Squad!</div>
-                        <div class="header-subtitle">Control your robot arms!</div>
+                        <div class="header-title">Mira</div>
+                        <div class="header-subtitle">Miraloma Robots</div>
                     </div>
                 </div>
             </div>
@@ -424,6 +424,37 @@
                 <button class="btn" onclick="closeSettings()">Cancel</button>
                 <button class="btn" onclick="disconnectSerial()">Disconnect</button>
                 <button class="btn btn-primary" onclick="connectSerial()">Connect</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Clear Modal -->
+    <div class="modal-overlay" id="confirm-clear-modal">
+        <div class="modal">
+            <div class="modal-title">⚠️ Clear Sequence</div>
+            <div class="modal-label">Are you sure you want to clear all keyframes? This action cannot be undone.</div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeConfirmClearModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="executeKfClear()">Clear All</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Name Gesture Modal -->
+    <div class="modal-overlay" id="name-gesture-modal">
+        <div class="modal">
+            <div class="modal-title">📝 Name Your Gesture</div>
+            <div class="modal-label">Give your animation a name (max 15 chars, no spaces):</div>
+            <input type="text" class="modal-input" id="gesture-name-input"
+                   maxlength="15" placeholder="e.g. victory_dance"
+                   autocomplete="off" spellcheck="false">
+            <div class="modal-error" id="gesture-name-error" style="display: none;"></div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeNameGestureModal()">Cancel</button>
+                <button class="btn btn-primary" id="gesture-name-submit"
+                        onclick="submitGestureName()">
+                    <span class="icon">🚀</span> Upload
+                </button>
             </div>
         </div>
     </div>

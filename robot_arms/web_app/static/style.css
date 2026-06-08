@@ -44,8 +44,8 @@
 
     /* Layout */
     --sidebar-width: 260px;
-    --header-height: 64px;
-    --console-height: 40px;
+    --header-height: 52px;
+    --console-height: 36px;
     --console-expanded-height: 200px;
     --radius-sm: 10px;
     --radius-md: 16px;
@@ -183,10 +183,21 @@ body.bg-animation {
 }
 
 .header-logo {
-    font-size: 28px;
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.header-logo-img {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    border-radius: 8px;
+    transition: transform var(--transition-bounce);
+}
+
+.header-logo-img:hover {
+    transform: scale(1.15) rotate(-5deg);
 }
 
 .header-title {
@@ -561,7 +572,7 @@ body.bg-animation {
 
 /* Target indicator */
 .target-banner {
-    padding: 12px 24px;
+    padding: 6px 24px;
     border-bottom: 2px solid var(--border-subtle);
     display: flex;
     align-items: center;
@@ -613,10 +624,10 @@ body.bg-animation {
 .control-panel {
     flex: 1;
     overflow-y: auto;
-    padding: 20px;
+    padding: 10px 20px;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 10px;
 }
 
 .control-panel::-webkit-scrollbar {
@@ -641,7 +652,7 @@ body.bg-animation {
     background: var(--bg-card);
     border: 2px solid var(--border-subtle);
     border-radius: var(--radius-lg);
-    padding: 22px;
+    padding: 12px 18px;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     box-shadow: 0 4px 24px rgba(99, 102, 241, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03);
@@ -654,10 +665,10 @@ body.bg-animation {
 }
 
 .card-title {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 800;
     color: var(--text-primary);
-    margin-bottom: 16px;
+    margin-bottom: 8px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -671,21 +682,21 @@ body.bg-animation {
 .slider-group {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 6px;
 }
 
 .slider-row {
     display: flex;
     align-items: flex-start;
-    gap: 14px;
+    gap: 10px;
 }
 
 .slider-label {
     width: 40px;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 800;
     flex-shrink: 0;
-    padding-top: 2px;
+    padding-top: 1px;
 }
 
 .slider-label.x    { color: var(--slider-x); }
@@ -703,8 +714,8 @@ input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    height: 8px;
-    border-radius: 8px;
+    height: 6px;
+    border-radius: 6px;
     background: var(--slider-track);
     outline: none;
     cursor: pointer;
@@ -713,14 +724,14 @@ input[type="range"] {
 input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     background: white;
-    border: 4px solid var(--accent-blue);
+    border: 3px solid var(--accent-blue);
     cursor: grab;
     transition: transform var(--transition-bounce), box-shadow var(--transition-fast);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
@@ -748,20 +759,20 @@ input[type="range"].slider-grip::-webkit-slider-thumb:hover { box-shadow: 0 4px 
 
 /* Firefox slider support */
 input[type="range"]::-moz-range-track {
-    height: 8px;
-    border-radius: 8px;
+    height: 6px;
+    border-radius: 6px;
     background: var(--slider-track);
     border: none;
 }
 
 input[type="range"]::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     background: white;
-    border: 4px solid var(--accent-blue);
+    border: 3px solid var(--accent-blue);
     cursor: grab;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
 input[type="range"].slider-x::-moz-range-thumb   { border-color: var(--slider-x); }
@@ -770,14 +781,14 @@ input[type="range"].slider-z::-moz-range-thumb   { border-color: var(--slider-z)
 input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-grip); }
 
 .slider-value {
-    width: 76px;
+    width: 70px;
     text-align: right;
-    font-size: 14px;
+    font-size: 12px;
     font-family: 'JetBrains Mono', monospace;
     font-weight: 600;
     color: var(--text-secondary);
     flex-shrink: 0;
-    padding-top: 2px;
+    padding-top: 1px;
 }
 
 .slider-unit {
@@ -790,8 +801,8 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
 .slider-ticks {
     position: relative;
     width: 100%;
-    height: 18px;
-    margin-top: 2px;
+    height: 12px;
+    margin-top: 1px;
     pointer-events: none;
     user-select: none;
 }
@@ -830,8 +841,8 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
 /* Toggle button groups (mode & motion selectors) */
 .toggle-row {
     display: flex;
-    gap: 12px;
-    margin-bottom: 14px;
+    gap: 8px;
+    margin-bottom: 6px;
     flex-wrap: wrap;
 }
 
@@ -844,10 +855,10 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
 }
 
 .toggle-group-label {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     color: var(--text-muted);
-    padding: 8px 12px;
+    padding: 5px 10px;
     display: flex;
     align-items: center;
     border-right: 2px solid var(--border-medium);
@@ -855,8 +866,8 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
 }
 
 .toggle-btn {
-    padding: 8px 16px;
-    font-size: 13px;
+    padding: 5px 12px;
+    font-size: 12px;
     font-weight: 700;
     font-family: inherit;
     border: none;
@@ -886,8 +897,8 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
 /* Slider action buttons row */
 .slider-actions {
     display: flex;
-    gap: 10px;
-    margin-top: 6px;
+    gap: 8px;
+    margin-top: 4px;
 }
 
 /* --- Buttons --- */
@@ -895,13 +906,13 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 10px 20px;
+    gap: 5px;
+    padding: 6px 14px;
     border-radius: var(--radius-pill);
     border: 2px solid var(--border-medium);
     background: rgba(255, 255, 255, 0.55);
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     font-family: inherit;
     cursor: pointer;
@@ -937,24 +948,41 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
     border-color: rgba(99, 102, 241, 0.50);
 }
 
+/* Toolbar button height unification */
+.kf-toolbar .btn {
+    padding: 7px 14px;
+    font-size: 13px;
+    height: 36px;
+}
+
+/* Capture Pose expands to fill space */
+#kf-add-btn {
+    flex: 1;
+}
+
+/* Clear stays fixed-width */
+#kf-clear-btn {
+    flex: none;
+}
+
 /* --- Gesture Grid --- */
 .gesture-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 6px;
 }
 
 .gesture-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    padding: 12px 8px;
+    gap: 4px;
+    padding: 7px 6px;
     border-radius: var(--radius-md);
     border: 2px solid var(--border-medium);
     background: rgba(255, 255, 255, 0.50);
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
     font-family: inherit;
     cursor: pointer;
@@ -994,8 +1022,8 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
 /* Stop All button */
 .stop-all-row {
     display: flex;
-    gap: 10px;
-    margin-top: 10px;
+    gap: 8px;
+    margin-top: 6px;
 }
 
 .btn-danger {
@@ -1003,9 +1031,9 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
     border-color: rgba(244, 63, 94, 0.35);
     color: var(--accent-red);
     font-weight: 800;
-    font-size: 15px;
+    font-size: 13px;
     flex: 1;
-    padding: 14px;
+    padding: 8px;
 }
 
 .btn-danger:hover {
@@ -1020,7 +1048,7 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
     border-color: rgba(99, 102, 241, 0.30);
     color: var(--accent-blue);
     flex: 1;
-    padding: 14px;
+    padding: 8px;
 }
 
 .btn-home:hover {
@@ -1103,15 +1131,15 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
 
 /* --- Keyframe Sequencer --- */
 .keyframe-card {
-    min-height: 260px; /* Stable height whether empty or populated */
+    min-height: 200px; /* Stable height whether empty or populated */
     overflow: visible;
 }
 
 .kf-toolbar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 14px;
+    gap: 6px;
+    margin-bottom: 8px;
     flex-wrap: wrap;
 }
 
@@ -1127,12 +1155,12 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
 
 .kf-transport-btn {
     min-width: 0;
-    padding: 10px 12px;
+    padding: 7px 12px;
 }
 
 .kf-loop-btn {
     min-width: 80px;
-    padding: 10px 16px;
+    padding: 7px 16px;
     transition: var(--transition-bounce);
 }
 
@@ -1348,7 +1376,7 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
 .kf-timeline-container {
     position: relative;
     min-width: 100%;
-    min-height: 160px;
+    min-height: 130px;
 }
 
 /* Time ruler */
@@ -1402,7 +1430,7 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
 .kf-track {
     display: flex;
     align-items: stretch;
-    height: 32px;
+    height: 26px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
@@ -1427,15 +1455,15 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
 .kf-track-lane {
     flex: 1;
     position: relative;
-    min-height: 32px;
+    min-height: 26px;
     cursor: pointer;
 }
 
 /* Keyframe bars */
 .kf-bar {
     position: absolute;
-    top: 3px;
-    height: 26px;
+    top: 2px;
+    height: 22px;
     border-radius: 8px;
     display: flex;
     align-items: center;
@@ -1593,10 +1621,10 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
 
 /* Empty state */
 .kf-empty {
-    padding: 24px;
+    padding: 12px;
     text-align: center;
     color: var(--text-muted);
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
 }
 
@@ -1938,4 +1966,144 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
     .bg-deco {
         display: none;
     }
+}
+
+/* =========================================================================
+   Custom Gestures Section
+   ========================================================================= */
+
+.custom-gestures-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--text-muted);
+    margin: 10px 0 6px;
+    padding-left: 2px;
+}
+
+/* Wrapper for custom gesture button + delete icon */
+.gesture-btn-wrapper {
+    position: relative;
+}
+
+/* Delete button: hidden by default, appears on hover */
+.custom-gesture-delete {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid rgba(244, 63, 94, 0.35);
+    background: rgba(255, 255, 255, 0.90);
+    color: var(--accent-red);
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.7);
+    transition: opacity 0.15s, transform 0.15s, background 0.15s;
+    z-index: 2;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    line-height: 1;
+    padding: 0;
+}
+
+.gesture-btn-wrapper:hover .custom-gesture-delete {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.custom-gesture-delete:hover {
+    background: var(--accent-red);
+    color: white;
+    border-color: var(--accent-red);
+}
+
+/* Custom gesture button: dashed border for visual distinction */
+.custom-gesture-btn {
+    border-style: dashed;
+    border-color: rgba(168, 85, 247, 0.30);
+}
+
+.custom-gesture-btn:hover {
+    border-color: rgba(168, 85, 247, 0.50);
+    border-style: solid;
+}
+
+/* =========================================================================
+   Upload Button States
+   ========================================================================= */
+
+#kf-upload-btn.uploading {
+    opacity: 0.7;
+    pointer-events: none;
+    animation: upload-pulse 1s ease-in-out infinite;
+}
+
+@keyframes upload-pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.9; }
+}
+
+#kf-upload-btn.upload-success {
+    background: var(--accent-green, #2ecc71) !important;
+    border-color: var(--accent-green, #2ecc71) !important;
+    color: #fff !important;
+    animation: upload-pop 0.3s ease-out;
+}
+
+#kf-upload-btn.upload-error {
+    background: var(--accent-red, #e74c3c) !important;
+    border-color: var(--accent-red, #e74c3c) !important;
+    color: #fff !important;
+    animation: upload-shake 0.4s ease-out;
+}
+
+@keyframes upload-pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+}
+
+@keyframes upload-shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-4px); }
+    40% { transform: translateX(4px); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(2px); }
+}
+
+/* =========================================================================
+   Name Gesture Modal
+   ========================================================================= */
+
+.modal-input {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 15px;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--border-medium);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.60);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s;
+    margin: 8px 0;
+    box-sizing: border-box;
+}
+
+.modal-input:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+}
+
+.modal-error {
+    font-size: 12px;
+    color: var(--accent-red);
+    font-weight: 700;
+    margin-top: 4px;
 }
