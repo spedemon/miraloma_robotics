@@ -6,7 +6,7 @@
 
 ### v1 — the Miraloma classroom build
 
-Mira v1 is the **4-degree-of-freedom** robot arm built by the kids at Miraloma Elementary on **September 27, 2026**. It uses **25 screws and 8 small nuts**, so assembly is detailed and relatively complex.
+Mira v1 is the **4-degree-of-freedom** robot arm built by the kids at Miraloma on **September 27, 2026**. It uses **25 screws and 8 small nuts**, so assembly is detailed and relatively complex.
 
 The v1 files are preserved both as the record of that classroom build and for anyone who wants to reproduce the original arm.
 

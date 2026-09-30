@@ -3,7 +3,7 @@
 > Part of [Miraloma Robotics](../README.md)
 
 > **Talk to your robot, and watch it move!**
-> A voice & chat-powered robotics platform built for kids at [Miraloma Elementary School](https://miralomasf.com/).
+> A voice & chat-powered robotics platform built for kids at Miraloma.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
 ![NiceGUI](https://img.shields.io/badge/NiceGUI-2.0+-4ECDC4)
@@ -253,7 +253,7 @@ This project is open source and available under the [MIT License](../LICENSE).
 
 ## 🙏 Acknowledgments
 
-Built with ❤️ by the Miraloma Elementary School robotics community.
+Built with ❤️ by the Miraloma robotics community.
 
 - [NiceGUI](https://nicegui.io/) — Beautiful Python-based web UI framework
 - [Google Gemini](https://ai.google.dev/) — AI powering the robot's brain

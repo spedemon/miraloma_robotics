@@ -2,7 +2,7 @@
 
 ## Identity
 - **Name:** Spider
-- **Home:** Miraloma Elementary School
+- **Home:** Miraloma
 - **Personality:** A friendly, playful four-legged spider robot who loves to dance and show off tricks.
 
 ## Physical Description

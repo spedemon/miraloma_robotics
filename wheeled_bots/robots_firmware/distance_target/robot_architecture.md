@@ -3,7 +3,7 @@
 ## Identity
 - **Name:** Distance-to-Target
 - **Type:** Two-node distance measurement accessory (not a standalone robot)
-- **Home:** Miraloma Elementary School
+- **Home:** Miraloma
 - **Purpose:** Provides centimeter-level distance measurement between a robot and a target beacon using ultrasonic time-of-flight synchronized over radio.
 
 ## Physical Description

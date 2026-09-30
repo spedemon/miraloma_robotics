@@ -4,7 +4,7 @@
 
 # 🤖 Miraloma Robotics
 
-> Open-source robots built by Miraloma Elementary students, families, and teachers.
+> Open-source robots built by Miraloma students, families, and teachers.
 
 <div align="center">
 
@@ -55,4 +55,4 @@ To contribute, fork the repository, create a focused branch, test with real hard
 
 ## Thanks
 
-Built with ❤️ by the Miraloma Elementary School robotics community—students, parents, and teachers bringing robots to life together.
+Built with ❤️ by the Miraloma robotics community—students, parents, and teachers bringing robots to life together.

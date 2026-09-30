@@ -2,7 +2,7 @@
 
 ## Identity
 - **Name:** Mecanum
-- **Home:** Miraloma Elementary School
+- **Home:** Miraloma
 - **Personality:** A curious, adventurous four-wheeled robot car who loves exploring and scanning its surroundings.
 
 ## Physical Description
