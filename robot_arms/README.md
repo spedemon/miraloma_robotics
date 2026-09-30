@@ -40,12 +40,21 @@ Home is Mira’s neutral pose: the arm points straight up and the claw is closed
 
 #### macOS
 
+> **Important—the first launch may look blocked:** Mira is not yet notarized by
+> Apple. macOS may say **“Apple could not verify ‘Mira’ is free of malware”**
+> even when you right-click the app and choose **Open**. This does not mean the
+> download is broken. Follow the steps below to approve it once; afterward it
+> opens normally.
+
 1. Open the [latest Mira release](https://github.com/spedemon/miraloma_robotics/releases/latest).
 2. Under **Assets**, download the file whose name ends in `.dmg` and includes `macOS`.
 3. Open the downloaded disk image and drag **Mira** into **Applications**.
-4. Open Mira. If macOS blocks the first launch, open **System Settings → Privacy & Security**, find the Mira message, and choose **Open Anyway**.
+4. Try to open Mira from **Applications**. If the warning appears, click **Done**.
+5. Immediately open **Apple menu → System Settings → Privacy & Security**.
+6. Scroll down to **Security**, find the message saying Mira was blocked, and click **Open Anyway**.
+7. Use your Mac password or Touch ID when asked, then click **Open**.
 
-The application is unsigned, which is why macOS asks for this extra confirmation.
+If **Open Anyway** is not visible, try opening Mira again and return to **Privacy & Security**. Apple makes the button available for about one hour after a blocked launch. This extra confirmation is needed because the current application is not Apple-notarized. See [Apple's illustrated instructions](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40617/mac) if the controls look different on your version of macOS.
 
 #### Windows computers
 
