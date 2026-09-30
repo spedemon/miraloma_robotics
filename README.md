@@ -8,9 +8,9 @@
 
 <div align="center">
 
-[![Robot arms demo](media/demo_preview.gif)](media/miraloma_robots_demo.mp4)
+![Miraloma students building robots together](media/community_robot_building.png)
 
-*Robot arms performing together—click to watch the video.*
+*Miraloma students, families, and teachers building robots together.*
 
 </div>
 

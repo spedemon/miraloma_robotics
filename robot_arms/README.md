@@ -95,6 +95,14 @@ The robot and remote board communicate directly by radio; they do not need Wi-Fi
 
 *The **Start here** button opens the same connection instructions inside the application.*
 
+<div align="center">
+
+[![Mira robot arms performing together](../media/demo_preview.gif)](../media/miraloma_robots_demo.mp4)
+
+*Mira robot arms performing together—click to watch the full video.*
+
+</div>
+
 ## Your first moves in Mira
 
 1. Choose one robot under **My Robots**. Choose **All Robots** only when you intentionally want every connected robot to move together.
