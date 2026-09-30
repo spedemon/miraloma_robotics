@@ -1901,6 +1901,184 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
     padding: 10px 22px;
 }
 
+/* --------------------------------------------------------------------------
+   Friendly, contextual help
+   -------------------------------------------------------------------------- */
+
+.help-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 40px;
+    padding: 8px 14px;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--text-primary);
+    font: inherit;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 3px 0 rgba(56, 38, 102, 0.18);
+}
+
+.help-button:hover,
+.help-button:focus-visible {
+    transform: translateY(-1px);
+    background: #fff;
+}
+
+.card-title { justify-content: space-between; }
+
+.card-help,
+.help-close {
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+}
+
+.card-help {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #eef2ff;
+    color: #4f46a5;
+    font-weight: 900;
+    box-shadow: inset 0 0 0 2px #c7d2fe;
+}
+
+.card-help:hover,
+.card-help:focus-visible {
+    background: #4f46a5;
+    color: #fff;
+}
+
+.help-modal {
+    width: min(820px, calc(100vw - 28px));
+    max-height: min(88vh, 760px);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* Keep an explicitly opened guide above automatic setup/update prompts. */
+#help-modal { z-index: 110; }
+
+.help-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 24px 26px 16px;
+}
+
+.help-close {
+    align-self: flex-start;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #f1f3f8;
+    color: #4b5563;
+    font-size: 26px;
+    line-height: 1;
+}
+
+.help-tabs {
+    display: flex;
+    gap: 7px;
+    padding: 0 26px 14px;
+    overflow-x: auto;
+}
+
+.help-tabs button {
+    flex: 0 0 auto;
+    padding: 8px 13px;
+    border: 0;
+    border-radius: 999px;
+    background: #eef0f5;
+    color: #4b5563;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.help-tabs button.active {
+    background: #5b56d6;
+    color: #fff;
+}
+
+.help-content {
+    min-height: 300px;
+    padding: 4px 26px 22px;
+    overflow-y: auto;
+    color: #30364a;
+}
+
+.help-topic { display: none; }
+.help-topic.active { display: block; }
+.help-topic h2 { margin: 8px 0 14px; color: #352f75; font-size: 1.35rem; }
+.help-topic h3 { margin: 0 0 8px; }
+.help-topic p { line-height: 1.55; }
+.help-topic ol { margin: 8px 0 12px; padding-left: 24px; }
+.help-topic li { margin: 7px 0; line-height: 1.45; }
+
+.help-choice-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.help-choice {
+    padding: 16px;
+    border: 2px solid #e3e5f0;
+    border-radius: 16px;
+    background: #fafaff;
+}
+
+.help-choice p { margin: 8px 0 0; color: #62687a; }
+
+.help-callout {
+    margin-top: 14px;
+    padding: 13px 15px;
+    border-left: 5px solid #5b56d6;
+    border-radius: 8px;
+    background: #efefff;
+    line-height: 1.5;
+}
+
+.help-callout.warning { border-left-color: #e09026; background: #fff5df; }
+
+.help-definitions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 16px 0 0;
+}
+
+.help-definitions div { padding: 12px; border-radius: 12px; background: #f5f6fb; }
+.help-definitions dt { font-weight: 900; color: #443e91; }
+.help-definitions dd { margin: 3px 0 0; line-height: 1.4; }
+
+.help-actions {
+    justify-content: space-between;
+    margin: 0;
+    padding: 14px 26px 20px;
+    border-top: 1px solid #e5e7ef;
+}
+
+.help-docs-link { color: #4f46a5; font-weight: 800; text-decoration: none; }
+.help-docs-link:hover { text-decoration: underline; }
+
+@media (max-width: 680px) {
+    .help-button { padding: 8px 10px; }
+    .help-choice-grid,
+    .help-definitions { grid-template-columns: 1fr; }
+    .help-heading,
+    .help-tabs,
+    .help-content { padding-left: 18px; padding-right: 18px; }
+    .help-actions { padding-left: 18px; padding-right: 18px; }
+}
+
 /* --- No Robots State --- */
 .empty-state {
     display: flex;

@@ -207,10 +207,10 @@ class FirmwareUpdater:
             expected = entry["version"]
             self._set("flashing", 10, "Installing firmware. Keep the USB cable connected.")
             self.manager.pause_for_update(port)
-            self._flash(port, offset, image)
+            self._flash(port, physical_key, offset, image)
             self._set("restarting", 94, "Restarting and checking the device…")
         except Exception as exc:
-            self.manager.resume_after_update(port)
+            self.manager.resume_after_update(port, physical_key)
             # Native USB disappears as soon as an ESP32-C3 resets. Some hosts
             # report that expected post-write disappearance as a serial error
             # even though the image was installed successfully. The device's
@@ -226,7 +226,7 @@ class FirmwareUpdater:
                 return
             self._set("failed", 0, self._friendly_error(exc))
             return
-        self.manager.resume_after_update(port)
+        self.manager.resume_after_update(port, physical_key)
         if self._wait_for_expected(role, expected, original_id, physical_key, timeout=12):
             self._set(
                 "complete", 100,
@@ -274,11 +274,11 @@ class FirmwareUpdater:
         try:
             self._set("erasing", 15, "Erasing firmware and saved settings. Keep the USB cable connected.")
             self.manager.pause_for_update(port)
-            self._erase_flash(port)
+            self._erase_flash(port, physical_key)
             command_finished = True
             self._set("restarting", 94, "Restarting and checking the board…")
         except Exception as exc:
-            self.manager.resume_after_update(port)
+            self.manager.resume_after_update(port, physical_key)
             if self._wait_for_unprogrammed(physical_key, timeout=8):
                 self._set(
                     "complete", 100,
@@ -290,7 +290,7 @@ class FirmwareUpdater:
             return
         finally:
             if command_finished:
-                self.manager.resume_after_update(port)
+                self.manager.resume_after_update(port, physical_key)
 
         if self._wait_for_unprogrammed(physical_key, timeout=12):
             self._set(
@@ -314,7 +314,7 @@ class FirmwareUpdater:
             time.sleep(0.25)
         return False
 
-    def _flash(self, port: str, offset: str, image: Path) -> None:
+    def _flash(self, port: str, physical_key: str, offset: str, image: Path) -> None:
         writer = _ProgressWriter(lambda progress: self._set(
             "flashing", int(progress), "Installing firmware. Keep the USB cable connected."
         ))
@@ -322,17 +322,32 @@ class FirmwareUpdater:
             "--chip", "esp32c3", "--port", port, "--baud", "460800",
             "write-flash", offset, str(image),
         ]
-        self._run_esptool(args, writer, "The device did not accept the firmware.")
+        self._run_esptool(
+            args,
+            writer,
+            "The device did not accept the firmware.",
+            lambda: self.manager.port_for_physical_key(physical_key, port),
+        )
 
-    def _erase_flash(self, port: str) -> None:
+    def _erase_flash(self, port: str, physical_key: str) -> None:
         writer = _ProgressWriter(lambda _progress: self._set(
             "erasing", 60, "Erasing firmware and saved settings. Keep the USB cable connected."
         ))
         args = ["--chip", "esp32c3", "--port", port, "erase-flash"]
-        self._run_esptool(args, writer, "The board could not be erased.")
+        self._run_esptool(
+            args,
+            writer,
+            "The board could not be erased.",
+            lambda: self.manager.port_for_physical_key(physical_key, port),
+        )
 
     @staticmethod
-    def _run_esptool(args: list[str], writer: _ProgressWriter, failure_message: str) -> None:
+    def _run_esptool(
+        args: list[str],
+        writer: _ProgressWriter,
+        failure_message: str,
+        port_resolver=None,
+    ) -> None:
         last_error = None
         for attempt in range(3):
             # Closing a serial handle is asynchronous in some macOS and Windows
@@ -340,7 +355,11 @@ class FirmwareUpdater:
             # blank ESP32-C3 briefly re-enumerating while it boot-loops.
             time.sleep(0.35 if attempt == 0 else 0.8)
             try:
-                FirmwareUpdater._run_esptool_once(args, writer, failure_message)
+                attempt_args = list(args)
+                if port_resolver and "--port" in attempt_args:
+                    port_index = attempt_args.index("--port") + 1
+                    attempt_args[port_index] = port_resolver()
+                FirmwareUpdater._run_esptool_once(attempt_args, writer, failure_message)
                 return
             except RuntimeError as exc:
                 last_error = exc

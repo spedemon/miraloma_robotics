@@ -8,7 +8,12 @@ $PyInstaller = Join-Path $VenvDir "Scripts\pyinstaller.exe"
 Set-Location $AppDir
 
 if (-not (Test-Path $Python)) {
-    py -3 -m venv $VenvDir
+    $PythonCommand = Get-Command "python" -ErrorAction SilentlyContinue
+    if ($PythonCommand) {
+        & $PythonCommand.Source -m venv $VenvDir
+    } else {
+        py -3 -m venv $VenvDir
+    }
 }
 
 & $Python -m pip install --upgrade pip

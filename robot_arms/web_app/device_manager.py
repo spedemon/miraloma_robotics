@@ -142,6 +142,7 @@ class DeviceManager:
         self._stop = threading.Event()
         self._monitor: threading.Thread | None = None
         self._paused_ports: set[str] = set()
+        self._paused_physical_keys: set[str] = set()
         self._missing_since: dict[str, float] = {}
 
     def start(self) -> None:
@@ -174,6 +175,7 @@ class DeviceManager:
         with self._lock:
             existing = set(self.sessions)
             paused = set(self._paused_ports)
+            paused_physical_keys = set(self._paused_physical_keys)
 
         # Native USB ESP32-C3 boards can briefly disappear and return with a
         # different tty name while boot-looping without valid firmware. Keep
@@ -213,7 +215,12 @@ class DeviceManager:
         for present in descriptors:
             self._missing_since.pop(present, None)
         for device, descriptor in descriptors.items():
-            if device in existing or device in paused or not is_candidate(descriptor):
+            if (
+                device in existing
+                or device in paused
+                or descriptor.physical_key in paused_physical_keys
+                or not is_candidate(descriptor)
+            ):
                 continue
             if self._ignored_until.get(device, 0) > now:
                 continue
@@ -238,6 +245,19 @@ class DeviceManager:
                 None,
             )
 
+    def port_for_physical_key(self, physical_key: str, fallback: str) -> str:
+        """Return the board's current port after a USB reset/reenumeration."""
+        try:
+            for listed_port in self.port_lister():
+                if not getattr(listed_port, "device", None):
+                    continue
+                descriptor = PortDescriptor.from_pyserial(listed_port)
+                if descriptor.physical_key == physical_key:
+                    return descriptor.device
+        except Exception:
+            pass
+        return fallback
+
     def connected_sessions(self) -> list[DeviceSession]:
         with self._lock:
             return [s for s in self.sessions.values() if s.state == "connected" and s.info]
@@ -256,15 +276,19 @@ class DeviceManager:
             session = self.sessions.get(port)
             descriptor = session.port if session else None
             self._paused_ports.add(port)
+            if descriptor:
+                self._paused_physical_keys.add(descriptor.physical_key)
         if session:
             session.state = "updating"
             self.on_change()
             self._remove(port, "updating", notify=False)
         return descriptor
 
-    def resume_after_update(self, port: str) -> None:
+    def resume_after_update(self, port: str, physical_key: str | None = None) -> None:
         with self._lock:
             self._paused_ports.discard(port)
+            if physical_key:
+                self._paused_physical_keys.discard(physical_key)
             self._ignored_until.pop(port, None)
         self.on_change()
 

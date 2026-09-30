@@ -1,10 +1,13 @@
 import importlib
+import io
+import json
 import os
 import sys
 import tempfile
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 
@@ -103,6 +106,37 @@ class DeviceProtocolTests(unittest.TestCase):
 
         self.assertIn("COM4", manager.sessions)
 
+    def test_update_reserves_the_physical_board_across_port_renames(self):
+        replacement = SimpleNamespace(
+            device="COM9", description="ESP32-C3", hwid="USB VID:PID=303A:1001",
+            vid=0x303A, pid=0x1001, serial_number="board-1", location="1-2",
+        )
+        serial_factory = mock.Mock()
+        manager = DeviceManager(
+            lambda *_: None,
+            lambda: None,
+            serial_factory=serial_factory,
+            port_lister=lambda: [replacement],
+        )
+        session = DeviceSession(
+            PortDescriptor("COM4", vid=0x303A, pid=0x1001, serial_number="board-1"),
+            FakeHandle(),
+            "nonce",
+        )
+        session.info = DeviceInfo("robot", "AA:BB:CC:DD:EE:FF", "0.4.0", 0, legacy=True)
+        session.state = "connected"
+        manager.sessions["COM4"] = session
+
+        descriptor = manager.pause_for_update("COM4")
+        manager.scan_once()
+
+        self.assertEqual(descriptor.physical_key, "board-1")
+        serial_factory.assert_not_called()
+
+        manager.resume_after_update("COM4", descriptor.physical_key)
+        manager.scan_once()
+        serial_factory.assert_called_once_with("COM9", 115200, timeout=0.15)
+
 
 class RoutingTests(unittest.TestCase):
     def setUp(self):
@@ -150,6 +184,34 @@ class RoutingTests(unittest.TestCase):
 
 
 class FirmwareCatalogTests(unittest.TestCase):
+    def test_refresh_reads_the_public_manifest_from_latest_github_release(self):
+        release = {
+            "assets": [
+                {
+                    "name": "mira-firmware-manifest.json",
+                    "browser_download_url": "https://downloads.example/manifest",
+                },
+                {
+                    "name": "mira-robot-0.5.0.bin",
+                    "browser_download_url": "https://downloads.example/robot",
+                },
+            ]
+        }
+        manifest = {"schema": 1, "robot": {"version": "0.5.0"}}
+
+        with tempfile.TemporaryDirectory() as temp_dir, mock.patch(
+            "firmware_update.user_data_dir", return_value=Path(temp_dir)
+        ), mock.patch(
+            "firmware_update.urllib.request.urlopen",
+            side_effect=[io.BytesIO(json.dumps(release).encode()), io.BytesIO(json.dumps(manifest).encode())],
+        ) as urlopen:
+            catalog = FirmwareCatalog()
+            result = catalog.refresh(force=True)
+
+        self.assertEqual(urlopen.call_count, 2)
+        self.assertEqual(result["robot"]["version"], "0.5.0")
+        self.assertIn("mira-robot-0.5.0.bin", result["_assets"])
+
     def test_semantic_versions_are_numeric(self):
         self.assertGreater(version_tuple("0.10.0"), version_tuple("0.9.9"))
 
@@ -203,6 +265,25 @@ class FirmwareUpdaterTests(unittest.TestCase):
             FirmwareUpdater._run_esptool([], writer, "failed")
 
         self.assertEqual(run_once.call_count, 3)
+
+    def test_programming_retry_follows_a_renamed_usb_port(self):
+        writer = mock.Mock()
+        writer.buffer = "port disappeared during reset"
+        ports = iter(["COM4", "COM9"])
+        with mock.patch("firmware_update.time.sleep"), mock.patch.object(
+            FirmwareUpdater,
+            "_run_esptool_once",
+            side_effect=[RuntimeError("missing"), None],
+        ) as run_once:
+            FirmwareUpdater._run_esptool(
+                ["--chip", "esp32c3", "--port", "COM4", "write-flash"],
+                writer,
+                "failed",
+                lambda: next(ports),
+            )
+
+        self.assertEqual(run_once.call_args_list[0].args[0][3], "COM4")
+        self.assertEqual(run_once.call_args_list[1].args[0][3], "COM9")
 
 
 if __name__ == "__main__":

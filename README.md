@@ -1,138 +1,58 @@
 <div align="center">
-  <img src="media/logo.png" alt="Miraloma Robotics Logo" width="150">
+  <img src="media/logo.png" alt="Miraloma Robotics logo" width="150">
 </div>
 
 # 🤖 Miraloma Robotics
 
-> **Building, programming, and talking to real robots — at Miraloma Elementary School.**
-
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
-[![PlatformIO](https://img.shields.io/badge/PlatformIO-ESP32-FF7F00?logo=platformio&logoColor=white)](https://platformio.org)
-[![Gemini AI](https://img.shields.io/badge/Google%20Gemini-AI-A855F7?logo=google&logoColor=white)](https://ai.google.dev)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-
----
+> Open-source robots built by Miraloma Elementary students, families, and teachers.
 
 <div align="center">
 
 [![Robot arms demo](media/demo_preview.gif)](media/miraloma_robots_demo.mp4)
 
-*🎬 Robot arms performing a synchronized dance — click to watch the full video!*
+*Robot arms performing together—click to watch the video.*
 
 </div>
 
-Miraloma Robotics is a collection of open-source robotics projects designed for elementary school kids. Students build real robots, flash custom firmware, and control them through beautiful web interfaces — using sliders, voice commands, or plain-English conversations powered by Google Gemini AI.
+## Do you have a Mira robot arm?
 
-This monorepo contains two independent projects that share a common mission: **making robotics accessible, fun, and educational**.
+Start with the **[Mira family guide](robot_arms/README.md)**. It explains, in plain language:
 
----
+- how to use the robot without a computer;
+- how to download and open the Mira application;
+- how to connect by USB cable or by radio;
+- how to move, program, save, load, loop, and upload sequences;
+- how to calibrate a hand-built arm; and
+- what to do when a joint was assembled in the wrong position.
 
-## 📦 Projects
+[⬇️ Download Mira for macOS](https://github.com/spedemon/miraloma_robotics/releases/latest) · [🪟 Windows information](robot_arms/README.md#windows-computers) · [🆘 Troubleshooting](robot_arms/README.md#troubleshooting)
 
-<table>
-<tr>
-<td width="50%" valign="top">
+## Projects
 
-### 🦾 [Robot Arms](robot_arms/)
+| Project | Best starting point | What it is |
+|---|---|---|
+| 🦾 **Mira robot arms** | [Family guide](robot_arms/README.md) | Build and control one arm—or a wireless group of arms—with sliders, dances, and an animation maker. |
+| 🚗 **Wheeled bots** | [Wheeled-bot guide](wheeled_bots/README.md) | Voice- and text-controlled driving and walking robots powered by generated Python commands. |
 
-A family of robot arms built with **SG90 servo motors** and **ESP32-C3** microcontrollers. The original **v1** is the 4-DOF arm built by Miraloma Elementary students on September 27, 2026; the new **v2** has 5 DOF and a much faster, modular mechanical design. Control one arm or an entire swarm from a sleek web interface.
+## For contributors
 
-**Highlights:**
-- 🧰 Two mechanical versions — the classroom-built v1 and the simpler, modular v2
-- 🎯 Joint & Cartesian (IK) control with real-time sliders
-- 🎬 Keyframe sequencer for choreographed motions
-- 💃 Built-in gestures — dance, bow, wave, draw shapes
-- 📡 Wireless swarm via **ESP-NOW** — no Wi-Fi router needed
-- 🔌 USB bridge for browser ↔ swarm communication
-- 🧬 **One firmware for all robots** — each arm auto-identifies via its factory MAC address; no per-robot configuration
+The family-facing instructions come first in each project guide. Technical setup, firmware details, build commands, and contribution entry points are grouped near the end of those guides:
 
-**Four ways to use it:** ① **Standalone** — press the BOOT button to cycle gestures, no computer needed · ② **Direct USB** — plug one arm into a laptop for full web UI control · ③ **Wireless** — use a master ESP32-C3 to control an untethered arm via ESP-NOW · ④ **Swarm** — same setup with multiple arms for synchronized choreography. [Read more →](robot_arms/README.md#%EF%B8%8F-four-ways-to-use-mira)
+- [Mira contributor and builder documentation](robot_arms/README.md#for-contributors-and-builders)
+- [Wheeled-bot documentation](wheeled_bots/README.md)
+- [Mira 3D-printing files](robot_arms/3d_models/README.md)
 
-**How the swarm works:** Every robot arm runs the *exact same firmware*. On boot, each arm broadcasts its unique factory MAC address over ESP-NOW. A dedicated master MCU (connected to a laptop via USB) discovers robots automatically, assigns them names (R1, R2, …), and routes commands to individual arms or the entire swarm — all using MAC-based addressing inside broadcast packets. See the [full swarm documentation](robot_arms/README.md#-esp-now-swarm--how-it-works).
+Repository layout:
 
-**Tech:** ESP32-C3 · PCA9685 PWM · PlatformIO · Flask + SocketIO
-
-</td>
-<td width="50%" valign="top">
-
-### 🚗 [Wheeled Bots](wheeled_bots/)
-
-AI-powered wheeled and walking robots that kids control by **talking**. Speak a command, and Google Gemini generates Python code in real-time to drive the robot.
-
-**Highlights:**
-- 🗣️ Voice & text chat — *"move forward 3 feet"*
-- 🧠 AI code generation — Gemini writes & runs Python on the fly
-- 🤖 Multi-robot support — Mecanum car & Spider walker
-- 🎨 Animated robot face that reacts to state
-- 📡 Autonomous navigation with ultrasonic distance-to-target
-
-**Tech:** NiceGUI · Google Gemini · Micro:bit · ESP8266 · pyserial
-
-</td>
-</tr>
-</table>
-
----
-
-## 🚀 Getting Started
-
-Each project is self-contained with its own firmware, web UI, and documentation. Pick the one you're working with:
-
-| Project | Quick Start | Prerequisites |
-|---------|------------|---------------|
-| **🦾 Robot Arms** | [`robot_arms/README.md`](robot_arms/README.md) | PlatformIO, Python 3.10+, ESP32-C3 boards |
-| **🚗 Wheeled Bots** | [`wheeled_bots/README.md`](wheeled_bots/README.md) | Python 3.10+, Gemini API key, USB robot |
-
----
-
-## 🏗️ Repository Structure
-
-```
+```text
 miraloma_robotics/
-├── robot_arms/              # 🦾 Servo-based robot arm swarm
-│   ├── robotarm_mcu/        #    Firmware for each arm (ESP32-C3)
-│   ├── master_mcu/          #    USB bridge / swarm coordinator
-│   └── web_app/             #    Web UI + Python server
-├── wheeled_bots/            # 🚗 AI-powered wheeled & walking robots
-│   ├── robots_firmware/     #    Firmware for Mecanum car & Spider
-│   ├── static/              #    Web UI assets
-│   └── *.py                 #    Python backend (NiceGUI + Gemini)
-├── media/                   # 🎬 Demo videos & media assets
-├── README.md                # ← You are here
-└── .gitignore
+├── robot_arms/      # Mira hardware, firmware, desktop app, and documentation
+├── wheeled_bots/    # Wheeled/walking robots, UI, and firmware
+└── media/           # Project images and video
 ```
 
----
+To contribute, fork the repository, create a focused branch, test with real hardware when possible, and open a pull request that explains the change and how it was tested.
 
-## 🤝 Contributing
+## Thanks
 
-We welcome contributions from parents, teachers, students, and fellow robotics enthusiasts!
-
-- **Robot Arms** — See [contributing in robot_arms](robot_arms/README.md#development)
-- **Wheeled Bots** — See [contributing in wheeled_bots](wheeled_bots/README.md#-contributing)
-
-### General Guidelines
-
-1. Fork the repo and create a feature branch
-2. Make your changes in the appropriate project directory
-3. Test with real hardware when possible
-4. Submit a pull request with a clear description
-
----
-
-## 📜 License
-
-This project is open source and available under the [MIT License](LICENSE).
-
----
-
-## 🙏 Acknowledgments
-
-Built with ❤️ by the **Miraloma Elementary School** robotics community — students, parents, and teachers working together to bring robots to life.
-
-- [PlatformIO](https://platformio.org/) — Embedded development platform
-- [NiceGUI](https://nicegui.io/) — Python web UI framework
-- [Google Gemini](https://ai.google.dev/) — AI powering the robot's brain
-- [Keyestudio](https://www.keyestudio.com/) — Robot hardware kits
-- [MakeCode](https://makecode.microbit.org/) — Micro:bit programming environment
-- [Espressif](https://www.espressif.com/) — ESP32 microcontrollers & ESP-NOW protocol
+Built with ❤️ by the Miraloma Elementary School robotics community—students, parents, and teachers bringing robots to life together.

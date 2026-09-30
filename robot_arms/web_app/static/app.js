@@ -468,6 +468,10 @@ function renderUpdateProgress(update) {
 }
 
 function maybePromptFirmwareUpdate() {
+    // Updating an ESP32-C3 temporarily removes it from the USB inventory. Do
+    // not reopen the update prompt over the active progress (or failure)
+    // dialog when the board disappears and reconnects during that handoff.
+    if (deviceOperationActive || deviceModalMode === "progress") return;
     if (connectedDevices.some((item) => item.state === "unrecognized")) return;
     const device = updateDevices.find((item) => {
         const key = `${item.deviceId}|${item.latest}`;
@@ -1170,6 +1174,33 @@ function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
+}
+
+// ---------------------------------------------------------------------------
+// Parent- and kid-friendly help
+// ---------------------------------------------------------------------------
+
+const HELP_TOPICS = new Set(["start", "move", "animate", "calibrate", "dance"]);
+
+function openHelp(topic = "start") {
+    document.getElementById("help-modal").classList.add("visible");
+    showHelpTopic(topic);
+}
+
+function closeHelp() {
+    document.getElementById("help-modal").classList.remove("visible");
+}
+
+function showHelpTopic(topic) {
+    const selected = HELP_TOPICS.has(topic) ? topic : "start";
+    document.querySelectorAll("[data-help-topic]").forEach(section => {
+        section.classList.toggle("active", section.dataset.helpTopic === selected);
+    });
+    document.querySelectorAll("[data-help-tab]").forEach(button => {
+        const active = button.dataset.helpTab === selected;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-selected", active ? "true" : "false");
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -2402,6 +2433,10 @@ document.addEventListener("DOMContentLoaded", () => {
     kfAutoload();
     initConsoleResize();
     initSectionBackground();
+
+    // Useful for documentation links and screenshots, e.g. ?help=animate.
+    const requestedHelp = new URLSearchParams(window.location.search).get("help");
+    if (requestedHelp && HELP_TOPICS.has(requestedHelp)) openHelp(requestedHelp);
 });
 
 // ---------------------------------------------------------------------------
@@ -2443,6 +2478,10 @@ document.getElementById("erase-device-modal").addEventListener("click", (e) => {
     if (e.target === e.currentTarget) closeEraseDeviceModal();
 });
 
+document.getElementById("help-modal").addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closeHelp();
+});
+
 // Keyboard shortcut: Escape to close modal/menus
 document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
@@ -2451,6 +2490,7 @@ document.addEventListener("keydown", (e) => {
         closeFirmwareUpdateModal();
         closeDeviceSettings();
         closeEraseDeviceModal();
+        closeHelp();
         closeNameGestureModal();
     }
 });

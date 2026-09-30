@@ -39,6 +39,9 @@
                 </div>
             </div>
             <div class="header-right">
+                <button class="help-button" type="button" onclick="openHelp('start')" title="Learn how to use Mira">
+                    <span aria-hidden="true">❓</span> Start here
+                </button>
                 <button class="serial-badge" id="serial-badge" type="button" aria-live="polite"
                     onclick="openDeviceSettings()" title="Device information and settings">
                     <span class="dot"></span>
@@ -90,7 +93,7 @@
 
                     <!-- Position / Joint Sliders -->
                     <div class="card">
-                        <div class="card-title"><span class="icon">🎮</span> Move the Arm!</div>
+                        <div class="card-title"><span><span class="icon">🎮</span> Move the Arm!</span><button class="card-help" type="button" onclick="openHelp('move')" aria-label="Help with moving the robot">?</button></div>
 
                         <!-- Mode & Motion toggle selectors -->
                         <div class="toggle-row">
@@ -219,9 +222,9 @@
 
                     <!-- Calibration Panel (hidden by default) -->
                     <div class="card calibration-card" id="calibration-card" style="display: none;">
-                        <div class="card-title"><span class="icon">🔧</span> Servo Calibration</div>
+                        <div class="card-title"><span><span class="icon">🔧</span> Servo Calibration</span><button class="card-help" type="button" onclick="openHelp('calibrate')" aria-label="Help with calibration">?</button></div>
                         <p class="calibration-hint">
-                            Adjust each slider until the robot looks like it's standing in its home position.
+                            Calibration fixes small differences between servo motors. Adjust each slider until the robot stands straight up with its claw closed.
                             Click <strong>Apply</strong> to save the offsets permanently to the robot.
                         </p>
 
@@ -287,7 +290,7 @@
 
                     <!-- Keyframe Sequencer — right under the sliders -->
                     <div class="card keyframe-card" id="keyframe-card">
-                        <div class="card-title"><span class="icon">🎬</span> Animation Maker</div>
+                        <div class="card-title"><span><span class="icon">🎬</span> Animation Maker</span><button class="card-help" type="button" onclick="openHelp('animate')" aria-label="Help with making animations">?</button></div>
 
                         <!-- Toolbar -->
                         <div class="kf-toolbar">
@@ -378,7 +381,7 @@
 
                     <!-- Gestures — at the bottom -->
                     <div class="card">
-                        <div class="card-title"><span class="icon">💃</span> Dance Moves!</div>
+                        <div class="card-title"><span><span class="icon">💃</span> Dance Moves!</span><button class="card-help" type="button" onclick="openHelp('dance')" aria-label="Help with dance moves">?</button></div>
                         <div class="gesture-grid" id="gesture-grid">
                             <!-- Populated by JS -->
                         </div>
@@ -410,6 +413,100 @@
         </div>
 
     </div> <!-- /app -->
+
+    <!-- Parent- and kid-friendly guide -->
+    <div class="modal-overlay" id="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
+        <div class="modal help-modal">
+            <div class="help-heading">
+                <div>
+                    <div class="modal-title" id="help-title">👋 Let’s get Mira moving</div>
+                    <div class="modal-label">Choose a topic. You can leave this guide open while you follow the steps.</div>
+                </div>
+                <button class="help-close" type="button" onclick="closeHelp()" aria-label="Close help">×</button>
+            </div>
+            <div class="help-tabs" role="tablist" aria-label="Mira help topics">
+                <button type="button" data-help-tab="start" onclick="showHelpTopic('start')">Connect</button>
+                <button type="button" data-help-tab="move" onclick="showHelpTopic('move')">Move</button>
+                <button type="button" data-help-tab="animate" onclick="showHelpTopic('animate')">Animate</button>
+                <button type="button" data-help-tab="calibrate" onclick="showHelpTopic('calibrate')">Calibrate</button>
+                <button type="button" data-help-tab="dance" onclick="showHelpTopic('dance')">Dances</button>
+            </div>
+            <div class="help-content">
+                <section class="help-topic" data-help-topic="start">
+                    <h2>Connect one of two ways</h2>
+                    <div class="help-choice-grid">
+                        <div class="help-choice">
+                            <h3>🔌 USB cable</h3>
+                            <ol>
+                                <li>Remove the robot’s batteries.</li>
+                                <li>Connect its small control board to the laptop with a USB-C data cable.</li>
+                                <li>Wait for the badge above to show the robot.</li>
+                            </ol>
+                            <p>The laptop powers the robot in this mode.</p>
+                        </div>
+                        <div class="help-choice">
+                            <h3>📡 Radio</h3>
+                            <ol>
+                                <li>Insert the robot’s batteries.</li>
+                                <li>Look for a red motor-board light and a slowly blinking blue control-board light.</li>
+                                <li>Connect the ESP32-C3 Mini Pro remote board to the laptop by USB-C.</li>
+                            </ol>
+                            <p>If prompted, set the new board up as a <strong>Wireless controller</strong>.</p>
+                        </div>
+                    </div>
+                    <div class="help-callout"><strong>No computer?</strong> Use batteries or a USB-C phone charger, then press the small <strong>BOOST</strong> button to alternate between Home and built-in moves.</div>
+                </section>
+                <section class="help-topic" data-help-topic="move">
+                    <h2>Make a safe first move</h2>
+                    <ol>
+                        <li>Choose one robot under <strong>My Robots</strong>.</li>
+                        <li>Click <strong>Home</strong>. The arm should point straight up with its claw closed.</li>
+                        <li>Keep <strong>Joint Mode</strong> and <strong>Glide</strong> selected.</li>
+                        <li>Move one slider slowly: Base turns, Shoulder and Elbow bend, and Grip opens the claw.</li>
+                    </ol>
+                    <div class="help-callout warning">Keep fingers, hair, and clothing clear. Click the red <strong>STOP!</strong> button if anything looks wrong.</div>
+                </section>
+                <section class="help-topic" data-help-topic="animate">
+                    <h2>Teach Mira a sequence</h2>
+                    <ol>
+                        <li>Move the robot into a pose.</li>
+                        <li>Click <strong>📸 Capture Pose</strong>.</li>
+                        <li>Move it again and capture the next pose. Repeat.</li>
+                        <li>Click <strong>▶ Play</strong> to preview the sequence.</li>
+                    </ol>
+                    <dl class="help-definitions">
+                        <div><dt>Save</dt><dd>Downloads a backup file to this computer.</dd></div>
+                        <div><dt>Open</dt><dd>Loads a saved file and replaces the current timeline.</dd></div>
+                        <div><dt>Loop</dt><dd>Repeats from the beginning until you pause or stop.</dd></div>
+                        <div><dt>Upload to Robot</dt><dd>Stores the move on the selected robot as a custom gesture.</dd></div>
+                    </dl>
+                </section>
+                <section class="help-topic" data-help-topic="calibrate">
+                    <h2>Make Home straight</h2>
+                    <p>Hand-built robots and small servos differ slightly. Calibration saves a small correction so software Home matches the real straight-up pose.</p>
+                    <ol>
+                        <li>Select one robot, then click <strong>Home</strong> and <strong>Calibrate</strong>.</li>
+                        <li>Adjust one slider at a time until the base faces forward, the arm is vertical, and the claw is closed.</li>
+                        <li>Click <strong>Apply Calibration</strong>, then Home to check it.</li>
+                    </ol>
+                    <div class="help-callout warning"><strong>Still far from straight?</strong> If a slider reaches its limit, calibration cannot fix the assembly. Home the powered robot, then have an adult remove only the crooked joint’s servo horn, hold the arm section straight without turning the servo shaft, and refit the horn on the nearest tooth. Reinstall its screw, then calibrate the small remaining difference.</div>
+                </section>
+                <section class="help-topic" data-help-topic="dance">
+                    <h2>Try Mira’s ready-made moves</h2>
+                    <ol>
+                        <li>Select one robot—or intentionally select <strong>All Robots</strong>.</li>
+                        <li>Click a move to start it.</li>
+                        <li>Click the highlighted move again, or click <strong>STOP!</strong>, to stop.</li>
+                    </ol>
+                    <p>Sequences uploaded from Animation Maker appear as custom gestures in this section.</p>
+                </section>
+            </div>
+            <div class="modal-actions help-actions">
+                <a class="help-docs-link" href="https://github.com/spedemon/miraloma_robotics/tree/develop/robot_arms#readme" target="_blank" rel="noopener">Open the full family guide ↗</a>
+                <button class="btn btn-primary" type="button" onclick="closeHelp()">Got it</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Blank-board setup and update progress modal -->
     <div class="modal-overlay" id="settings-modal">
