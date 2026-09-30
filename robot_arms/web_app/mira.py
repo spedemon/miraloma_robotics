@@ -193,6 +193,23 @@ def serial_reader():
     serial_running = False
     socketio.emit("serial_status", {"connected": False, "port": None})
 
+
+def _emit_calibration_values(body, target=None):
+    """Publish a cal_get reply as structured values for the calibration UI."""
+    match = re.search(
+        r"Calibration:\s+B=(-?\d+(?:\.\d+)?)\s+S=(-?\d+(?:\.\d+)?)\s+"
+        r"E=(-?\d+(?:\.\d+)?)\s+G=(-?\d+(?:\.\d+)?)",
+        body,
+    )
+    if not match:
+        return False
+
+    payload = dict(zip(("base", "shoulder", "elbow", "grip"), map(float, match.groups())))
+    if target:
+        payload["target"] = target
+    socketio.emit("calibration_values", payload)
+    return True
+
 def process_serial_line(text):
     """Parse a serial line and emit the appropriate WebSocket events."""
     global robots, name_map, device_type
@@ -349,7 +366,8 @@ def process_serial_line(text):
     # --- Robot replies: R1> OK — ... ---
     m = re.match(r"(\S+)>\s+(.*)", text)
     if m:
-        reply_body = m.group(2)
+        target, reply_body = m.groups()
+        _emit_calibration_values(reply_body, target)
         socketio.emit("console_line", {"text": text, "type": "response", "time": timestamp})
         # Re-process structured protocol responses (SEQ_*)
         if reply_body.startswith("SEQ_"):
@@ -396,6 +414,7 @@ def process_serial_line(text):
     if stripped.startswith("Waiting for robots"):
         return  # Startup message
 
+    _emit_calibration_values(text)
     socketio.emit("console_line", {"text": text, "type": "info", "time": timestamp})
 
 def get_robot_list():
@@ -525,8 +544,12 @@ def _managed_line(session: DeviceSession, text: str):
         return
 
     timestamp = datetime.now().strftime("%H:%M:%S")
-    reply = re.match(r"\S+>\s+(.*)", text)
-    body = reply.group(1) if reply else text
+    reply = re.match(r"(\S+)>\s+(.*)", text)
+    body = reply.group(2) if reply else text
+    target = reply.group(1) if reply else (
+        info.device_id if info and info.role == "robot" else None
+    )
+    _emit_calibration_values(body, target)
     if body.startswith("SEQ_"):
         process_serial_line(body)
     elif not any(marker in text for marker in ("MIRA_DEVICE", "MIRA_EVENT", "MIRA_DISCOVER")):

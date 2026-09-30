@@ -8,7 +8,7 @@
 #ifndef MIRA_CONFIG_H
 #define MIRA_CONFIG_H
 
-#define MIRA_FIRMWARE_VERSION "0.5.0"
+#define MIRA_FIRMWARE_VERSION "0.5.1"
 #define MIRA_PROTOCOL_VERSION 1
 
 // ---------------------------------------------------------------------------

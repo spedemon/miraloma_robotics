@@ -175,6 +175,10 @@ void ArmController::setGrip(float angle) {
 
 void ArmController::home() {
     _arm.home();
+    assumeHome();
+}
+
+void ArmController::assumeHome() {
     _baseAngle = HOME_BASE;
     _shoulderAngle = HOME_SHOULDER;
     _elbowAngle = HOME_ELBOW;

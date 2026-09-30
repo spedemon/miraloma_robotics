@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Control panel for the Mira robot arm swarm — manage 30 robots via ESP-NOW">
-    <title>Mira — Miraloma Robots</title>
+    <title>Mira — Miraloma Robotics</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -15,16 +15,6 @@
 </head>
 
 <body>
-    <!-- Decorative floating emoji (CSS animated) -->
-    <div class="bg-deco" aria-hidden="true">
-        <span class="deco deco-1">⭐</span>
-        <span class="deco deco-2">🌈</span>
-        <span class="deco deco-3">✨</span>
-        <span class="deco deco-4">🚀</span>
-        <span class="deco deco-5">💫</span>
-        <span class="deco deco-6">🎉</span>
-    </div>
-
     <div class="app" id="app">
 
         <!-- Header -->
@@ -34,15 +24,20 @@
                     <img src="/static/logo.png" alt="Mira Robot" class="header-logo-img">
                     <div>
                         <div class="header-title">Mira</div>
-                        <div class="header-subtitle">Miraloma Robots</div>
+                        <div class="header-subtitle">Miraloma Robotics</div>
                     </div>
                 </div>
             </div>
             <div class="header-right">
-                <button class="help-button" type="button" onclick="openHelp('start')" title="Learn how to use Mira">
-                    <span aria-hidden="true">❓</span> Start here
+                <a class="topbar-action repo-link" href="https://github.com/spedemon/miraloma_robotics" target="_blank" rel="noopener noreferrer" title="Expand Mira and contribute on GitHub">
+                    <svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#github"></use></svg>
+                    <span>Build with us</span>
+                </a>
+                <button class="topbar-action help-button" type="button" onclick="openHelp('start')" title="Learn how to use Mira">
+                    <svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#help"></use></svg>
+                    <span>Start here</span>
                 </button>
-                <button class="serial-badge" id="serial-badge" type="button" aria-live="polite"
+                <button class="topbar-action serial-badge" id="serial-badge" type="button" aria-live="polite"
                     onclick="openDeviceSettings()" title="Device information and settings">
                     <span class="dot"></span>
                     <span id="serial-label">Looking for robots…</span>
@@ -52,7 +47,7 @@
 
         <!-- Disconnected Banner (hidden when connected) -->
         <div class="disconnected-banner" id="disconnected-banner" style="display: none;">
-            <span>⚠️</span>
+            <svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#warning"></use></svg>
             <span id="disconnected-message">Looking for robots… Connect a robot or a Wireless board with a USB cable.</span>
         </div>
 
@@ -62,16 +57,16 @@
             <!-- Sidebar: Robot List -->
             <aside class="sidebar">
                 <div class="sidebar-header">
-                    <div class="sidebar-title">🤖 My Robots</div>
+                    <div class="sidebar-title"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#robots"></use></svg> Robots Detected</div>
                     <button class="all-robots-btn active" id="all-robots-btn" onclick="selectAllRobots()">
-                        <span class="icon">📡</span>
+                        <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#radio"></use></svg>
                         <span>All Robots</span>
                         <span class="count" id="robot-count">0</span>
                     </button>
                 </div>
                 <div class="robot-list" id="robot-list">
                     <div class="empty-state" id="empty-state">
-                        <div class="icon">📡</div>
+                        <svg class="empty-icon" aria-hidden="true"><use href="/static/icons.svg#radio"></use></svg>
                         <div class="message">Waiting for robots to check in...<br>Power on robot arms for
                             auto-discovery.</div>
                     </div>
@@ -85,7 +80,7 @@
                 <div class="target-banner">
                     <span class="target-label">Talking to:</span>
                     <span class="target-name all" id="target-name">All Robots</span>
-                    <span class="target-badge all" id="target-badge">ALL ROBOTS! 📢</span>
+                    <span class="target-badge all" id="target-badge">ALL ROBOTS</span>
                 </div>
 
                 <!-- Scrollable Control Panel — contains ALL cards now -->
@@ -93,7 +88,7 @@
 
                     <!-- Position / Joint Sliders -->
                     <div class="card">
-                        <div class="card-title"><span><span class="icon">🎮</span> Move the Arm!</span><button class="card-help" type="button" onclick="openHelp('move')" aria-label="Help with moving the robot">?</button></div>
+                        <div class="card-title"><span class="title-with-mark"><svg class="project-icon" aria-hidden="true"><use href="/static/icons.svg#robots"></use></svg> Move the Arm</span><button class="card-help" type="button" onclick="openHelp('move')" aria-label="Help with moving the robot"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#help"></use></svg></button></div>
 
                         <!-- Mode & Motion toggle selectors -->
                         <div class="toggle-row">
@@ -107,13 +102,13 @@
                             <div class="toggle-group">
                                 <span class="toggle-group-label">Motion</span>
                                 <button class="toggle-btn active" id="motion-smooth"
-                                    onclick="setMotionType('smooth')">Glide 🌊</button>
+                                    onclick="setMotionType('smooth')">Glide</button>
                                 <button class="toggle-btn" id="motion-instant"
-                                    onclick="setMotionType('instant')">Snap ⚡</button>
+                                    onclick="setMotionType('instant')">Snap</button>
                             </div>
                         </div>
 
-                        <!-- Cartesian sliders (X, Y, Z, Grip) -->
+                        <!-- Cartesian sliders (X, Y, Z, Claw) -->
                         <div class="slider-group" id="sliders-cartesian" style="display: none;">
                             <div class="slider-row">
                                 <span class="slider-label x">X</span>
@@ -149,82 +144,80 @@
                                         mm</span></span>
                             </div>
                             <div class="slider-row">
-                                <span class="slider-label grip">Grip</span>
-                                <div class="slider-track">
-                                    <input type="range" id="slider-grip" class="slider-grip" min="-30" max="45" step="1"
-                                        value="0">
-                                    <div class="slider-ticks" data-min="-30" data-max="45" data-tick="15"
-                                        data-label="15"></div>
+                                <span class="slider-label grip">Claw</span>
+                                <div class="slider-track grip-track">
+                                    <div class="motion-cues grip-cues" aria-hidden="true"><span><svg class="cue-icon claw-open"><use href="/static/icons.svg#claw-open"></use></svg>Open</span><span>Closed<svg class="cue-icon claw-closed"><use href="/static/icons.svg#claw-closed"></use></svg></span></div>
+                                    <input type="range" id="slider-grip" class="slider-grip semantic-grip" min="-40" max="55" step="1"
+                                        value="45" aria-label="Claw position">
+                                    <div class="grip-landmarks" aria-hidden="true"><span style="left: 10.53%">open</span><span style="left: 89.47%">closed</span></div>
                                 </div>
-                                <span class="slider-value"><span id="value-grip">0</span><span
-                                        class="slider-unit">°</span></span>
+                                <span class="slider-value motion-value grip-state" id="value-grip">Closed</span>
                             </div>
                         </div>
 
-                        <!-- Joint sliders (Base, Shoulder, Elbow, Grip) — hidden by default -->
+                        <!-- Joint sliders (Base, Shoulder, Elbow, Claw) — hidden by default -->
                         <div class="slider-group" id="sliders-joint">
-                            <div class="slider-row">
+                            <div class="slider-row motion-slider-row">
                                 <span class="slider-label x">Base</span>
                                 <div class="slider-track">
-                                    <input type="range" id="slider-base" class="slider-x" min="-90" max="90" step="0.5"
-                                        value="0">
-                                    <div class="slider-ticks" data-min="-90" data-max="90" data-tick="30"
-                                        data-label="30"></div>
+                                    <div class="motion-cues base-cues" aria-hidden="true"><span><svg class="cue-icon"><use href="/static/icons.svg#rotate-left"></use></svg>Left</span><span>Right<svg class="cue-icon"><use href="/static/icons.svg#rotate-right"></use></svg></span></div>
+                                    <input type="range" id="slider-base" class="slider-x direction-reversed" min="-120" max="120" step="0.5"
+                                        value="0" aria-label="Rotate base left or right">
+                                    <div class="motion-center-mark" aria-hidden="true"></div>
+                                    <div class="slider-ticks joint-slider-ticks" data-min="-120" data-max="120" data-tick="30" data-label="30" data-reversed="true"></div>
                                 </div>
-                                <span class="slider-value"><span id="value-base">0.0</span><span
-                                        class="slider-unit">°</span></span>
+                                <span class="slider-value motion-value" id="value-base">Centered</span>
                             </div>
-                            <div class="slider-row">
-                                <span class="slider-label y">Shldr</span>
+                            <div class="slider-row motion-slider-row">
+                                <span class="slider-label y">Shoulder</span>
                                 <div class="slider-track">
-                                    <input type="range" id="slider-shoulder" class="slider-y" min="-109" max="104"
-                                        step="0.5" value="0">
-                                    <div class="slider-ticks" data-min="-109" data-max="104" data-tick="30"
-                                        data-label="30"></div>
+                                    <div class="motion-cues shoulder-cues" aria-hidden="true"><span><svg class="cue-icon"><use href="/static/icons.svg#arm-down"></use></svg>Down</span><span>Up<svg class="cue-icon"><use href="/static/icons.svg#arm-up"></use></svg></span></div>
+                                    <input type="range" id="slider-shoulder" class="slider-y direction-reversed" min="-120" max="120"
+                                        step="0.5" value="0" aria-label="Move shoulder down or up">
+                                    <div class="motion-center-mark" aria-hidden="true"></div>
+                                    <div class="slider-ticks joint-slider-ticks" data-min="-120" data-max="120" data-tick="30" data-label="30" data-reversed="true"></div>
                                 </div>
-                                <span class="slider-value"><span id="value-shoulder">0.0</span><span
-                                        class="slider-unit">°</span></span>
+                                <span class="slider-value motion-value" id="value-shoulder">Level</span>
                             </div>
-                            <div class="slider-row">
+                            <div class="slider-row motion-slider-row">
                                 <span class="slider-label z">Elbow</span>
                                 <div class="slider-track">
-                                    <input type="range" id="slider-elbow" class="slider-z" min="-100" max="100"
-                                        step="0.5" value="0">
-                                    <div class="slider-ticks" data-min="-100" data-max="100" data-tick="30"
-                                        data-label="30"></div>
+                                    <div class="motion-cues elbow-cues" aria-hidden="true"><span><svg class="cue-icon"><use href="/static/icons.svg#arm-down"></use></svg>Down</span><span>Up<svg class="cue-icon"><use href="/static/icons.svg#arm-up"></use></svg></span></div>
+                                    <input type="range" id="slider-elbow" class="slider-z direction-reversed" min="-120" max="120"
+                                        step="0.5" value="0" aria-label="Move elbow down or up">
+                                    <div class="motion-center-mark" aria-hidden="true"></div>
+                                    <div class="slider-ticks joint-slider-ticks" data-min="-120" data-max="120" data-tick="30" data-label="30" data-reversed="true"></div>
                                 </div>
-                                <span class="slider-value"><span id="value-elbow">0.0</span><span
-                                        class="slider-unit">°</span></span>
+                                <span class="slider-value motion-value" id="value-elbow">Level</span>
                             </div>
                             <div class="slider-row">
-                                <span class="slider-label grip">Grip</span>
-                                <div class="slider-track">
-                                    <input type="range" id="slider-grip-joint" class="slider-grip" min="-30" max="45"
-                                        step="1" value="0">
-                                    <div class="slider-ticks" data-min="-30" data-max="45" data-tick="15"
-                                        data-label="15"></div>
+                                <span class="slider-label grip">Claw</span>
+                                <div class="slider-track grip-track">
+                                    <div class="motion-cues grip-cues" aria-hidden="true"><span><svg class="cue-icon claw-open"><use href="/static/icons.svg#claw-open"></use></svg>Open</span><span>Closed<svg class="cue-icon claw-closed"><use href="/static/icons.svg#claw-closed"></use></svg></span></div>
+                                    <input type="range" id="slider-grip-joint" class="slider-grip semantic-grip" min="-40" max="55"
+                                        step="1" value="45" aria-label="Claw position">
+                                    <div class="grip-landmarks" aria-hidden="true"><span style="left: 10.53%">open</span><span style="left: 89.47%">closed</span></div>
                                 </div>
-                                <span class="slider-value"><span id="value-grip-joint">0</span><span
-                                        class="slider-unit">°</span></span>
+                                <span class="slider-value motion-value grip-state" id="value-grip-joint">Closed</span>
                             </div>
                         </div>
 
                         <div class="slider-actions">
                             <button class="btn btn-home" id="btn-home" onclick="sendHome()">
-                                <span class="icon">🏠</span> Home
+                                <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#home"></use></svg> Home
                             </button>
                             <button class="btn btn-calibrate" id="btn-calibrate"
                                 onclick="toggleCalibration()" style="display: none;">
-                                <span class="icon">🔧</span> Calibrate
+                                <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#calibrate"></use></svg> Calibrate
                             </button>
                         </div>
                     </div>
 
                     <!-- Calibration Panel (hidden by default) -->
                     <div class="card calibration-card" id="calibration-card" style="display: none;">
-                        <div class="card-title"><span><span class="icon">🔧</span> Servo Calibration</span><button class="card-help" type="button" onclick="openHelp('calibrate')" aria-label="Help with calibration">?</button></div>
+                        <div class="card-title"><span class="title-with-mark"><svg class="project-icon" aria-hidden="true"><use href="/static/icons.svg#calibrate"></use></svg> Servo Calibration</span><button class="card-help" type="button" onclick="openHelp('calibrate')" aria-label="Help with calibration"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#help"></use></svg></button></div>
                         <p class="calibration-hint">
-                            Calibration fixes small differences between servo motors. Adjust each slider until the robot stands straight up with its claw closed.
+                            Calibration fixes small differences between servo motors. Align the arm at Home, then adjust the Grip offset and use both claw test buttons.
                             Click <strong>Apply</strong> to save the offsets permanently to the robot.
                         </p>
 
@@ -232,10 +225,10 @@
                             <div class="slider-row">
                                 <span class="slider-label x">Base</span>
                                 <div class="slider-track">
-                                    <input type="range" id="cal-base" class="slider-x" min="-30" max="30" step="0.5"
+                                    <input type="range" id="cal-base" class="slider-x" min="-45" max="45" step="0.5"
                                         value="0">
-                                    <div class="slider-ticks" data-min="-30" data-max="30" data-tick="5"
-                                        data-label="10"></div>
+                                    <div class="slider-ticks" data-min="-45" data-max="45" data-tick="5"
+                                        data-label="15"></div>
                                 </div>
                                 <span class="slider-value"><span id="value-cal-base">0.0</span><span
                                         class="slider-unit">°</span></span>
@@ -243,10 +236,10 @@
                             <div class="slider-row">
                                 <span class="slider-label y">Shldr</span>
                                 <div class="slider-track">
-                                    <input type="range" id="cal-shoulder" class="slider-y" min="-30" max="30" step="0.5"
+                                    <input type="range" id="cal-shoulder" class="slider-y" min="-45" max="45" step="0.5"
                                         value="0">
-                                    <div class="slider-ticks" data-min="-30" data-max="30" data-tick="5"
-                                        data-label="10"></div>
+                                    <div class="slider-ticks" data-min="-45" data-max="45" data-tick="5"
+                                        data-label="15"></div>
                                 </div>
                                 <span class="slider-value"><span id="value-cal-shoulder">0.0</span><span
                                         class="slider-unit">°</span></span>
@@ -254,10 +247,10 @@
                             <div class="slider-row">
                                 <span class="slider-label z">Elbow</span>
                                 <div class="slider-track">
-                                    <input type="range" id="cal-elbow" class="slider-z" min="-30" max="30" step="0.5"
+                                    <input type="range" id="cal-elbow" class="slider-z" min="-45" max="45" step="0.5"
                                         value="0">
-                                    <div class="slider-ticks" data-min="-30" data-max="30" data-tick="5"
-                                        data-label="10"></div>
+                                    <div class="slider-ticks" data-min="-45" data-max="45" data-tick="5"
+                                        data-label="15"></div>
                                 </div>
                                 <span class="slider-value"><span id="value-cal-elbow">0.0</span><span
                                         class="slider-unit">°</span></span>
@@ -265,6 +258,7 @@
                             <div class="slider-row">
                                 <span class="slider-label grip">Grip</span>
                                 <div class="slider-track">
+                                    <div class="calibration-direction" aria-hidden="true"><span>Looser</span><span>Tighter</span></div>
                                     <input type="range" id="cal-grip" class="slider-grip" min="-30" max="30" step="0.5"
                                         value="0">
                                     <div class="slider-ticks" data-min="-30" data-max="30" data-tick="5"
@@ -273,52 +267,59 @@
                                 <span class="slider-value"><span id="value-cal-grip">0.0</span><span
                                         class="slider-unit">°</span></span>
                             </div>
+                            <div class="claw-test-panel">
+                                <div><strong>Check the claw</strong><span>Adjust the Grip offset, then test both end positions.</span></div>
+                                <div class="claw-test-actions">
+                                    <button class="btn btn-claw-test" type="button" onclick="calGripTest('open')"><svg class="button-icon" aria-hidden="true"><use href="/static/icons.svg#claw-open"></use></svg>Test open</button>
+                                    <button class="btn btn-claw-test" type="button" onclick="calGripTest('closed')"><svg class="button-icon" aria-hidden="true"><use href="/static/icons.svg#claw-closed"></use></svg>Test closed</button>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="calibration-actions">
                             <button class="btn" onclick="calCancel()">
                                 Cancel
                             </button>
-                            <button class="btn btn-danger" onclick="calReset()">
-                                <span class="icon">↺</span> Reset to Zero
+                            <button class="btn btn-danger" id="cal-reset" onclick="calReset()">
+                                <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#reset"></use></svg> Reset to Zero
                             </button>
-                            <button class="btn btn-primary" onclick="calApply()">
-                                <span class="icon">✅</span> Apply Calibration
+                            <button class="btn btn-primary" id="cal-apply" onclick="calApply()">
+                                <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#check"></use></svg> Apply Calibration
                             </button>
                         </div>
                     </div>
 
                     <!-- Keyframe Sequencer — right under the sliders -->
                     <div class="card keyframe-card" id="keyframe-card">
-                        <div class="card-title"><span><span class="icon">🎬</span> Animation Maker</span><button class="card-help" type="button" onclick="openHelp('animate')" aria-label="Help with making animations">?</button></div>
+                        <div class="card-title"><span class="title-with-mark"><svg class="project-icon" aria-hidden="true"><use href="/static/icons.svg#animation"></use></svg> Animation Maker</span><button class="card-help" type="button" onclick="openHelp('animate')" aria-label="Help with making animations"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#help"></use></svg></button></div>
 
                         <!-- Toolbar -->
                         <div class="kf-toolbar">
                             <button class="btn kf-play-btn" id="kf-play-btn" onclick="kfTogglePlay()">
-                                <span class="icon" id="kf-play-icon">▶</span>
+                                <svg class="ui-icon icon" id="kf-play-icon" aria-hidden="true"><use href="/static/icons.svg#play"></use></svg>
                                 <span id="kf-play-label">Play</span>
                             </button>
                             <button class="btn kf-transport-btn" id="kf-rewind-btn" onclick="kfRewind()"
                                 title="Rewind to start">
-                                <span class="icon">⏮</span>
+                                <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#rewind"></use></svg>
                             </button>
                             <button class="btn kf-loop-btn" id="kf-loop-btn" onclick="kfToggleLoop()" title="Loop playback">
-                                <span class="icon">🔁</span> Loop
+                                <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#loop"></use></svg> Loop
                             </button>
                             <button class="btn btn-primary" id="kf-add-btn" onclick="kfAddKeyframe()">
-                                <span class="icon">📸</span> Capture Pose
+                                <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#capture"></use></svg> Capture Pose
                             </button>
                             <button class="btn btn-danger" id="kf-clear-btn" onclick="kfClear()">
-                                <span class="icon">🗑️</span> Clear
+                                <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#trash"></use></svg> Clear
                             </button>
                             <button class="btn" id="kf-download-btn" onclick="kfDownloadJSON()">
-                                <span class="icon">💾</span> Save
+                                <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#save"></use></svg> Save
                             </button>
                             <button class="btn" id="kf-load-btn" onclick="kfTriggerLoad()">
-                                <span class="icon">📂</span> Open
+                                <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#folder"></use></svg> Open
                             </button>
                             <button class="btn" id="kf-upload-btn" onclick="kfUploadToRobot()" style="display: none;">
-                                <span class="icon">🚀</span> Upload to Robot
+                                <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#upload"></use></svg> Upload to Robot
                             </button>
                             <input type="file" id="kf-file-input" accept=".json" style="display:none"
                                 onchange="kfLoadJSON(event)">
@@ -330,14 +331,14 @@
                             </div>
                             <div class="kf-zoom-control" id="kf-zoom-control">
                                 <button class="kf-zoom-btn" id="kf-zoom-out" onclick="kfZoomOut()"
-                                    title="Zoom out (Ctrl+Scroll Down)">−</button>
+                                    title="Zoom out (Ctrl+Scroll Down)" aria-label="Zoom out"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#minus"></use></svg></button>
                                 <input type="range" class="kf-zoom-slider" id="kf-zoom-slider" min="0" max="100" step="1"
                                     value="30" oninput="kfZoomFromSlider(this.value)">
                                 <button class="kf-zoom-btn" id="kf-zoom-in" onclick="kfZoomIn()"
-                                    title="Zoom in (Ctrl+Scroll Up)">+</button>
+                                    title="Zoom in (Ctrl+Scroll Up)" aria-label="Zoom in"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#plus"></use></svg></button>
                                 <span class="kf-zoom-label" id="kf-zoom-label">100%</span>
                                 <button class="kf-zoom-fit-btn" id="kf-zoom-fit" onclick="kfZoomFit()"
-                                    title="Fit timeline to view">Fit</button>
+                                    title="Fit timeline to view" aria-label="Fit timeline"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#fit"></use></svg></button>
                             </div>
                             <span class="kf-total-time" id="kf-total-time">Total: 0.0s</span>
                         </div>
@@ -375,19 +376,19 @@
 
                         <!-- Empty state -->
                         <div class="kf-empty" id="kf-empty">
-                            Click <strong>📸 Capture Pose</strong> to save the robot's current position!
+                            Click <strong>Capture Pose</strong> to save the robot's current position.
                         </div>
                     </div>
 
                     <!-- Gestures — at the bottom -->
                     <div class="card">
-                        <div class="card-title"><span><span class="icon">💃</span> Dance Moves!</span><button class="card-help" type="button" onclick="openHelp('dance')" aria-label="Help with dance moves">?</button></div>
+                        <div class="card-title"><span class="title-with-mark"><svg class="project-icon" aria-hidden="true"><use href="/static/icons.svg#dance"></use></svg> Dance Moves</span><button class="card-help" type="button" onclick="openHelp('dance')" aria-label="Help with dance moves"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#help"></use></svg></button></div>
                         <div class="gesture-grid" id="gesture-grid">
                             <!-- Populated by JS -->
                         </div>
                         <div class="stop-all-row">
                             <button class="btn btn-danger" id="btn-stop" onclick="sendStop()">
-                                <span class="icon">🛑</span> STOP!
+                                <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#stop"></use></svg> Stop all
                             </button>
                         </div>
                     </div>
@@ -401,10 +402,10 @@
         <div class="console collapsed" id="console-panel">
             <div class="console-resize-handle" id="console-resize-handle"></div>
             <div class="console-header" id="console-header">
-                <div class="console-title"><span class="icon">🔧</span> Debug Console</div>
+                <div class="console-title"><svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#tool"></use></svg> Debug Console</div>
                 <div class="console-header-right">
                     <button class="console-clear-btn" onclick="clearConsole()">Clear</button>
-                    <button class="console-toggle-btn" id="console-toggle-btn" onclick="toggleConsole()">▲ Show</button>
+                    <button class="console-toggle-btn" id="console-toggle-btn" onclick="toggleConsole()"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#chevron-up"></use></svg> Show</button>
                 </div>
             </div>
             <div class="console-body" id="console-body">
@@ -419,10 +420,10 @@
         <div class="modal help-modal">
             <div class="help-heading">
                 <div>
-                    <div class="modal-title" id="help-title">👋 Let’s get Mira moving</div>
+                    <div class="modal-title title-with-mark" id="help-title"><svg class="project-icon" aria-hidden="true"><use href="/static/icons.svg#spark"></use></svg> Let’s get Mira moving</div>
                     <div class="modal-label">Choose a topic. You can leave this guide open while you follow the steps.</div>
                 </div>
-                <button class="help-close" type="button" onclick="closeHelp()" aria-label="Close help">×</button>
+                <button class="help-close" type="button" onclick="closeHelp()" aria-label="Close help"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#close"></use></svg></button>
             </div>
             <div class="help-tabs" role="tablist" aria-label="Mira help topics">
                 <button type="button" data-help-tab="start" onclick="showHelpTopic('start')">Connect</button>
@@ -436,7 +437,7 @@
                     <h2>Connect one of two ways</h2>
                     <div class="help-choice-grid">
                         <div class="help-choice">
-                            <h3>🔌 USB cable</h3>
+                            <h3 class="title-with-mark"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#usb"></use></svg> USB cable</h3>
                             <ol>
                                 <li>Remove the robot’s batteries.</li>
                                 <li>Connect its small control board to the laptop with a USB-C data cable.</li>
@@ -445,7 +446,7 @@
                             <p>The laptop powers the robot in this mode.</p>
                         </div>
                         <div class="help-choice">
-                            <h3>📡 Radio</h3>
+                            <h3 class="title-with-mark"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#radio"></use></svg> Radio</h3>
                             <ol>
                                 <li>Insert the robot’s batteries.</li>
                                 <li>Look for a red motor-board light and a slowly blinking blue control-board light.</li>
@@ -459,20 +460,20 @@
                 <section class="help-topic" data-help-topic="move">
                     <h2>Make a safe first move</h2>
                     <ol>
-                        <li>Choose one robot under <strong>My Robots</strong>.</li>
+                        <li>Choose one robot under <strong>Robots Detected</strong>.</li>
                         <li>Click <strong>Home</strong>. The arm should point straight up with its claw closed.</li>
                         <li>Keep <strong>Joint Mode</strong> and <strong>Glide</strong> selected.</li>
-                        <li>Move one slider slowly: Base turns, Shoulder and Elbow bend, and Grip opens the claw.</li>
+                        <li>Move one slider slowly. Each track labels the physical direction: Base turns left/right, Shoulder and Elbow move down/up, and Claw moves open/closed.</li>
                     </ol>
-                    <div class="help-callout warning">Keep fingers, hair, and clothing clear. Click the red <strong>STOP!</strong> button if anything looks wrong.</div>
+                    <div class="help-callout warning">Keep fingers, hair, and clothing clear. Click the red <strong>Stop all</strong> button if anything looks wrong.</div>
                 </section>
                 <section class="help-topic" data-help-topic="animate">
                     <h2>Teach Mira a sequence</h2>
                     <ol>
                         <li>Move the robot into a pose.</li>
-                        <li>Click <strong>📸 Capture Pose</strong>.</li>
+                        <li>Click <strong>Capture Pose</strong>.</li>
                         <li>Move it again and capture the next pose. Repeat.</li>
-                        <li>Click <strong>▶ Play</strong> to preview the sequence.</li>
+                        <li>Click <strong>Play</strong> to preview the sequence.</li>
                     </ol>
                     <dl class="help-definitions">
                         <div><dt>Save</dt><dd>Downloads a backup file to this computer.</dd></div>
@@ -486,7 +487,8 @@
                     <p>Hand-built robots and small servos differ slightly. Calibration saves a small correction so software Home matches the real straight-up pose.</p>
                     <ol>
                         <li>Select one robot, then click <strong>Home</strong> and <strong>Calibrate</strong>.</li>
-                        <li>Adjust one slider at a time until the base faces forward, the arm is vertical, and the claw is closed.</li>
+                        <li>Adjust Base, Shoulder, and Elbow until the arm faces forward and stands vertically.</li>
+                        <li>Adjust Grip, then use <strong>Test open</strong> and <strong>Test closed</strong> to check both claw endpoints.</li>
                         <li>Click <strong>Apply Calibration</strong>, then Home to check it.</li>
                     </ol>
                     <div class="help-callout warning"><strong>Still far from straight?</strong> If a slider reaches its limit, calibration cannot fix the assembly. Home the powered robot, then have an adult remove only the crooked joint’s servo horn, hold the arm section straight without turning the servo shaft, and refit the horn on the nearest tooth. Reinstall its screw, then calibrate the small remaining difference.</div>
@@ -496,7 +498,7 @@
                     <ol>
                         <li>Select one robot—or intentionally select <strong>All Robots</strong>.</li>
                         <li>Click a move to start it.</li>
-                        <li>Click the highlighted move again, or click <strong>STOP!</strong>, to stop.</li>
+                        <li>Click the highlighted move again, or click <strong>Stop all</strong>, to stop.</li>
                     </ol>
                     <p>Sequences uploaded from Animation Maker appear as custom gestures in this section.</p>
                 </section>
@@ -564,7 +566,7 @@
     <!-- Confirm Clear Modal -->
     <div class="modal-overlay" id="confirm-clear-modal">
         <div class="modal">
-            <div class="modal-title">⚠️ Clear Sequence</div>
+            <div class="modal-title title-with-mark"><svg class="project-icon" aria-hidden="true"><use href="/static/icons.svg#warning"></use></svg> Clear Sequence</div>
             <div class="modal-label">Are you sure you want to clear all keyframes? This action cannot be undone.</div>
             <div class="modal-actions">
                 <button class="btn" onclick="closeConfirmClearModal()">Cancel</button>
@@ -576,7 +578,7 @@
     <!-- Name Gesture Modal -->
     <div class="modal-overlay" id="name-gesture-modal">
         <div class="modal">
-            <div class="modal-title">📝 Name Your Gesture</div>
+            <div class="modal-title title-with-mark"><svg class="project-icon" aria-hidden="true"><use href="/static/icons.svg#edit"></use></svg> Name Your Gesture</div>
             <div class="modal-label">Give your animation a name (max 15 chars, no spaces):</div>
             <input type="text" class="modal-input" id="gesture-name-input"
                    maxlength="15" placeholder="e.g. victory_dance"
@@ -586,7 +588,7 @@
                 <button class="btn" onclick="closeNameGestureModal()">Cancel</button>
                 <button class="btn btn-primary" id="gesture-name-submit"
                         onclick="submitGestureName()">
-                    <span class="icon">🚀</span> Upload
+                    <svg class="ui-icon icon" aria-hidden="true"><use href="/static/icons.svg#upload"></use></svg> Upload
                 </button>
             </div>
         </div>

@@ -50,6 +50,12 @@ public:
     void home();
 
     /**
+     * Rebase tracked state to Home without writing servo PWM.
+     * Used after saving calibration while the arm is already physically Home.
+     */
+    void assumeHome();
+
+    /**
      * Disable servo PWM output (servos go limp).
      * Reduces power draw when idle. Any motion command re-enables automatically.
      */

@@ -900,7 +900,12 @@ void SerialConsole::_cmdCalSet(const String& args) {
         return;
     }
 
+    // Calibration is performed while the arm is physically aligned at Home.
+    // Saving must not write PWM or start a motion; only persist the offsets and
+    // rebase the controller's tracked nominal angles for future smooth moves.
+    _interruptMotion();
     _arm.getCalStore().setOffsets(base, shoulder, elbow, grip);
+    _ctrl.assumeHome();
 
     String msg = "OK \xE2\x80\x94 calibration saved: B=" + String(base, 1) +
                  " S=" + String(shoulder, 1) + " E=" + String(elbow, 1) +
@@ -919,7 +924,9 @@ void SerialConsole::_cmdCalGet() {
 }
 
 void SerialConsole::_cmdCalReset() {
+    _interruptMotion();
     _arm.getCalStore().resetOffsets();
+    _ctrl.assumeHome();
     _outln("OK \xE2\x80\x94 calibration reset (all offsets = 0)");
 }
 

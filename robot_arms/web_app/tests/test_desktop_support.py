@@ -57,6 +57,31 @@ class DirectRobotStartupTests(unittest.TestCase):
 
         self.assertEqual(writes, ["home"])
 
+    def test_direct_calibration_reply_is_emitted_as_values(self):
+        self.mira.process_serial_line(
+            "Calibration: B=-12.5 S=4.0 E=30.5 G=-1.0"
+        )
+
+        self.mira.socketio.emit.assert_any_call("calibration_values", {
+            "base": -12.5,
+            "shoulder": 4.0,
+            "elbow": 30.5,
+            "grip": -1.0,
+        })
+
+    def test_wireless_calibration_reply_includes_robot_target(self):
+        self.mira.process_serial_line(
+            "R2> Calibration: B=1.0 S=2.0 E=3.0 G=4.0"
+        )
+
+        self.mira.socketio.emit.assert_any_call("calibration_values", {
+            "base": 1.0,
+            "shoulder": 2.0,
+            "elbow": 3.0,
+            "grip": 4.0,
+            "target": "R2",
+        })
+
 
 class SerialDetectionTests(unittest.TestCase):
     def setUp(self):

@@ -28,9 +28,19 @@ const JOINT_SHOULDER_MIN = -109;
 const JOINT_SHOULDER_MAX = 104;
 const JOINT_ELBOW_MIN = -100;
 const JOINT_ELBOW_MAX = 100;
+const GRIP_OPEN_ANGLE = -30;
+const GRIP_CLOSED_ANGLE = 45;
 
 const DEG2RAD = Math.PI / 180.0;
 const RAD2DEG = 180.0 / Math.PI;
+
+function iconSvg(name, className = "ui-icon") {
+    return `<svg class="${className}" aria-hidden="true"><use href="/static/icons.svg#${name}"></use></svg>`;
+}
+
+function setSvgIcon(element, name) {
+    element.innerHTML = `<use href="/static/icons.svg#${name}"></use>`;
+}
 
 /**
  * Forward Kinematics: servo angles (degrees) → Cartesian position (mm).
@@ -104,17 +114,17 @@ function ik(x, y, z) {
 // ---------------------------------------------------------------------------
 
 const GESTURES = [
-    { id: "dance", label: "💃 Dance", continuous: true },
-    { id: "break", label: "🕺 Break", continuous: true },
-    { id: "crab", label: "🦀 Crab", continuous: true },
-    { id: "circle", label: "⭕ Side Circle", continuous: true },
-    { id: "square", label: "🟦 Side Square", continuous: true },
-    { id: "triangle", label: "🔺 Side Triangle", continuous: true },
-    { id: "fcircle", label: "🌀 Front Circle", continuous: true },
-    { id: "fsquare", label: "🎯 Front Square", continuous: true },
-    { id: "ftriangle", label: "📐 Front Triangle", continuous: true },
-    { id: "bow", label: "🎩 Bow", continuous: false },
-    { id: "wave", label: "🌊 Wave", continuous: true },
+    { id: "dance", label: "Dance", icon: "dance", continuous: true },
+    { id: "break", label: "Break", icon: "dance", continuous: true },
+    { id: "crab", label: "Crab", icon: "crab", continuous: true },
+    { id: "circle", label: "Side Circle", icon: "circle", continuous: true },
+    { id: "square", label: "Side Square", icon: "square", continuous: true },
+    { id: "triangle", label: "Side Triangle", icon: "triangle", continuous: true },
+    { id: "fcircle", label: "Front Circle", icon: "circle", continuous: true },
+    { id: "fsquare", label: "Front Square", icon: "target", continuous: true },
+    { id: "ftriangle", label: "Front Triangle", icon: "triangle", continuous: true },
+    { id: "bow", label: "Bow", icon: "bow", continuous: false },
+    { id: "wave", label: "Wave", icon: "wave", continuous: true },
 ];
 
 // ---------------------------------------------------------------------------
@@ -138,6 +148,12 @@ let deviceType = 'master';  // 'master' or 'robot' — set by server
 let renamingMac = null;     // MAC of robot currently being renamed (blocks re-render)
 let pendingRender = false;  // true if a render was skipped during rename
 let calibrationOpen = false; // true when calibration panel is visible
+let calibrationOpening = false; // true while the robot is returning Home
+let calibrationOpenTimer = null;
+let calibrationLoadPending = false; // true while waiting for cal_get
+let calibrationLoadTimer = null;
+let calibrationAtHome = true; // false while a claw test/preview is away from Home
+let loadedCalibration = { base: 0, shoulder: 0, elbow: 0, grip: 0 };
 let customGestures = [];     // Array of custom gesture names from robot
 
 // Control mode & motion type
@@ -223,6 +239,32 @@ function initSocket() {
         addConsoleLine(data.text, data.type, data.time);
     });
 
+    socket.on("calibration_values", (data) => {
+        if (!calibrationOpen || !calibrationLoadPending) return;
+
+        const selectedNames = selectedTarget ? [
+            selectedTarget.mac,
+            selectedTarget.masterName,
+            selectedTarget.name,
+        ] : [];
+        if (data.target && !selectedNames.includes(data.target)) return;
+
+        loadedCalibration = {
+            base: data.base,
+            shoulder: data.shoulder,
+            elbow: data.elbow,
+            grip: data.grip,
+        };
+        Object.entries(loadedCalibration).forEach(([joint, value]) => {
+            document.getElementById(`cal-${joint}`).value = value;
+        });
+        calibrationLoadPending = false;
+        if (calibrationLoadTimer) clearTimeout(calibrationLoadTimer);
+        calibrationLoadTimer = null;
+        setCalibrationControlsLoading(false);
+        updateCalValues();
+    });
+
     socket.on("device_type", (data) => {
         deviceType = data.type;
         renderRobotList();  // re-render to show/hide rename option
@@ -302,7 +344,7 @@ function openProvisioningModal() {
 function openUpdateProgress(role) {
     deviceModalMode = "progress";
     document.getElementById("devices-modal-title").textContent = `Updating ${roleLabel(role)}`;
-    document.getElementById("devices-modal-description").textContent = "Keep the USB cable connected until Mira says the update is complete.";
+    document.getElementById("devices-modal-description").textContent = "Mira is preparing the board and installing its firmware automatically.";
     document.getElementById("device-list").style.display = "none";
     document.getElementById("update-progress").style.display = "block";
     document.getElementById("update-message").textContent = "Preparing the update…";
@@ -556,10 +598,10 @@ function renderRobotList() {
                 <div class="robot-name">${escapeHtml(robot.name)}</div>
                 <div class="robot-mac">${robot.online ? (robot.connection || "Connected") : "Disconnected — reconnect its cable or controller"}</div>
             </div>
-            <button class="robot-menu-btn ${menuOpen ? "open" : ""}" data-mac="${robot.mac}" title="Actions"></button>
+            <button class="robot-menu-btn ${menuOpen ? "open" : ""}" data-mac="${robot.mac}" title="Actions" aria-label="Robot actions">${iconSvg("menu", "ui-icon")}</button>
             <div class="robot-context-menu ${menuOpen ? "visible" : ""}" data-mac="${robot.mac}">
                 <button class="robot-context-item" data-action="rename" data-mac="${robot.mac}">
-                    <span class="ctx-icon">✏️</span> Rename
+                    ${iconSvg("edit", "ctx-icon")} Rename
                 </button>
             </div>
         `;
@@ -637,7 +679,7 @@ function updateTargetBanner() {
     if (selectedTarget) {
         nameEl.textContent = selectedTarget.name;
         nameEl.className = "target-name single";
-        badgeEl.textContent = "THIS ONE ☝️";
+        badgeEl.textContent = "THIS ROBOT";
         badgeEl.className = "target-badge single";
         document.getElementById("all-robots-btn").classList.remove("active");
     } else {
@@ -768,13 +810,12 @@ function sendCommand(cmd) {
 
 /** Reset all UI sliders to the home position (grip closed at 45°). */
 function resetSlidersToHome() {
-    const HOME_GRIP = 45;  // matches GRIP_CLOSED_ANGLE in config.h
     // Joint sliders
     document.getElementById("slider-base").value = 0;
     document.getElementById("slider-shoulder").value = 0;
     document.getElementById("slider-elbow").value = 0;
-    document.getElementById("slider-grip-joint").value = HOME_GRIP;
-    document.getElementById("slider-grip").value = HOME_GRIP;
+    document.getElementById("slider-grip-joint").value = GRIP_CLOSED_ANGLE;
+    document.getElementById("slider-grip").value = GRIP_CLOSED_ANGLE;
     // Cartesian sliders via FK
     const homePos = fk(0, 0, 0);
     document.getElementById("slider-x").value = homePos.x.toFixed(1);
@@ -829,16 +870,12 @@ function sendJointMove(joint) {
 }
 
 function sendGrip() {
-    if (controlMode === 'joint') {
-        const grip = parseFloat(document.getElementById("slider-grip-joint").value);
-        if (motionType === 'smooth') {
-            sendCommand(`smset grip ${grip}`);
-        } else {
-            sendCommand(`set grip ${grip}`);
-        }
+    const sliderId = controlMode === 'joint' ? "slider-grip-joint" : "slider-grip";
+    const grip = parseFloat(document.getElementById(sliderId).value);
+    if (motionType === 'smooth') {
+        sendCommand(`smset grip ${grip}`);
     } else {
-        const grip = parseFloat(document.getElementById("slider-grip").value);
-        sendCommand(`grip ${grip}`);
+        sendCommand(`set grip ${grip}`);
     }
 }
 
@@ -943,7 +980,10 @@ function initSliderTicks() {
         for (let v = start; v <= max; v += tickStep) {
             // Round to avoid floating point drift
             const val = Math.round(v * 100) / 100;
-            const pct = ((val - min) / range) * 100;
+            const reversed = container.dataset.reversed === "true";
+            const pct = reversed
+                ? ((max - val) / range) * 100
+                : ((val - min) / range) * 100;
             const isMajor = Math.abs(val % labelStep) < 0.01 || Math.abs(val % labelStep - labelStep) < 0.01;
 
             const tick = document.createElement('div');
@@ -957,7 +997,7 @@ function initSliderTicks() {
             if (isMajor) {
                 const label = document.createElement('div');
                 label.className = 'slider-tick-label';
-                label.textContent = val;
+                label.textContent = reversed ? -val : val;
                 tick.appendChild(label);
             }
 
@@ -1014,13 +1054,41 @@ function updateSliderValues() {
     document.getElementById("value-x").textContent = parseFloat(document.getElementById("slider-x").value).toFixed(1);
     document.getElementById("value-y").textContent = parseFloat(document.getElementById("slider-y").value).toFixed(1);
     document.getElementById("value-z").textContent = parseFloat(document.getElementById("slider-z").value).toFixed(1);
-    document.getElementById("value-grip").textContent = parseInt(document.getElementById("slider-grip").value);
+    updateGripValue("slider-grip", "value-grip");
 
     // Joint
-    document.getElementById("value-base").textContent = parseFloat(document.getElementById("slider-base").value).toFixed(1);
-    document.getElementById("value-shoulder").textContent = parseFloat(document.getElementById("slider-shoulder").value).toFixed(1);
-    document.getElementById("value-elbow").textContent = parseFloat(document.getElementById("slider-elbow").value).toFixed(1);
-    document.getElementById("value-grip-joint").textContent = parseInt(document.getElementById("slider-grip-joint").value);
+    updateDirectionalValue("slider-base", "value-base", "right", "left", "Centered");
+    updateDirectionalValue("slider-shoulder", "value-shoulder", "up", "down", "Level");
+    updateDirectionalValue("slider-elbow", "value-elbow", "up", "down", "Level");
+    updateGripValue("slider-grip-joint", "value-grip-joint");
+}
+
+function updateDirectionalValue(sliderId, valueId, negativeDirection, positiveDirection, centerLabel) {
+    const slider = document.getElementById(sliderId);
+    const value = parseFloat(slider.value);
+    const label = Math.abs(value) < 0.5
+        ? centerLabel
+        : `${Math.abs(value).toFixed(0)}° ${value < 0 ? negativeDirection : positiveDirection}`;
+    document.getElementById(valueId).textContent = label;
+    slider.setAttribute("aria-valuetext", label);
+}
+
+function gripStateLabel(angle) {
+    if (angle < GRIP_OPEN_ANGLE) return "Extra open";
+    if (angle === GRIP_OPEN_ANGLE) return "Open";
+    if (angle > GRIP_CLOSED_ANGLE) return "Extra closed";
+    if (angle === GRIP_CLOSED_ANGLE) return "Closed";
+    const closedPercent = Math.round(
+        ((angle - GRIP_OPEN_ANGLE) / (GRIP_CLOSED_ANGLE - GRIP_OPEN_ANGLE)) * 100
+    );
+    return `${closedPercent}% closed`;
+}
+
+function updateGripValue(sliderId, valueId) {
+    const slider = document.getElementById(sliderId);
+    const label = gripStateLabel(parseFloat(slider.value));
+    document.getElementById(valueId).textContent = label;
+    slider.setAttribute("aria-valuetext", label);
 }
 
 function throttledSend(fn) {
@@ -1074,7 +1142,7 @@ function initGestures() {
         const btn = document.createElement("button");
         btn.className = "gesture-btn";
         btn.id = `gesture-${g.id}`;
-        btn.innerHTML = `<span class="play-icon">▶</span> ${g.label}`;
+        btn.innerHTML = `${iconSvg("play", "play-icon")} ${iconSvg(g.icon, "gesture-symbol")}<span>${g.label}</span>`;
 
         btn.addEventListener("click", () => {
             toggleGesture(g);
@@ -1113,10 +1181,10 @@ function setActiveGesture(id) {
 
         if (g.id === id) {
             btn.classList.add("active");
-            btn.innerHTML = `<span class="play-icon">⏹</span> ${g.label}`;
+            btn.innerHTML = `${iconSvg("stop", "play-icon")} ${iconSvg(g.icon, "gesture-symbol")}<span>${g.label}</span>`;
         } else {
             btn.classList.remove("active");
-            btn.innerHTML = `<span class="play-icon">▶</span> ${g.label}`;
+            btn.innerHTML = `${iconSvg("play", "play-icon")} ${iconSvg(g.icon, "gesture-symbol")}<span>${g.label}</span>`;
         }
     });
 
@@ -1126,10 +1194,10 @@ function setActiveGesture(id) {
         if (!btn) return;
         if (name === id) {
             btn.classList.add("active");
-            btn.innerHTML = `<span class="play-icon">⏹</span> ${name}`;
+            btn.innerHTML = `${iconSvg("stop", "play-icon")} ${iconSvg("spark", "gesture-symbol")}<span>${name}</span>`;
         } else {
             btn.classList.remove("active");
-            btn.innerHTML = `<span class="play-icon">▶</span> ${name}`;
+            btn.innerHTML = `${iconSvg("play", "play-icon")} ${iconSvg("spark", "gesture-symbol")}<span>${name}</span>`;
         }
     });
 }
@@ -1225,6 +1293,7 @@ function updateCalibrateButton() {
 
 /** Toggle calibration panel — open if closed, cancel if open. */
 function toggleCalibration() {
+    if (calibrationOpening) return;
     if (calibrationOpen) {
         calCancel();
     } else {
@@ -1232,29 +1301,84 @@ function toggleCalibration() {
     }
 }
 
-/** Open the calibration panel. Wakes and homes the robot first. */
+function setCalibrationControlsLoading(loading) {
+    document.querySelectorAll("#calibration-sliders input").forEach(input => {
+        input.disabled = loading;
+    });
+    updateCalibrationActionState();
+}
+
+function calibrationPreviewPending() {
+    return Object.values(calThrottleTimers).some(timer => timer !== null && timer !== undefined);
+}
+
+function updateCalibrationActionState() {
+    const controlsDisabled = calibrationLoadPending || calibrationPreviewPending();
+    document.getElementById("cal-apply").disabled = controlsDisabled || !calibrationAtHome;
+    document.querySelectorAll(".btn-claw-test").forEach(button => {
+        button.disabled = controlsDisabled;
+    });
+}
+
+function clearCalibrationPreviewTimers() {
+    Object.values(calThrottleTimers).forEach(timer => {
+        if (timer) clearTimeout(timer);
+    });
+    calThrottleTimers = {};
+}
+
+/** Return Home first, then reveal calibration and load saved offsets. */
 function openCalibration() {
+    calibrationOpening = true;
+    document.getElementById("btn-calibrate").disabled = true;
+    sendHome();
+    addConsoleLine("Returning Home before calibration…", "system");
+
+    if (calibrationOpenTimer) clearTimeout(calibrationOpenTimer);
+    calibrationOpenTimer = setTimeout(() => {
+        calibrationOpenTimer = null;
+        calibrationOpening = false;
+        document.getElementById("btn-calibrate").disabled = false;
+        revealCalibration();
+    }, 900);
+}
+
+function revealCalibration() {
     calibrationOpen = true;
+    calibrationLoadPending = true;
+    calibrationAtHome = true;
     document.getElementById("calibration-card").style.display = "";
 
-    // Reset calibration sliders to 0
+    // Show a neutral value until the device replies with its saved offsets.
     ["cal-base", "cal-shoulder", "cal-elbow", "cal-grip"].forEach(id => {
         document.getElementById(id).value = 0;
     });
+    loadedCalibration = { base: 0, shoulder: 0, elbow: 0, grip: 0 };
     updateCalValues();
+    setCalibrationControlsLoading(true);
 
     // Re-init tick marks for calibration sliders (they're dynamically shown)
     initSliderTicks();
 
-    // Wake the robot and home it so the user starts from a known position
-    sendCommand("wake");
-    sendCommand("home");
+    // Read offsets from the selected robot only after Home has been requested.
+    sendCommand("cal_get");
+
+    if (calibrationLoadTimer) clearTimeout(calibrationLoadTimer);
+    calibrationLoadTimer = setTimeout(() => {
+        if (!calibrationOpen || !calibrationLoadPending) return;
+        calibrationLoadPending = false;
+        calibrationLoadTimer = null;
+        setCalibrationControlsLoading(false);
+        addConsoleLine("Could not read saved calibration; showing zero values", "warning");
+    }, 1500);
 
     addConsoleLine("Calibration mode: adjust sliders until robot is in home position", "system");
 }
 
-/** Apply calibration: send cal_set command with current slider values. */
+/** Persist the already-previewed pose without issuing another movement. */
 function calApply() {
+    if (calibrationLoadPending || calibrationPreviewPending() || !calibrationAtHome) return;
+
     const base = parseFloat(document.getElementById("cal-base").value);
     const shoulder = parseFloat(document.getElementById("cal-shoulder").value);
     const elbow = parseFloat(document.getElementById("cal-elbow").value);
@@ -1262,18 +1386,19 @@ function calApply() {
 
     sendCommand(`cal_set ${base} ${shoulder} ${elbow} ${grip}`);
     closeCalibration();
-
-    // Home with new offsets applied
-    setTimeout(() => {
-        sendCommand("home");
-        resetSlidersToHome();
-        resetSliderIdleTimer();
-    }, 200);
+    addConsoleLine("Calibration saved; robot remains in its aligned Home pose", "system");
 }
 
 /** Reset calibration to zero on the robot. */
 function calReset() {
+    clearCalibrationPreviewTimers();
+    calibrationAtHome = false;
     sendCommand("cal_reset");
+    calibrationLoadPending = false;
+    if (calibrationLoadTimer) clearTimeout(calibrationLoadTimer);
+    calibrationLoadTimer = null;
+    setCalibrationControlsLoading(false);
+    loadedCalibration = { base: 0, shoulder: 0, elbow: 0, grip: 0 };
 
     // Reset sliders to zero
     ["cal-base", "cal-shoulder", "cal-elbow", "cal-grip"].forEach(id => {
@@ -1282,7 +1407,23 @@ function calReset() {
     updateCalValues();
 
     // Re-home with cleared offsets
-    setTimeout(() => sendCommand("home"), 100);
+    setTimeout(() => {
+        sendCommand("home");
+        calibrationAtHome = true;
+        updateCalibrationActionState();
+    }, 100);
+    updateCalibrationActionState();
+}
+
+/** Preview the candidate grip calibration at a known open or closed pose. */
+function calGripTest(position) {
+    const candidateOffset = parseFloat(document.getElementById("cal-grip").value);
+    const referenceAngle = position === "open" ? GRIP_OPEN_ANGLE : GRIP_CLOSED_ANGLE;
+    const commandAngle = referenceAngle + candidateOffset - loadedCalibration.grip;
+    sendCommand(`set grip ${commandAngle}`);
+    calibrationAtHome = position === "closed";
+    updateCalibrationActionState();
+    resetSliderIdleTimer();
 }
 
 /** Cancel calibration without saving. */
@@ -1296,7 +1437,18 @@ function calCancel() {
 
 /** Close the calibration panel. */
 function closeCalibration() {
+    if (calibrationOpenTimer) clearTimeout(calibrationOpenTimer);
+    calibrationOpenTimer = null;
+    calibrationOpening = false;
+    const calibrateButton = document.getElementById("btn-calibrate");
+    if (calibrateButton) calibrateButton.disabled = false;
+    clearCalibrationPreviewTimers();
     calibrationOpen = false;
+    calibrationLoadPending = false;
+    calibrationAtHome = true;
+    if (calibrationLoadTimer) clearTimeout(calibrationLoadTimer);
+    calibrationLoadTimer = null;
+    setCalibrationControlsLoading(false);
     document.getElementById("calibration-card").style.display = "none";
 }
 
@@ -1314,8 +1466,8 @@ function updateCalValues() {
 
 /** Wire up calibration slider input events. */
 function initCalibrationSliders() {
-    // Home positions — slider value is an offset from these
-    const CAL_HOME = { base: 0, shoulder: 0, elbow: 0, grip: 45 };  // matches config.h
+    // Every offset is previewed against the device's actual Home command.
+    const CAL_PREVIEW = { base: 0, shoulder: 0, elbow: 0, grip: GRIP_CLOSED_ANGLE };
 
     const joints = [
         { id: "cal-base", joint: "base" },
@@ -1326,17 +1478,23 @@ function initCalibrationSliders() {
 
     joints.forEach(({ id, joint }) => {
         document.getElementById(id).addEventListener("input", () => {
+            calibrationLoadPending = false;
+            calibrationAtHome = false;
             updateCalValues();
 
             // Throttled instant servo move so the user can see the effect
             if (calThrottleTimers[joint]) clearTimeout(calThrottleTimers[joint]);
             calThrottleTimers[joint] = setTimeout(() => {
                 const offset = parseFloat(document.getElementById(id).value);
-                // Send absolute angle = home + offset
-                const angle = CAL_HOME[joint] + offset;
+                // The firmware also applies its saved offset. Subtract the
+                // loaded value so the slider represents the desired total.
+                const angle = CAL_PREVIEW[joint] + offset - loadedCalibration[joint];
                 sendCommand(`set ${joint} ${angle}`);
                 calThrottleTimers[joint] = null;
+                calibrationAtHome = true;
+                updateCalibrationActionState();
             }, SLIDER_THROTTLE_MS);
+            updateCalibrationActionState();
 
             resetSliderIdleTimer();
         });
@@ -1642,7 +1800,7 @@ function kfRender() {
                 // Delete button
                 const del = document.createElement("button");
                 del.className = "kf-bar-delete";
-                del.textContent = "✕";
+                del.innerHTML = iconSvg("close", "ui-icon");
                 del.addEventListener("click", (e) => {
                     e.stopPropagation();
                     kfRemoveKeyframe(ki);
@@ -1943,7 +2101,7 @@ function kfPlay() {
 
     const btn = document.getElementById("kf-play-btn");
     btn.classList.add("playing");
-    document.getElementById("kf-play-icon").textContent = "⏸";
+    setSvgIcon(document.getElementById("kf-play-icon"), "pause");
     document.getElementById("kf-play-label").textContent = "Pause";
 
     const playhead = document.getElementById("kf-playhead");
@@ -2024,7 +2182,7 @@ function kfPause() {
 
     const btn = document.getElementById("kf-play-btn");
     btn.classList.remove("playing");
-    document.getElementById("kf-play-icon").textContent = "▶";
+    setSvgIcon(document.getElementById("kf-play-icon"), "play");
     document.getElementById("kf-play-label").textContent = "Play";
 
     const playhead = document.getElementById("kf-playhead");
@@ -2131,7 +2289,7 @@ function submitGestureName() {
     const btn = document.getElementById("kf-upload-btn");
     btn.disabled = true;
     btn.classList.add("uploading");
-    btn.querySelector(".icon").textContent = "⏳";
+    setSvgIcon(btn.querySelector(".icon"), "loop");
 
     // 1. Clear staging
     sendCommand("seq_clear");
@@ -2171,20 +2329,20 @@ function handleUploadResult(data) {
 
     if (data.ok) {
         btn.classList.add("upload-success");
-        icon.textContent = "✅";
+        setSvgIcon(icon, "check");
         addConsoleLine(`Gesture "${data.name}" uploaded (${data.count} keyframes, ${data.loop ? "looping" : "one-shot"})!`, "system");
         // Refresh the custom gesture list from the robot
         sendCommand("seq_list");
     } else {
         btn.classList.add("upload-error");
-        icon.textContent = "❌";
+        setSvgIcon(icon, "warning");
         addConsoleLine(`Upload failed: ${data.reason || 'Unknown error'}`, "error");
     }
 
     // Reset button after 3s
     setTimeout(() => {
         btn.classList.remove("upload-success", "upload-error");
-        icon.textContent = "🚀";
+        setSvgIcon(icon, "upload");
     }, 3000);
 }
 
@@ -2210,7 +2368,7 @@ function renderCustomGestures() {
     container.style.display = "";
 
     container.innerHTML = `
-        <div class="custom-gestures-label">✨ Custom Gestures</div>
+        <div class="custom-gestures-label">${iconSvg("spark", "ui-icon")} Custom Gestures</div>
         <div class="gesture-grid" id="custom-gesture-grid"></div>
     `;
 
@@ -2222,16 +2380,16 @@ function renderCustomGestures() {
         const btn = document.createElement("button");
         btn.className = "gesture-btn custom-gesture-btn";
         btn.id = `gesture-custom-${name}`;
-        btn.innerHTML = `<span class="play-icon">▶</span> ${name}`;
+        btn.innerHTML = `${iconSvg("play", "play-icon")} ${iconSvg("spark", "gesture-symbol")}<span>${name}</span>`;
 
         btn.addEventListener("click", () => {
             toggleCustomGesture(name);
         });
 
-        // Delete button (✕)
+        // Delete button
         const del = document.createElement("button");
         del.className = "custom-gesture-delete";
-        del.textContent = "✕";
+        del.innerHTML = iconSvg("close", "ui-icon");
         del.title = `Delete "${name}"`;
         del.addEventListener("click", (e) => {
             e.stopPropagation();
@@ -2409,10 +2567,10 @@ function toggleConsole() {
 
     const isCollapsed = panel.classList.toggle("collapsed");
     if (isCollapsed) {
-        btn.textContent = "▲ Show";
+        btn.innerHTML = `${iconSvg("chevron-up", "ui-icon")} Show`;
         panel.style.height = ""; // reset inline height so CSS var takes over
     } else {
-        btn.textContent = "▼ Hide";
+        btn.innerHTML = `${iconSvg("chevron-down", "ui-icon")} Hide`;
         panel.style.height = ""; // reset so CSS expanded height applies
     }
 }
