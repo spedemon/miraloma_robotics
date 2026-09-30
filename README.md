@@ -25,7 +25,7 @@ Start with the **[Mira family guide](robot_arms/README.md)**. It explains, in pl
 - how to calibrate a hand-built arm; and
 - what to do when a joint was assembled in the wrong position.
 
-[⬇️ Download Mira for macOS](https://github.com/spedemon/miraloma_robotics/releases/latest) · [🪟 Windows information](robot_arms/README.md#windows-computers) · [🆘 Troubleshooting](robot_arms/README.md#troubleshooting)
+[⬇️ Download Mira for macOS](https://github.com/spedemon/miraloma_robotics/releases/latest) · [⬇️ Download Mira for Windows](https://github.com/spedemon/miraloma_robotics/releases/latest) · [🆘 Troubleshooting](robot_arms/README.md#troubleshooting)
 
 ## Projects
 

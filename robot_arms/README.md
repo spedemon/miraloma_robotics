@@ -2,7 +2,7 @@
 
 > Mira is the robot arm built by Miraloma students. This page is for parents and children who want to make it move, teach it a routine, and save their work. No programming experience is needed.
 
-[⬇️ Download Mira for macOS](https://github.com/spedemon/miraloma_robotics/releases/latest) · [🪟 Windows launcher status](#windows-computers) · [🆘 Jump to troubleshooting](#troubleshooting)
+[⬇️ Download Mira for macOS](https://github.com/spedemon/miraloma_robotics/releases/latest) · [⬇️ Download Mira for Windows](https://github.com/spedemon/miraloma_robotics/releases/latest) · [🆘 Jump to troubleshooting](#troubleshooting)
 
 ![The Mira application, with robot controls at the top and the Animation Maker below](screenshot.png)
 
@@ -49,13 +49,12 @@ The application is unsigned, which is why macOS asks for this extra confirmation
 
 #### Windows computers
 
-The Windows launcher is not published yet because the project has not had access to a Windows computer for the final build and test. Everything needed to make it is ready.
+1. Open the [latest Mira release](https://github.com/spedemon/miraloma_robotics/releases/latest).
+2. Under **Assets**, download the file whose name starts with `Mira-Setup-` and ends in `.exe`.
+3. Open the installer and follow its steps.
+4. If Windows SmartScreen appears, choose **More info → Run anyway**.
 
-If your family uses Windows, please ask your coding agent to:
-
-> Build the Mira Windows application launcher using `robot_arms/web_app/scripts/build_windows.ps1`, test the installer on Windows, and push the resulting Windows launcher to the GitHub releases for `spedemon/miraloma_robotics` so every family can download it.
-
-The relevant files are the [Windows build script](web_app/scripts/build_windows.ps1), [installer definition](web_app/installer/windows/Mira.iss), and [desktop build workflow](../.github/workflows/build-desktop.yml). When a tested installer is published, it will appear on the [Mira releases page](https://github.com/spedemon/miraloma_robotics/releases/latest).
+The Windows launcher is built automatically on GitHub’s Windows runner, but it has not yet been tested with a physical robot on a Windows computer. Treat this first version as experimental and [report any problem](https://github.com/spedemon/miraloma_robotics/issues).
 
 ### 2. Choose a connection
 
