@@ -61,6 +61,8 @@ struct RobotEntry {
     char     name[16];       // "R1", "R2", or user-assigned name
     uint32_t lastSeenMs;
     bool     active;
+    char     firmware[16];
+    uint8_t  protocol;
 };
 
 static RobotEntry robots[MAX_ROBOTS];
@@ -107,7 +109,38 @@ static int findRobotByName(const String& name) {
 /**
  * Register a new robot or refresh an existing one.
  */
-static void registerRobot(const uint8_t mac[6]) {
+static void printRobotEvent(const RobotEntry& robot, bool online) {
+    char macStr[18];
+    swarmMacToString(robot.mac, macStr);
+    Serial.print("MIRA_EVENT ROBOT id=");
+    Serial.print(macStr);
+    Serial.print(" name=");
+    Serial.print(robot.name);
+    Serial.print(" online=");
+    Serial.print(online ? 1 : 0);
+    Serial.print(" firmware=");
+    Serial.print(robot.firmware[0] ? robot.firmware : "unknown");
+    Serial.print(" protocol=");
+    Serial.println(robot.protocol);
+}
+
+static void parseHelloMetadata(RobotEntry& robot, const char* payload) {
+    robot.firmware[0] = '\0';
+    robot.protocol = 0;
+    if (!payload || !payload[0]) return;
+    const char* fw = strstr(payload, "firmware=");
+    if (fw) {
+        fw += 9;
+        size_t len = strcspn(fw, " ");
+        if (len >= sizeof(robot.firmware)) len = sizeof(robot.firmware) - 1;
+        memcpy(robot.firmware, fw, len);
+        robot.firmware[len] = '\0';
+    }
+    const char* proto = strstr(payload, "protocol=");
+    if (proto) robot.protocol = (uint8_t)atoi(proto + 9);
+}
+
+static void registerRobot(const uint8_t mac[6], const char* metadata) {
     int idx = findRobotByMac(mac);
 
     if (idx >= 0) {
@@ -115,6 +148,7 @@ static void registerRobot(const uint8_t mac[6]) {
         bool wasOffline = !robots[idx].active;
         robots[idx].lastSeenMs = millis();
         robots[idx].active = true;
+        parseHelloMetadata(robots[idx], metadata);
 
         // Notify serial when a robot comes back online
         if (wasOffline) {
@@ -126,6 +160,7 @@ static void registerRobot(const uint8_t mac[6]) {
             Serial.print(" [");
             Serial.print(macStr);
             Serial.println("]");
+            printRobotEvent(robots[idx], true);
             printPrompt();
         }
         return;
@@ -142,6 +177,7 @@ static void registerRobot(const uint8_t mac[6]) {
     snprintf(robots[idx].name, sizeof(robots[idx].name), "R%d", idx + 1);
     robots[idx].lastSeenMs = millis();
     robots[idx].active = true;
+    parseHelloMetadata(robots[idx], metadata);
 
     char macStr[18];
     swarmMacToString(mac, macStr);
@@ -150,6 +186,7 @@ static void registerRobot(const uint8_t mac[6]) {
     Serial.print(" [");
     Serial.print(macStr);
     Serial.println("]");
+    printRobotEvent(robots[idx], true);
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +204,7 @@ static void onEspNowRecv(const esp_now_recv_info_t* info,
 
     switch (pkt->msg_type) {
         case SWARM_MSG_HELLO:
-            registerRobot(pkt->sender_mac);
+            registerRobot(pkt->sender_mac, pkt->payload);
             break;
 
         case SWARM_MSG_REPLY: {
@@ -315,6 +352,7 @@ static void cmdSwarmList() {
             }
 
             Serial.println();
+            printRobotEvent(robots[i], robots[i].active);
         }
     }
 
@@ -415,6 +453,20 @@ static void processCommand(const String& line) {
     if (cmd.length() == 0) return;
 
     // --- Master-local commands ---
+    if (cmd.startsWith("MIRA_DISCOVER ")) {
+        String nonce = cmd.substring(14);
+        nonce.trim();
+        Serial.print("MIRA_DEVICE ");
+        Serial.print(nonce);
+        Serial.print(" role=wireless_controller id=");
+        Serial.print(myMacStr);
+        Serial.print(" firmware=");
+        Serial.print(MIRA_FIRMWARE_VERSION);
+        Serial.print(" protocol=");
+        Serial.print(MIRA_PROTOCOL_VERSION);
+        Serial.println(" hardware=esp32c3");
+        return;
+    }
     if (cmd == "help" || cmd == "?") {
         cmdHelp();
         return;
@@ -526,7 +578,8 @@ void setup() {
 
     Serial.println();
     Serial.println("══════════════════════════════════════════");
-    Serial.println("  Mira Master MCU — v0.1.0");
+    Serial.print("  Mira Master MCU — v");
+    Serial.println(MIRA_FIRMWARE_VERSION);
     Serial.println("  Swarm Controller (ESP-NOW)");
     Serial.println("══════════════════════════════════════════");
     Serial.println();
@@ -579,6 +632,7 @@ void loop() {
             Serial.print("[Swarm] ");
             Serial.print(robots[i].name);
             Serial.println(" went offline (no HELLO received)");
+            printRobotEvent(robots[i], false);
             printPrompt();
         }
     }

@@ -126,6 +126,13 @@ let robots = [];
 let selectedTarget = null;  // null = all robots, or { name, mac, masterName }
 let activeGesture = null;   // gesture id currently running
 let serialConnected = false;
+let connectedDevices = [];
+let updateDevices = [];
+let setupPromptedPorts = new Set();
+let firmwarePrompted = new Set();
+let deviceModalMode = null;
+let eraseTarget = null;
+let deviceOperationActive = false;
 let openMenuMac = null;     // MAC of robot whose context menu is open
 let deviceType = 'master';  // 'master' or 'robot' — set by server
 let renamingMac = null;     // MAC of robot currently being renamed (blocks re-render)
@@ -164,6 +171,47 @@ function initSocket() {
     socket.on("serial_status", (data) => {
         serialConnected = data.connected;
         updateSerialUI(data);
+    });
+
+    socket.on("device_inventory", (data) => {
+        connectedDevices = data.devices || [];
+        serialConnected = connectedDevices.some((device) => device.state === "connected");
+        deviceType = connectedDevices.some((device) => device.role === "robot") ? "robot" : "master";
+        updateSerialUI({ connected: serialConnected });
+        renderDevices();
+        renderDeviceSettings();
+        refreshUpdates(false);
+
+        // A blank ESP32-C3 cannot identify its intended role. Bring the safe
+        // choice to the user instead of expecting them to discover it under
+        // Devices. Reconnecting the board allows the prompt to appear again.
+        const presentPorts = new Set(connectedDevices.map((device) => device.port));
+        if (!deviceOperationActive) {
+            setupPromptedPorts = new Set([...setupPromptedPorts].filter((port) => presentPorts.has(port)));
+        }
+        const presentIds = new Set(connectedDevices.filter((device) => device.deviceId).map((device) => device.deviceId));
+        firmwarePrompted = new Set(
+            [...firmwarePrompted].filter((key) => presentIds.has(key.split("|")[0]))
+        );
+        const newBoard = connectedDevices.find(
+            (device) => device.state === "unrecognized" && !setupPromptedPorts.has(device.port)
+        );
+        if (newBoard && !deviceOperationActive) {
+            setupPromptedPorts.add(newBoard.port);
+            openProvisioningModal();
+        }
+    });
+
+    socket.on("update_status", (data) => {
+        deviceOperationActive = ["preparing", "flashing", "erasing", "restarting"].includes(data.state);
+        renderUpdateProgress(data);
+        if (data.state === "complete" && data.operation === "erase"
+            && connectedDevices.some((device) => device.state === "unrecognized")) {
+            const blankBoard = connectedDevices.find((device) => device.state === "unrecognized");
+            setupPromptedPorts.delete(blankBoard.port);
+            openProvisioningModal();
+        }
+        if (data.state === "complete") refreshUpdates(false);
     });
 
     socket.on("robot_list", (data) => {
@@ -206,87 +254,247 @@ function updateSerialUI(data) {
     const badge = document.getElementById("serial-badge");
     const label = document.getElementById("serial-label");
     const banner = document.getElementById("disconnected-banner");
+    const message = document.getElementById("disconnected-message");
+    const newBoards = connectedDevices.filter((device) => device.state === "unrecognized");
+    const checkingBoards = connectedDevices.filter((device) => device.state === "probing");
 
-    if (data.connected) {
+    badge.disabled = !data.connected && !newBoards.length;
+    badge.classList.toggle("attention", newBoards.length > 0);
+    if (newBoards.length) {
+        badge.classList.remove("connected");
+        label.textContent = newBoards.length === 1 ? "New USB board found" : `${newBoards.length} new USB boards found`;
+        message.textContent = "A new ESP32-C3 board is ready to program. Choose whether it will be a Robot or a Wireless board.";
+        banner.style.display = "flex";
+    } else if (data.connected) {
         badge.classList.add("connected");
-        label.textContent = data.port || "Connected";
+        const count = connectedDevices.filter((device) => device.state === "connected").length;
+        label.textContent = count === 1 ? "1 device connected" : `${count || 1} devices connected`;
         banner.style.display = "none";
+    } else if (checkingBoards.length) {
+        badge.classList.remove("connected");
+        label.textContent = "Checking USB board…";
+        message.textContent = "Mira found a USB board and is checking whether it is already programmed.";
+        banner.style.display = "flex";
     } else {
         badge.classList.remove("connected");
-        label.textContent = "Disconnected";
+        label.textContent = "Looking for robots…";
+        message.textContent = "Looking for robots… Connect a robot or a Wireless board with a USB cable.";
         banner.style.display = "flex";
     }
 }
 
 // ---------------------------------------------------------------------------
-// Settings Modal
+// Automatic device modals
 // ---------------------------------------------------------------------------
 
-function openSettings() {
+function openProvisioningModal() {
+    deviceModalMode = "provisioning";
+    const title = document.getElementById("devices-modal-title");
+    const description = document.getElementById("devices-modal-description");
+    title.textContent = "Set up your new USB board";
+    description.textContent = "Mira found an unprogrammed ESP32-C3. Choose what this board will become. Mira will install the correct firmware automatically.";
+    document.getElementById("device-list").style.display = "grid";
+    document.getElementById("update-progress").style.display = "none";
     document.getElementById("settings-modal").classList.add("visible");
-    refreshPorts();
+    renderDevices();
+}
+
+function openUpdateProgress(role) {
+    deviceModalMode = "progress";
+    document.getElementById("devices-modal-title").textContent = `Updating ${roleLabel(role)}`;
+    document.getElementById("devices-modal-description").textContent = "Keep the USB cable connected until Mira says the update is complete.";
+    document.getElementById("device-list").style.display = "none";
+    document.getElementById("update-progress").style.display = "block";
+    document.getElementById("update-message").textContent = "Preparing the update…";
+    document.getElementById("update-progress-bar").style.width = "2%";
+    document.getElementById("settings-modal").classList.add("visible");
+}
+
+function openEraseProgress(role) {
+    deviceModalMode = "progress";
+    document.getElementById("devices-modal-title").textContent = `Erasing ${roleLabel(role)}`;
+    document.getElementById("devices-modal-description").textContent = "Keep the USB cable connected. Mira will offer new firmware choices when the board is ready.";
+    document.getElementById("device-list").style.display = "none";
+    document.getElementById("update-progress").style.display = "block";
+    document.getElementById("update-message").textContent = "Preparing to erase the board…";
+    document.getElementById("update-progress-bar").style.width = "2%";
+    document.getElementById("settings-modal").classList.add("visible");
 }
 
 function closeSettings() {
+    deviceModalMode = null;
     document.getElementById("settings-modal").classList.remove("visible");
 }
 
-async function refreshPorts() {
-    const select = document.getElementById("port-select");
-    select.innerHTML = '<option value="">Loading...</option>';
+function roleLabel(role) {
+    return role === "wireless_controller" ? "Wireless board" : "Robot";
+}
 
-    try {
-        const res = await fetch("/api/serial/ports");
-        const data = await res.json();
+function openDeviceSettings() {
+    if (connectedDevices.some((device) => device.state === "unrecognized")) {
+        openProvisioningModal();
+        return;
+    }
+    if (!connectedDevices.some((device) => device.state === "connected")) return;
+    renderDeviceSettings();
+    document.getElementById("device-settings-modal").classList.add("visible");
+}
 
-        select.innerHTML = "";
-        if (data.ports.length === 0) {
-            select.innerHTML = '<option value="">No ports found</option>';
-            return;
-        }
+function closeDeviceSettings() {
+    document.getElementById("device-settings-modal").classList.remove("visible");
+}
 
-        data.ports.forEach((p) => {
-            const opt = document.createElement("option");
-            opt.value = p.device;
-            opt.textContent = `${p.device} — ${p.description}`;
-            if (p.device === data.current) opt.selected = true;
-            select.appendChild(opt);
-        });
-    } catch (e) {
-        select.innerHTML = '<option value="">Error loading ports</option>';
+function renderDeviceSettings() {
+    const list = document.getElementById("device-settings-list");
+    if (!list) return;
+    const devices = connectedDevices.filter((device) => device.state === "connected" && device.deviceId);
+    if (!devices.length) {
+        list.innerHTML = '<div class="device-empty">No programmed USB devices are connected.</div>';
+        return;
+    }
+    list.innerHTML = devices.map((device) => {
+        const associatedRobot = robots.find((robot) => robot.mac === device.deviceId);
+        const deviceName = device.name || associatedRobot?.name;
+        return `
+        <div class="device-info-card">
+            <div class="device-card-title">${roleLabel(device.role)}</div>
+            <dl class="device-facts">
+                <div><dt>Firmware type</dt><dd>${roleLabel(device.role)}</dd></div>
+                <div><dt>Firmware version</dt><dd>${escapeHtml(device.firmware || "Unknown")}</dd></div>
+                <div><dt>MAC address</dt><dd class="device-id-value">${escapeHtml(device.deviceId)}</dd></div>
+                ${deviceName ? `<div><dt>Name</dt><dd>${escapeHtml(deviceName)}</dd></div>` : ""}
+            </dl>
+            <div class="device-erase-action">
+                <div><strong>Erase this board</strong><br><span>Remove its firmware so it can be programmed for a different purpose.</span></div>
+                <button class="btn btn-danger" onclick="confirmEraseDevice('${escapeHtml(device.deviceId)}')">Erase firmware…</button>
+            </div>
+        </div>
+    `;
+    }).join("");
+}
+
+function confirmEraseDevice(deviceId) {
+    const device = connectedDevices.find((item) => item.deviceId === deviceId);
+    if (!device) return;
+    eraseTarget = device;
+    document.getElementById("erase-device-description").textContent = `You are about to erase this ${roleLabel(device.role).toLowerCase()} (${device.deviceId}).`;
+    document.getElementById("erase-device-modal").classList.add("visible");
+}
+
+function closeEraseDeviceModal() {
+    eraseTarget = null;
+    document.getElementById("erase-device-modal").classList.remove("visible");
+}
+
+async function eraseSelectedDevice() {
+    if (!eraseTarget) return;
+    const target = eraseTarget;
+    closeEraseDeviceModal();
+    closeDeviceSettings();
+    deviceOperationActive = true;
+    openEraseProgress(target.role);
+    const res = await fetch("/api/devices/erase", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId: target.deviceId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        deviceOperationActive = false;
+        renderUpdateProgress({ state: "failed", progress: 0, message: data.error || "The board could not be erased." });
+        addConsoleLine(data.error || "The board could not be erased", "error");
     }
 }
 
-async function connectSerial() {
-    const port = document.getElementById("port-select").value;
-    if (!port) return;
+function renderDevices() {
+    const list = document.getElementById("device-list");
+    if (!list) return;
+    const devices = connectedDevices.filter((device) => device.state === "unrecognized");
+    if (!devices.length) {
+        list.innerHTML = '<div class="device-empty">The new board is no longer connected.</div>';
+        return;
+    }
+    list.innerHTML = devices.map((device, index) => `
+        <div class="device-card">
+            <div class="device-card-main">
+                <div class="device-card-title">${device.role ? roleLabel(device.role) : `New ESP32-C3 board${devices.length > 1 ? ` ${index + 1}` : ""}`}</div>
+                <div class="device-card-detail">${device.role ? (device.firmware ? `Firmware ${escapeHtml(device.firmware)}` : "Older firmware") : (device.state === "probing" ? "Checking this device…" : "Choose how this board will be used")}</div>
+            </div>
+            <div class="device-setup-actions"><button class="btn" onclick="startFirmwareUpdate('', 'robot', '${escapeHtml(device.port)}')">Program as Robot</button> <button class="btn btn-primary" onclick="startFirmwareUpdate('', 'wireless_controller', '${escapeHtml(device.port)}')">Program as Wireless board</button></div>
+        </div>
+    `).join("");
+}
 
+async function refreshUpdates(force = false) {
     try {
-        const res = await fetch("/api/serial/connect", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ port }),
-        });
+        const res = await fetch(`/api/updates${force ? "?refresh=1" : ""}`);
         const data = await res.json();
-        if (data.ok) {
-            closeSettings();
-            addConsoleLine(`Connected to ${port}`, "system");
-        } else {
-            addConsoleLine(`Failed to connect to ${port}`, "error");
-        }
-    } catch (e) {
-        addConsoleLine("Connection error", "error");
+        updateDevices = data.devices || [];
+        renderUpdateProgress(data.update || { state: "idle" });
+        maybePromptFirmwareUpdate();
+    } catch (error) {
+        // Update checks retry automatically on the next device event.
     }
 }
 
-async function disconnectSerial() {
-    try {
-        await fetch("/api/serial/disconnect", { method: "POST" });
-        closeSettings();
-        addConsoleLine("Disconnected from serial port", "warning");
-    } catch (e) {
-        // ignore
+async function startFirmwareUpdate(deviceId, role, port = null) {
+    closeFirmwareUpdateModal();
+    deviceOperationActive = true;
+    openUpdateProgress(role);
+    const res = await fetch("/api/updates/start", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId, role, port }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        deviceOperationActive = false;
+        renderUpdateProgress({ state: "failed", progress: 0, message: data.error || "The update could not start." });
+        addConsoleLine(data.error || "The update could not start", "error");
     }
+}
+
+function renderUpdateProgress(update) {
+    const box = document.getElementById("update-progress");
+    if (!box) return;
+    if (deviceModalMode !== "progress") {
+        box.style.display = "none";
+        return;
+    }
+    const active = update && update.state && update.state !== "idle";
+    box.style.display = active ? "block" : "none";
+    if (!active) return;
+    document.getElementById("update-message").textContent = update.message || "";
+    document.getElementById("update-progress-bar").style.width = `${update.progress || 0}%`;
+    box.classList.toggle("update-failed", update.state === "failed");
+}
+
+function maybePromptFirmwareUpdate() {
+    if (connectedDevices.some((item) => item.state === "unrecognized")) return;
+    const device = updateDevices.find((item) => {
+        const key = `${item.deviceId}|${item.latest}`;
+        return item.updateAvailable && item.canUpdate && !firmwarePrompted.has(key);
+    });
+    if (!device) return;
+    const key = `${device.deviceId}|${device.latest}`;
+    firmwarePrompted.add(key);
+    const label = roleLabel(device.role);
+    const modal = document.getElementById("firmware-update-modal");
+    document.getElementById("firmware-update-title").textContent = `${label} update available`;
+    document.getElementById("firmware-update-description").textContent = device.legacy
+        ? `This ${label.toLowerCase()} needs a one-time update before using the new automatic connection features. Keep the USB cable connected until the update finishes.`
+        : `Firmware ${device.latest} is available for this ${label.toLowerCase()}. Keep the USB cable connected until the update finishes.`;
+    const button = document.getElementById("firmware-update-button");
+    button.textContent = `Update ${label}`;
+    button.onclick = () => startFirmwareUpdate(device.deviceId, device.role);
+    modal.classList.add("visible");
+}
+
+function deferFirmwareUpdate() {
+    closeFirmwareUpdateModal();
+    maybePromptFirmwareUpdate();
+}
+
+function closeFirmwareUpdateModal() {
+    document.getElementById("firmware-update-modal").classList.remove("visible");
 }
 
 // ---------------------------------------------------------------------------
@@ -342,7 +550,7 @@ function renderRobotList() {
             <div class="robot-status-dot ${isOnline ? "online" : ""}"></div>
             <div class="robot-info">
                 <div class="robot-name">${escapeHtml(robot.name)}</div>
-                <div class="robot-mac">${robot.mac}</div>
+                <div class="robot-mac">${robot.online ? (robot.connection || "Connected") : "Disconnected — reconnect its cable or controller"}</div>
             </div>
             <button class="robot-menu-btn ${menuOpen ? "open" : ""}" data-mac="${robot.mac}" title="Actions"></button>
             <div class="robot-context-menu ${menuOpen ? "visible" : ""}" data-mac="${robot.mac}">
@@ -398,7 +606,7 @@ function selectRobot(robot) {
     updateCalibrateButton();
 
     // Query custom gestures for this robot
-    if (selectedTarget && deviceType === "robot") {
+    if (selectedTarget) {
         sendCommand("seq_list");
     } else {
         customGestures = [];
@@ -2227,11 +2435,22 @@ document.getElementById("settings-modal").addEventListener("click", (e) => {
     }
 });
 
+document.getElementById("device-settings-modal").addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closeDeviceSettings();
+});
+
+document.getElementById("erase-device-modal").addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closeEraseDeviceModal();
+});
+
 // Keyboard shortcut: Escape to close modal/menus
 document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
         closeAllMenus();
         closeSettings();
+        closeFirmwareUpdateModal();
+        closeDeviceSettings();
+        closeEraseDeviceModal();
         closeNameGestureModal();
     }
 });

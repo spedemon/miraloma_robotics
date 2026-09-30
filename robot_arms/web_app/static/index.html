@@ -39,10 +39,10 @@
                 </div>
             </div>
             <div class="header-right">
-                <button class="serial-badge" id="serial-badge" onclick="openSettings()"
-                    title="Serial connection settings">
+                <button class="serial-badge" id="serial-badge" type="button" aria-live="polite"
+                    onclick="openDeviceSettings()" title="Device information and settings">
                     <span class="dot"></span>
-                    <span id="serial-label">Disconnected</span>
+                    <span id="serial-label">Looking for robots…</span>
                 </button>
             </div>
         </header>
@@ -50,8 +50,7 @@
         <!-- Disconnected Banner (hidden when connected) -->
         <div class="disconnected-banner" id="disconnected-banner" style="display: none;">
             <span>⚠️</span>
-            <span>Not connected to master MCU</span>
-            <button class="btn" onclick="openSettings()">Configure</button>
+            <span id="disconnected-message">Looking for robots… Connect a robot or a Wireless board with a USB cable.</span>
         </div>
 
         <!-- Main Content -->
@@ -412,18 +411,55 @@
 
     </div> <!-- /app -->
 
-    <!-- Settings Modal -->
+    <!-- Blank-board setup and update progress modal -->
     <div class="modal-overlay" id="settings-modal">
-        <div class="modal">
-            <div class="modal-title">⚙️ Serial Connection</div>
-            <div class="modal-label">Serial Port</div>
-            <select class="modal-select" id="port-select">
-                <option value="">Scanning...</option>
-            </select>
+        <div class="modal devices-modal">
+            <div class="modal-title" id="devices-modal-title">Set up your new USB board</div>
+            <div class="modal-label" id="devices-modal-description">Choose what this board will become.</div>
+            <div id="device-list" class="device-list">
+                <div class="device-empty">Looking for devices…</div>
+            </div>
+            <div id="update-progress" class="update-progress" style="display:none;">
+                <div id="update-message"></div>
+                <div class="update-progress-track"><div id="update-progress-bar"></div></div>
+                <div class="update-safety">Keep the USB cable connected until Mira says the update is complete.</div>
+            </div>
             <div class="modal-actions">
-                <button class="btn" onclick="closeSettings()">Cancel</button>
-                <button class="btn" onclick="disconnectSerial()">Disconnect</button>
-                <button class="btn btn-primary" onclick="connectSerial()">Connect</button>
+                <button class="btn btn-primary" onclick="closeSettings()">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="firmware-update-modal">
+        <div class="modal">
+            <div class="modal-title" id="firmware-update-title">Firmware update available</div>
+            <div class="modal-label" id="firmware-update-description"></div>
+            <div class="modal-actions">
+                <button class="btn" onclick="deferFirmwareUpdate()">Not now</button>
+                <button class="btn btn-primary" id="firmware-update-button">Update</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="device-settings-modal">
+        <div class="modal devices-modal">
+            <div class="modal-title">Device information and settings</div>
+            <div class="modal-label">USB devices currently connected to Mira.</div>
+            <div id="device-settings-list" class="device-list"></div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="closeDeviceSettings()">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="erase-device-modal">
+        <div class="modal">
+            <div class="modal-title">Erase firmware from this board?</div>
+            <div class="modal-label" id="erase-device-description"></div>
+            <div class="erase-warning">This removes the Mira firmware and all saved settings. The board will stop working until you program it again. Keep its USB cable connected.</div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeEraseDeviceModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="eraseSelectedDevice()">Erase firmware</button>
             </div>
         </div>
     </div>

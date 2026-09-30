@@ -120,7 +120,9 @@ void setup() {
 
     Serial.println();
     Serial.println("========================================");
-    Serial.println("  Mira Motor MCU — v0.4.0 (Swarm)");
+    Serial.print("  Mira Motor MCU — v");
+    Serial.print(MIRA_FIRMWARE_VERSION);
+    Serial.println(" (Swarm)");
     Serial.println("  3-DOF Robot Arm Controller");
     Serial.println("========================================");
     Serial.println();

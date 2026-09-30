@@ -1,0 +1,122 @@
+name: Build Mira Desktop
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version (for example 0.1.0)
+        required: false
+        default: 0.1.0
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install platformio
+      - name: Build robot firmware
+        working-directory: robot_arms/robotarm_mcu
+        run: pio run
+      - name: Build wireless controller firmware
+        working-directory: robot_arms/master_mcu
+        run: pio run
+      - name: Prepare firmware release assets
+        run: python robot_arms/web_app/scripts/build_firmware_manifest.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mira-firmware
+          path: |
+            robot_arms/web_app/firmware/*.bin
+            robot_arms/web_app/firmware/manifest.json
+            robot_arms/web_app/firmware/mira-firmware-manifest.json
+
+  macos:
+    needs: firmware
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: robot_arms/web_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@v4
+        with:
+          name: Mira-firmware
+          path: robot_arms/web_app/firmware
+      - name: Set release version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "MIRA_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "MIRA_VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+          fi
+      - name: Build unsigned macOS disk image
+        run: ./scripts/build_macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mira-macOS
+          path: robot_arms/web_app/dist/Mira-*-macOS-*.dmg
+
+  windows:
+    needs: firmware
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: robot_arms/web_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@v4
+        with:
+          name: Mira-firmware
+          path: robot_arms/web_app/firmware
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --no-progress -y
+      - name: Set release version
+        shell: powershell
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $Version = "${{ github.ref_name }}".TrimStart('v')
+            "MIRA_VERSION=$Version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          } else {
+            "MIRA_VERSION=${{ inputs.version }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+          }
+      - name: Build unsigned Windows installer
+        shell: powershell
+        run: ./scripts/build_windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mira-Windows
+          path: robot_arms/web_app/dist/Mira-Setup-*.exe
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [firmware, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create "${{ github.ref_name }}" --repo "${{ github.repository }}" --generate-notes --verify-tag
+          fi
+          gh release upload "${{ github.ref_name }}" release-assets/* --repo "${{ github.repository }}" --clobber

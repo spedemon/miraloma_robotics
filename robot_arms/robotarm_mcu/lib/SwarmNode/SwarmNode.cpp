@@ -6,6 +6,7 @@
  */
 
 #include "SwarmNode.h"
+#include "config.h"
 
 #include <WiFi.h>
 #include <esp_wifi.h>
@@ -167,10 +168,13 @@ void SwarmNode::_sendHello() {
     memcpy(pkt.target_mac, SWARM_BROADCAST_MAC, 6);
     memcpy(pkt.sender_mac, _myMac, 6);
     pkt.seq = _seq++;
-    pkt.payload[0] = '\0';  // HELLO has no payload
+    snprintf(pkt.payload, SWARM_EFFECTIVE_PAYLOAD,
+             "firmware=%s protocol=%d hardware=esp32c3",
+             MIRA_FIRMWARE_VERSION, MIRA_PROTOCOL_VERSION);
+    size_t payloadLen = strlen(pkt.payload);
 
     esp_now_send(SWARM_BROADCAST_MAC, (const uint8_t*)&pkt,
-                 SWARM_HEADER_SIZE + 1);  // +1 for null terminator
+                 SWARM_HEADER_SIZE + payloadLen + 1);  // +1 for null terminator
 }
 
 void SwarmNode::_sendReply(const uint8_t* targetMac, const char* response) {

@@ -2,7 +2,7 @@
 
 > Part of [Miraloma Robotics](../README.md)
 
-> **Mira** — an educational robot arm platform for elementary school kids. Control one arm or a whole swarm from a sleek web interface.
+> **Mira** — an educational robot arm platform for elementary school kids, available in two mechanical versions. Control one arm or a whole swarm from a sleek web interface.
 
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-ESP32--C3-FF7F00?logo=platformio&logoColor=white)](https://platformio.org)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
@@ -13,7 +13,21 @@
 
 ## ✨ What Is This?
 
-Mira is a **3-DOF robot arm** with 4 servos (base, shoulder, elbow, grip) driven by a **PCA9685** PWM driver on an **ESP32-C3 Super Mini**. Multiple arms communicate wirelessly via **ESP-NOW** (peer-to-peer radio, no Wi-Fi router needed), forming a swarm coordinated through a USB bridge.
+Mira is a family of educational robot arms driven by a **PCA9685** PWM driver on an **ESP32-C3 Super Mini**. There are two mechanical versions:
+
+| | **v1 — classroom build** | **v2 — modular arm** |
+|---|---|---|
+| **Degrees of freedom** | 4 DOF | 5 DOF |
+| **Fasteners** | 25 screws and 8 small nuts | 11 screws and no nuts |
+| **Build experience** | More complex and time-consuming | Much faster and simpler |
+| **Mounting** | Dedicated robot-arm base | Compact cylindrical base, attached with 2 screws |
+| **Intended use** | Standalone desktop robot arm | Standalone desktop arm or future humanoid-robot arm |
+
+**v1** is the robot arm that the kids at Miraloma Elementary built on **September 27, 2026**. Its 25 screws and 8 small nuts make it a rewarding but relatively complex classroom build.
+
+**v2** adds a fifth degree of freedom while reducing the hardware to just 11 screws and no nuts, making assembly much faster. It is also more modular: its compact cylindrical base can be secured with two screws either to a desktop stand or directly to a future humanoid robot. The humanoid robot has not been built yet, but v2 is designed so the arm will be ready for it.
+
+Multiple arms can communicate wirelessly via **ESP-NOW** (peer-to-peer radio, no Wi-Fi router needed), forming a swarm coordinated through a USB bridge.
 
 A web interface provides real-time control with joint sliders, Cartesian (IK) positioning, a keyframe sequencer, and built-in gesture triggers — perfect for classroom demos and choreographed performances.
 
@@ -101,17 +115,62 @@ pip install -r requirements.txt
 python3 mira.py
 ```
 
-Open **http://localhost:5000** in your browser. Click the serial badge in the header to connect to the master's USB port. Any powered-on robot arms will appear in the swarm panel within a few seconds.
+Open **http://localhost:5050** in your browser. Mira automatically finds and connects to robots and wireless controllers over USB. Any powered-on wireless robot arms will appear in the swarm panel within a few seconds.
+
+### Desktop Applications (macOS and Windows)
+
+Mira can also be packaged as a self-contained desktop application. Users do
+not need to install Python or open a browser manually.
+
+Build an unsigned macOS application and DMG on a Mac:
+
+```bash
+cd robot_arms/web_app
+./scripts/build_macos.sh
+```
+
+Build an unsigned Windows application and installer in PowerShell on Windows:
+
+```powershell
+cd robot_arms\web_app
+.\scripts\build_windows.ps1
+```
+
+The **Build Mira Desktop** GitHub Actions workflow builds both platforms and
+publishes the installers as workflow artifacts. These development builds are
+not trusted-signed, so macOS Gatekeeper and Windows SmartScreen may require a
+manual security override on first launch.
+
+- **macOS:** After the first blocked launch, open **System Settings → Privacy
+  & Security** and choose **Open Anyway** for Mira. The macOS build targets the
+  architecture of the Mac that runs the build script.
+- **Windows:** Choose **More info → Run anyway** in the SmartScreen dialog.
+Managed computers may prohibit this override.
+
+### Automatic devices and firmware updates
+
+The desktop application continuously watches for Mira devices. There is no
+serial-port setup: plug in one or more robots, a wireless controller, or both.
+Devices are identified by a Mira handshake rather than by their operating-system
+port name, and reconnect automatically after a cable is unplugged and restored.
+When the same robot is visible over USB and through a wireless controller, it is
+shown once and direct USB is preferred for commands.
+
+Choose the connection badge in the header to see connected devices and firmware
+updates. Existing robots with legacy firmware are offered a one-time update.
+Updates preserve calibration and saved gestures; do not disconnect USB while an
+update is in progress. A blank ESP32-C3 can also be set up as a robot or wireless
+controller from this screen.
 
 ---
 
 ## 🖨️ 3D Printing
 
-All 3D models and print files live in [`3d_models/`](3d_models/):
+All 3D models and print files live in [`3d_models/`](3d_models/), organized by arm version:
 
-- **STEP file** — full assembly for CAD editing (`sg90_robot.step`)
-- **STL files** — individual parts ready for any slicer (`stl/`)
-- **Print files** — pre-configured Bambu Studio project (`print_files/mira_arm_2x_bambulam_mini.3mf`)
+- **CAD models** — `sg90_robot_v1.3dm`, `sg90_robot_v1.step`, and `sg90_robot_v2.3dm`
+- **STL files** — individual printable parts in `stl_files/stl_v1/` and `stl_files/stl_v2/`
+- **Print files** — pre-configured Bambu Studio projects for v1 and v2 in `3D_print_files/`
 
 See the [3D Models README](3d_models/README.md) for full details, part lists, and printing tips.
 
@@ -119,14 +178,12 @@ See the [3D Models README](3d_models/README.md) for full details, part lists, an
 
 ## 🔧 Hardware Overview
 
-Mira is a 3-DOF robot arm with 4 servos:
+Mira v1 has 4 degrees of freedom; v2 has 5. The v2 mechanical design adds one degree of freedom while using fewer than half as many assembly fasteners.
 
-| Servo      | Axis       | Function                  |
-|------------|------------|---------------------------|
-| **Base**   | Vertical   | Rotates arm left / right  |
-| **Shoulder** | Horizontal | Lower arm joint (up/down) |
-| **Elbow**  | Horizontal | Upper arm joint (up/down) |
-| **Grip**   | —          | Opens / closes gripper    |
+| Version | Degrees of freedom | Screws | Nuts | Base and mounting |
+|---|---:|---:|---:|---|
+| **v1** | 4 | 25 | 8 small nuts | Dedicated standalone base |
+| **v2** | 5 | 11 | 0 | Compact cylindrical base; 2-screw attachment to a desktop stand or future humanoid robot |
 
 Servos are driven by a **PCA9685** 16-channel PWM driver, connected to the ESP32-C3 via I2C. The master and robot arm nodes communicate wirelessly over **ESP-NOW** (peer-to-peer radio, no Wi-Fi router needed).
 

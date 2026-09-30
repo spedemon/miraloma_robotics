@@ -21,20 +21,30 @@ import serial.tools.list_ports
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 
+from app_paths import resource_path, user_data_dir
+from device_manager import DeviceManager, DeviceSession
+from firmware_update import FirmwareCatalog, FirmwareUpdater
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
 BAUD_RATE = 115200
-NAMES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "robot_names.json")
-AUTOSAVE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".sequence_autosave.json")
-STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+DATA_DIR = user_data_dir()
+NAMES_FILE = DATA_DIR / "robot_names.json"
+AUTOSAVE_FILE = DATA_DIR / "sequence_autosave.json"
+STATIC_DIR = resource_path("static")
+
+# Development builds historically stored mutable files beside mira.py. Read
+# them once as a migration fallback, but always write to the user-data folder.
+LEGACY_NAMES_FILE = resource_path("robot_names.json")
+LEGACY_AUTOSAVE_FILE = resource_path(".sequence_autosave.json")
 
 # ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
 
-app = Flask(__name__, static_folder=STATIC_DIR)
+app = Flask(__name__, static_folder=str(STATIC_DIR))
 app.config["SECRET_KEY"] = "mira-swarm-2026"
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0  # No static file caching during dev
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
@@ -57,6 +67,9 @@ device_type = "master"
 # ---------------------------------------------------------------------------
 
 robots = {}  # MAC -> { "name": str, "mac": str, "online": bool, "lastSeen": float }
+device_manager = None
+firmware_catalog = FirmwareCatalog()
+firmware_updater = None
 
 # Periodic poll timer
 swarm_poll_timer = None
@@ -68,9 +81,14 @@ SWARM_POLL_INTERVAL = 5  # seconds
 
 def load_names():
     """Load MAC→display-name map from disk."""
-    if os.path.exists(NAMES_FILE):
+    candidates = [NAMES_FILE]
+    if LEGACY_NAMES_FILE != NAMES_FILE:
+        candidates.append(LEGACY_NAMES_FILE)
+    for path in candidates:
+        if not path.exists():
+            continue
         try:
-            with open(NAMES_FILE, "r") as f:
+            with path.open("r", encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, IOError):
             pass
@@ -78,7 +96,7 @@ def load_names():
 
 def save_names(names):
     """Persist MAC→display-name map to disk."""
-    with open(NAMES_FILE, "w") as f:
+    with NAMES_FILE.open("w", encoding="utf-8") as f:
         json.dump(names, f, indent=2)
 
 name_map = load_names()  # { "AA:BB:CC:DD:EE:FF": "Lefty", ... }
@@ -99,16 +117,25 @@ def list_serial_ports():
     return ports
 
 def auto_detect_port():
-    """Try to find the master ESP32-C3 port automatically."""
+    """Try to find an ESP32 or USB serial adapter automatically."""
     for p in serial.tools.list_ports.comports():
         # Prefer /dev/cu. ports on macOS (avoid /dev/tty. for writes)
+        device = (p.device or "").lower()
         desc = (p.description or "").lower()
-        if "usbmodem" in p.device.lower() or "esp" in desc or "cp210" in desc:
+        hwid = (p.hwid or "").lower()
+        known_usb_serial = any(token in device or token in desc or token in hwid for token in (
+            "usbmodem",
+            "usbserial",
+            "esp32",
+            "espressif",
+            "cp210",
+            "ch340",
+            "ch910",
+        ))
+        if known_usb_serial or p.vid is not None:
             return p.device
-    # Fallback: return first available port
-    ports = serial.tools.list_ports.comports()
-    if ports:
-        return ports[0].device
+    # Do not silently connect to Bluetooth, debug-console, or unrelated ports.
+    # The UI still lists every port for manual selection.
     return None
 
 # ---------------------------------------------------------------------------
@@ -180,7 +207,9 @@ def process_serial_line(text):
         return
 
     # Detect and auto-register robot from its swarm node MAC line
-    m = re.match(r"\[Swarm\] Node MAC:\s+([0-9A-Fa-f:]{17})", text)
+    # The console prompt has no trailing newline, so this startup message may
+    # arrive as "mira> [Swarm] Node MAC: ...".
+    m = re.search(r"\[Swarm\] Node MAC:\s+([0-9A-Fa-f:]{17})", text)
     if m:
         mac = m.group(1).upper()
         _switch_device_type("robot")
@@ -371,8 +400,181 @@ def process_serial_line(text):
 
 def get_robot_list():
     """Return sorted list of robots for the frontend (online first, then alphabetical)."""
-    return sorted(robots.values(),
+    public = []
+    for robot in robots.values():
+        item = {key: value for key, value in robot.items() if key != "endpoints"}
+        endpoints = robot.get("endpoints", {})
+        transports = {endpoint["transport"] for endpoint in endpoints.values()}
+        item["connection"] = (
+            "USB + Wireless" if transports == {"usb", "wireless"}
+            else "USB" if "usb" in transports
+            else "Wireless" if "wireless" in transports else None
+        )
+        item["online"] = bool(endpoints) and any(e.get("online", True) for e in endpoints.values())
+        public.append(item)
+    return sorted(public,
                   key=lambda r: (not r.get("online", False), r.get("masterName", r["mac"])))
+
+
+def _upsert_endpoint(mac, endpoint_key, endpoint, **fields):
+    """Merge one physical/wireless path into the MAC-keyed robot registry."""
+    global robots
+    mac = mac.upper()
+    is_new = mac not in robots
+    robot = robots.setdefault(mac, {
+        "name": name_map.get(mac, mac), "masterName": fields.get("masterName", mac),
+        "mac": mac, "lastSeen": time.time(), "firmware": None, "legacy": False,
+        "endpoints": {},
+    })
+    changed = is_new or robot["endpoints"].get(endpoint_key) != endpoint
+    robot["endpoints"][endpoint_key] = endpoint
+    robot["lastSeen"] = time.time()
+    for key, value in fields.items():
+        if value is not None:
+            changed = changed or robot.get(key) != value
+            robot[key] = value
+    robot["name"] = name_map.get(mac, robot.get("name", mac))
+    if changed:
+        socketio.emit("robot_list", get_robot_list())
+
+
+def _prune_missing_sessions():
+    if not device_manager:
+        return
+    live_ports = {session.port.device for session in device_manager.connected_sessions()}
+    changed = False
+    for mac in list(robots):
+        endpoints = robots[mac].setdefault("endpoints", {})
+        for key in list(endpoints):
+            if endpoints[key].get("port") not in live_ports:
+                del endpoints[key]
+                changed = True
+        if not endpoints:
+            robots[mac]["online"] = False
+    if changed:
+        socketio.emit("robot_list", get_robot_list())
+
+
+def _device_state_changed():
+    """Reconcile USB sessions and publish one complete UI snapshot."""
+    _prune_missing_sessions()
+    if device_manager:
+        for session in device_manager.connected_sessions():
+            info = session.info
+            if info.role == "robot":
+                _upsert_endpoint(
+                    info.device_id, f"usb:{session.port.device}",
+                    {"transport": "usb", "port": session.port.device, "online": True},
+                    firmware=info.firmware, legacy=info.legacy,
+                )
+            elif info.role == "wireless_controller":
+                session.write("swarm list")
+    devices = _device_snapshot()
+    socketio.emit("device_inventory", {"devices": devices})
+    socketio.emit("serial_status", {"connected": bool([d for d in devices if d["state"] == "connected"])})
+
+
+def _device_snapshot():
+    devices = device_manager.snapshot() if device_manager else []
+    for device in devices:
+        robot = robots.get(device.get("deviceId"))
+        device["name"] = robot.get("name") if robot else None
+    return devices
+
+
+def _managed_line(session: DeviceSession, text: str):
+    """Parse output in the context of the USB device that produced it."""
+    info = session.info
+    if info and info.role == "robot" and info.device_id != "pending":
+        _upsert_endpoint(
+            info.device_id, f"usb:{session.port.device}",
+            {"transport": "usb", "port": session.port.device, "online": True},
+            firmware=info.firmware, legacy=info.legacy,
+        )
+
+    # Machine-readable controller events from new firmware.
+    event = re.search(r"MIRA_EVENT\s+ROBOT\s+(.+)$", text)
+    if event and info and info.role == "wireless_controller":
+        values = dict(re.findall(r"([a-z_]+)=([^\s]+)", event.group(1)))
+        mac = values.get("id")
+        if mac:
+            key = f"wireless:{session.port.device}"
+            if values.get("online", "1") == "0":
+                robot = robots.get(mac.upper())
+                if robot:
+                    robot.get("endpoints", {}).pop(key, None)
+                    robot["online"] = bool(robot.get("endpoints"))
+                    socketio.emit("robot_list", get_robot_list())
+            else:
+                _upsert_endpoint(
+                    mac, key,
+                    {"transport": "wireless", "port": session.port.device, "online": True},
+                    masterName=values.get("name", mac), firmware=values.get("firmware"),
+                    legacy=values.get("protocol", "0") == "0",
+                )
+        return
+
+    # Legacy master events remain supported during development.
+    match = re.match(r"(?:NEW_ROBOT|ROBOT_ONLINE):\s+(\S+)\s+\[([0-9A-Fa-f:]{17})\]", text)
+    if match and info and info.role == "wireless_controller":
+        _upsert_endpoint(
+            match.group(2), f"wireless:{session.port.device}",
+            {"transport": "wireless", "port": session.port.device, "online": True},
+            masterName=match.group(1), legacy=True,
+        )
+        return
+
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    reply = re.match(r"\S+>\s+(.*)", text)
+    body = reply.group(1) if reply else text
+    if body.startswith("SEQ_"):
+        process_serial_line(body)
+    elif not any(marker in text for marker in ("MIRA_DEVICE", "MIRA_EVENT", "MIRA_DISCOVER")):
+        socketio.emit("console_line", {
+            "text": text, "type": "response" if reply else "info", "time": timestamp,
+        })
+
+
+def _route_command(target, command):
+    """Send a command exactly once to each selected MAC."""
+    if not device_manager:
+        return False
+    if target in (None, "all"):
+        selected = [robot for robot in robots.values() if robot.get("endpoints")]
+    else:
+        target_upper = str(target).upper()
+        selected = [
+            robot for robot in robots.values()
+            if robot["mac"] == target_upper or robot.get("masterName") == target or robot.get("name") == target
+        ]
+
+    # Preserve synchronized broadcast for the simple, unambiguous topology.
+    all_endpoints = [e for robot in selected for e in robot.get("endpoints", {}).values()]
+    wireless_ports = {e["port"] for e in all_endpoints if e["transport"] == "wireless"}
+    if target in (None, "all") and selected and len(wireless_ports) == 1 and all(
+        len(robot["endpoints"]) == 1 and next(iter(robot["endpoints"].values()))["transport"] == "wireless"
+        for robot in selected
+    ):
+        return device_manager.write(next(iter(wireless_ports)), command)
+
+    sent = False
+    for robot in selected:
+        endpoints = list(robot.get("endpoints", {}).values())
+        direct = next((e for e in endpoints if e["transport"] == "usb"), None)
+        endpoint = direct or next((e for e in endpoints if e["transport"] == "wireless"), None)
+        if endpoint:
+            outgoing = command if endpoint["transport"] == "usb" else f"@{robot['mac']} {command}"
+            sent = device_manager.write(endpoint["port"], outgoing) or sent
+    return sent
+
+
+def _update_state_changed():
+    if firmware_updater:
+        socketio.emit("update_status", firmware_updater.state)
+
+
+device_manager = DeviceManager(_managed_line, _device_state_changed)
+firmware_updater = FirmwareUpdater(device_manager, firmware_catalog, _update_state_changed)
 
 # ---------------------------------------------------------------------------
 # Serial connection management
@@ -502,6 +704,9 @@ def disconnect_serial():
     """Close the current serial connection."""
     global ser, serial_port, serial_running, robots
 
+    if device_manager:
+        device_manager.stop()
+
     serial_running = False
     stop_swarm_poll()
     if serial_thread:
@@ -526,7 +731,7 @@ def disconnect_serial():
 
 @app.route("/")
 def index():
-    return send_from_directory(STATIC_DIR, "index.html")
+    return send_from_directory(str(STATIC_DIR), "index.html")
 
 @app.route("/api/robots")
 def api_robots():
@@ -551,9 +756,10 @@ def api_rename():
 
     old_master_name = robot.get("masterName", robot.get("name"))
 
-    # Send rename command to master (only in master mode)
-    if device_type == "master":
-        serial_write(f"swarm rename {old_master_name} {new_name}")
+    # Rename on every wireless controller that currently sees this robot.
+    for endpoint in robot.get("endpoints", {}).values():
+        if endpoint.get("transport") == "wireless" and device_manager:
+            device_manager.write(endpoint["port"], f"swarm rename {old_master_name} {new_name}")
 
     # Update local state
     robot["name"] = new_name
@@ -568,38 +774,116 @@ def api_rename():
 def api_serial_ports():
     return jsonify({
         "ports": list_serial_ports(),
-        "current": serial_port,
-        "connected": ser is not None and ser.is_open,
+        "current": None,
+        "connected": bool(device_manager and device_manager.connected_sessions()),
+        "devices": device_manager.snapshot() if device_manager else [],
     })
 
 @app.route("/api/serial/connect", methods=["POST"])
 def api_serial_connect():
-    data = request.json
-    port = data.get("port")
-    if not port:
-        return jsonify({"error": "port required"}), 400
-
-    ok = connect_serial(port)
-    return jsonify({"ok": ok, "port": port})
+    # Retained for API compatibility. Discovery is automatic.
+    if device_manager:
+        device_manager.scan_once()
+    return jsonify({"ok": True, "automatic": True})
 
 @app.route("/api/serial/disconnect", methods=["POST"])
 def api_serial_disconnect():
-    disconnect_serial()
-    socketio.emit("serial_status", {"connected": False, "port": None})
+    return jsonify({"error": "Mira manages device connections automatically."}), 409
+
+
+@app.route("/api/devices")
+def api_devices():
+    return jsonify({
+        "devices": _device_snapshot(),
+        "robots": get_robot_list(),
+    })
+
+
+@app.route("/api/updates", methods=["GET"])
+def api_updates():
+    force = request.args.get("refresh") == "1"
+    manifest = firmware_catalog.refresh(force=force)
+    devices_by_id = {}
+    if device_manager:
+        for session in device_manager.connected_sessions():
+            info = session.info
+            entry = firmware_catalog.entry(info.role)
+            devices_by_id[info.device_id] = {
+                "deviceId": info.device_id,
+                "role": info.role,
+                "firmware": info.firmware,
+                "legacy": info.legacy,
+                "latest": entry.get("version") if entry else None,
+                "canUpdate": True,
+                "updateAvailable": firmware_catalog.update_available(
+                    info.role, info.firmware, info.legacy
+                ),
+            }
+    # Report wireless-only robots too, so the UI can advise connecting them by
+    # USB when their controller reports old or unknown firmware.
+    for robot in robots.values():
+        if robot["mac"] in devices_by_id:
+            continue
+        entry = firmware_catalog.entry("robot")
+        current = robot.get("firmware")
+        if current == "unknown":
+            current = None
+        devices_by_id[robot["mac"]] = {
+            "deviceId": robot["mac"], "role": "robot", "firmware": current,
+            "legacy": robot.get("legacy", not current),
+            "latest": entry.get("version") if entry else None,
+            "canUpdate": False,
+            "updateAvailable": firmware_catalog.update_available(
+                "robot", current, robot.get("legacy", not current)
+            ),
+        }
+    return jsonify({
+        "devices": list(devices_by_id.values()), "available": bool(manifest),
+        "error": firmware_catalog.error, "update": firmware_updater.state,
+    })
+
+
+@app.route("/api/updates/start", methods=["POST"])
+def api_update_start():
+    data = request.json or {}
+    try:
+        firmware_updater.start(data.get("deviceId", ""), data.get("role", ""), data.get("port"))
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+    return jsonify({"ok": True})
+
+
+@app.route("/api/updates/status", methods=["GET"])
+def api_update_status():
+    return jsonify(firmware_updater.state)
+
+
+@app.route("/api/devices/erase", methods=["POST"])
+def api_device_erase():
+    data = request.json or {}
+    try:
+        firmware_updater.erase(data.get("deviceId", ""))
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
     return jsonify({"ok": True})
 
 @app.route("/api/sequence/autosave", methods=["POST"])
 def api_sequence_autosave():
     data = request.json
-    with open(AUTOSAVE_FILE, "w") as f:
+    with AUTOSAVE_FILE.open("w", encoding="utf-8") as f:
         json.dump(data, f)
     return jsonify({"ok": True})
 
 @app.route("/api/sequence/autoload", methods=["GET"])
 def api_sequence_autoload():
-    if os.path.exists(AUTOSAVE_FILE):
+    candidates = [AUTOSAVE_FILE]
+    if LEGACY_AUTOSAVE_FILE != AUTOSAVE_FILE:
+        candidates.append(LEGACY_AUTOSAVE_FILE)
+    for path in candidates:
+        if not path.exists():
+            continue
         try:
-            with open(AUTOSAVE_FILE, "r") as f:
+            with path.open("r", encoding="utf-8") as f:
                 return jsonify(json.load(f))
         except (json.JSONDecodeError, IOError):
             pass
@@ -612,10 +896,10 @@ def api_sequence_autoload():
 @socketio.on("connect")
 def ws_connect():
     """Send initial state to newly connected client."""
-    connected = ser is not None and ser.is_open
-    emit("serial_status", {"connected": connected, "port": serial_port})
+    devices = _device_snapshot()
+    emit("serial_status", {"connected": bool([d for d in devices if d["state"] == "connected"])})
+    emit("device_inventory", {"devices": devices})
     emit("robot_list", get_robot_list())
-    emit("device_type", {"type": device_type})
 
 @socketio.on("send_command")
 def ws_send_command(data):
@@ -628,23 +912,40 @@ def ws_send_command(data):
     if not command:
         return
 
-    if device_type == "robot":
-        # Direct connection: always send raw command (no @target prefix)
+    if not _route_command(target, command) and device_type == "robot":
+        # Compatibility path for the legacy single-port runtime and tests.
         serial_write(command)
-    elif target == "all":
-        serial_write(command)
-    else:
-        serial_write(f"@{target} {command}")
 
 @socketio.on("request_robot_list")
 def ws_request_robot_list():
     """Client requests a fresh robot list from the master."""
-    if device_type == "master":
-        serial_write("swarm list")
+    if device_manager:
+        for session in device_manager.connected_sessions():
+            if session.info.role == "wireless_controller":
+                session.write("swarm list")
 
 # ---------------------------------------------------------------------------
-# Entry point
+# Application startup
 # ---------------------------------------------------------------------------
+
+def initialize_serial():
+    """Start continuous automatic USB discovery."""
+    device_manager.start()
+    print("  Automatic robot discovery started")
+    return None
+
+
+def run_server(host="127.0.0.1", port=5050):
+    """Run Mira's local UI server."""
+    socketio.run(
+        app,
+        host=host,
+        port=port,
+        debug=False,
+        use_reloader=False,
+        allow_unsafe_werkzeug=True,
+    )
+
 
 if __name__ == "__main__":
     print()
@@ -653,21 +954,13 @@ if __name__ == "__main__":
     print("═══════════════════════════════════════════")
     print()
 
-    # Auto-detect and connect to serial port
-    port = auto_detect_port()
-    if port:
-        print(f"  Auto-detected serial port: {port}")
-        if connect_serial(port):
-            print(f"  ✅ Connected to {port}")
-        else:
-            print(f"  ⚠️  Failed to connect to {port}")
-            print("  Use the UI to select a different port.")
-    else:
-        print("  ⚠️  No serial ports detected.")
-        print("  Connect the master ESP32-C3 and use the UI to configure.")
+    initialize_serial()
 
     print()
     print("  Open http://localhost:5050 in your browser")
     print()
 
-    socketio.run(app, host="0.0.0.0", port=5050, debug=False, allow_unsafe_werkzeug=True)
+    run_server(
+        host=os.environ.get("MIRA_HOST", "127.0.0.1"),
+        port=int(os.environ.get("MIRA_PORT", "5050")),
+    )

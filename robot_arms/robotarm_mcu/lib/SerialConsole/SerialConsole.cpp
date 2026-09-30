@@ -125,7 +125,19 @@ void SerialConsole::_processCommand(const String& line) {
     cmd.trim();
     if (cmd.length() == 0) return;
 
-    if (cmd == "help" || cmd == "?") {
+    if (cmd.startsWith("MIRA_DISCOVER ")) {
+        String nonce = cmd.substring(14);
+        nonce.trim();
+        _out("MIRA_DEVICE ");
+        _out(nonce);
+        _out(" role=robot id=");
+        _out(WiFi.macAddress());
+        _out(" firmware=");
+        _out(MIRA_FIRMWARE_VERSION);
+        _out(" protocol=");
+        _out(String(MIRA_PROTOCOL_VERSION));
+        _outln(" hardware=esp32c3");
+    } else if (cmd == "help" || cmd == "?") {
         _cmdHelp();
     } else if (cmd == "home") {
         _cmdHome();

@@ -18,7 +18,7 @@
 // ---------------------------------------------------------------------------
 // Message types
 // ---------------------------------------------------------------------------
-#define SWARM_MSG_HELLO   0x01   // Node → Master: "I exist" (payload = empty)
+#define SWARM_MSG_HELLO   0x01   // Node → Master: identity/version heartbeat
 #define SWARM_MSG_CMD     0x02   // Master → Node: text command
 #define SWARM_MSG_REPLY   0x03   // Node → Master: text response
 
