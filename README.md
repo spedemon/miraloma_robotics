@@ -35,9 +35,10 @@ This monorepo contains two independent projects that share a common mission: **m
 
 ### 🦾 [Robot Arms](robot_arms/)
 
-A swarm of 3-DOF robot arms built with **SG90 servo motors** and **ESP32-C3** microcontrollers. Control one arm or an entire swarm from a sleek web interface.
+A family of robot arms built with **SG90 servo motors** and **ESP32-C3** microcontrollers. The original **v1** is the 4-DOF arm built by Miraloma Elementary students on September 27, 2026; the new **v2** has 5 DOF and a much faster, modular mechanical design. Control one arm or an entire swarm from a sleek web interface.
 
 **Highlights:**
+- 🧰 Two mechanical versions — the classroom-built v1 and the simpler, modular v2
 - 🎯 Joint & Cartesian (IK) control with real-time sliders
 - 🎬 Keyframe sequencer for choreographed motions
 - 💃 Built-in gestures — dance, bow, wave, draw shapes
