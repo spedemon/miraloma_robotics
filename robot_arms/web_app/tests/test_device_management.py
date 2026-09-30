@@ -106,6 +106,24 @@ class DeviceProtocolTests(unittest.TestCase):
 
         self.assertIn("COM4", manager.sessions)
 
+    def test_known_robot_is_never_downgraded_to_a_blank_board(self):
+        manager = DeviceManager(lambda *_: None, lambda: None)
+        descriptor = PortDescriptor("COM4", serial_number="board-1")
+        known = DeviceSession(descriptor, FakeHandle(), "first")
+        manager.sessions["COM4"] = known
+        manager._identify(
+            known,
+            "MIRA_DEVICE first role=robot id=AA:BB:CC:DD:EE:FF firmware=0.5.0 protocol=1 hardware=esp32c3",
+        )
+        manager._remove("COM4", "test_reconnect")
+
+        retry = DeviceSession(descriptor, FakeHandle(), "second")
+        manager.sessions["COM4"] = retry
+        manager._probe_failed(retry)
+
+        self.assertNotIn("COM4", manager.sessions)
+        self.assertNotEqual(retry.state, "unrecognized")
+
     def test_update_reserves_the_physical_board_across_port_renames(self):
         replacement = SimpleNamespace(
             device="COM9", description="ESP32-C3", hwid="USB VID:PID=303A:1001",

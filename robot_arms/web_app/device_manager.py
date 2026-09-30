@@ -144,6 +144,9 @@ class DeviceManager:
         self._paused_ports: set[str] = set()
         self._paused_physical_keys: set[str] = set()
         self._missing_since: dict[str, float] = {}
+        # Once a physical USB board completes Mira's identity handshake,
+        # transient timeouts must never turn it back into a "new board".
+        self._known_devices: dict[str, DeviceInfo] = {}
 
     def start(self) -> None:
         if self._monitor and self._monitor.is_alive():
@@ -244,6 +247,11 @@ class DeviceManager:
                 (session for session in self.sessions.values() if session.port.physical_key == physical_key),
                 None,
             )
+
+    def forget_physical_key(self, physical_key: str) -> None:
+        """Allow an intentionally erased board to enter provisioning again."""
+        with self._lock:
+            self._known_devices.pop(physical_key, None)
 
     def port_for_physical_key(self, physical_key: str, fallback: str) -> str:
         """Return the board's current port after a USB reset/reenumeration."""
@@ -354,15 +362,28 @@ class DeviceManager:
         if session.stopped.wait(PROBE_TIMEOUT - 1.15):
             return
         if not session.info or session.info.device_id == "pending":
-            # Keep a closed placeholder while the USB device remains present so
-            # a blank ESP32-C3 can be intentionally provisioned from the UI.
-            session.state = "unrecognized"
-            session.stopped.set()
-            try:
-                session.handle.close()
-            except Exception:
-                pass
-            self.on_change()
+            self._probe_failed(session)
+
+    def _probe_failed(self, session: DeviceSession) -> None:
+        with self._lock:
+            previously_identified = session.port.physical_key in self._known_devices
+        if previously_identified or session.info:
+            # This is a known Mira board that is temporarily silent (or a
+            # legacy Mira banner whose ID reply was delayed). Retry discovery;
+            # never offer destructive provisioning for it.
+            self._ignored_until[session.port.device] = time.monotonic() + 1
+            self._remove(session.port.device, "known_device_probe_timeout")
+            return
+
+        # Keep a closed placeholder while the USB device remains present so an
+        # unknown ESP32-C3 can be intentionally provisioned from the UI.
+        session.state = "unrecognized"
+        session.stopped.set()
+        try:
+            session.handle.close()
+        except Exception:
+            pass
+        self.on_change()
 
     def _reader_loop(self, session: DeviceSession) -> None:
         reason = "reader_stopped"
@@ -387,6 +408,12 @@ class DeviceManager:
 
     def _identify(self, session: DeviceSession, text: str) -> None:
         if "invalid header:" in text.lower():
+            with self._lock:
+                previously_identified = session.port.physical_key in self._known_devices
+            if previously_identified:
+                self._ignored_until[session.port.device] = time.monotonic() + 1
+                self._remove(session.port.device, "known_device_boot_error")
+                return
             # A blank/corrupt ESP32-C3 can reset and re-enumerate faster than
             # the normal probe timeout. Surface it immediately for intentional
             # robot/controller provisioning instead of reconnecting forever.
@@ -418,6 +445,8 @@ class DeviceManager:
                         "robot", match.group(1).upper(), None, 0, legacy=True
                     )
         if session.info and session.info.device_id != "pending" and session.state != "connected":
+            with self._lock:
+                self._known_devices[session.port.physical_key] = session.info
             session.state = "connected"
             self.on_change()
 

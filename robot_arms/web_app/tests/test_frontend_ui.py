@@ -41,6 +41,16 @@ class ArmControlMarkupTests(unittest.TestCase):
             self.assertIn('data-tick="30"', ticks)
             self.assertIn('data-reversed="true"', ticks)
 
+    def test_calibration_ranges_match_the_requested_adjustment_span(self):
+        for joint in ("base", "shoulder", "elbow"):
+            slider = re.search(rf'<input[^>]+id="cal-{joint}"[^>]+>', INDEX).group(0)
+            self.assertIn('min="-90"', slider)
+            self.assertIn('max="90"', slider)
+
+        grip = re.search(r'<input[^>]+id="cal-grip"[^>]+>', INDEX).group(0)
+        self.assertIn('min="-120"', grip)
+        self.assertIn('max="120"', grip)
+
     def test_every_referenced_svg_icon_exists(self):
         tree = ET.parse(ICONS_PATH)
         namespace = "{http://www.w3.org/2000/svg}"

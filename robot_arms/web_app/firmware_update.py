@@ -275,9 +275,13 @@ class FirmwareUpdater:
             self._set("erasing", 15, "Erasing firmware and saved settings. Keep the USB cable connected.")
             self.manager.pause_for_update(port)
             self._erase_flash(port, physical_key)
+            self.manager.forget_physical_key(physical_key)
             command_finished = True
             self._set("restarting", 94, "Restarting and checking the board…")
         except Exception as exc:
+            # An erase may finish just before native USB disappears during its
+            # reset. Allow the returning board to prove it is unprogrammed.
+            self.manager.forget_physical_key(physical_key)
             self.manager.resume_after_update(port, physical_key)
             if self._wait_for_unprogrammed(physical_key, timeout=8):
                 self._set(
