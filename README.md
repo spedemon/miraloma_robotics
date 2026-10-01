@@ -8,11 +8,51 @@
 
 <div align="center">
 
-![Miraloma students building robots together](media/community_robot_building.png)
+![Miraloma students building robots together at the Robot Building Party](media/robot_building_party.png)
 
-*Miraloma students, families, and teachers building robots together.*
+*Twenty-five Miraloma children built their own robots in a four-hour group session with four supervising adults.*
 
 </div>
+
+[![Build your own Mira](https://img.shields.io/badge/BUILD_YOUR_OWN_MIRA-6C63FF?style=for-the-badge)](#build-your-own-mira)
+
+## Mira at a glance
+
+| | |
+|---|---|
+| **Approximate cost** | **$15 per robot**; parts can be sourced from Amazon or AliExpress |
+| **3D-printing time** | About **3 hours per robot** on a home 3D printer |
+| **Recommended age** | **Ages 5+ with adult supervision** |
+| **Workshop tested** | Five-year-olds have successfully completed a robot in a three-hour supervised group session. At a four-hour party, four adults helped 25 children, and every child completed a robot. |
+| **Open source** | Fully open source: the software, firmware, documentation, and 3D-printing files are available in this repository under the [MIT License](LICENSE). |
+
+## Build your own Mira
+
+Mira v2 is the quickest version to build. It uses five small servos, 11 screws, and no nuts.
+
+### Parts
+
+- 5 × SG90 micro servos
+- 1 × ESP32-C3 Mini development board
+- 1 × PCA9685 servo driver board
+- 11 × M1.6 × 10 mm screws
+- Small-diameter electrical wire
+- A suitable 5–6 V power source for the servos
+
+### Tools
+
+- Mini screwdrivers
+- Electronics flush cutter or small wire cutter
+- Soldering iron, used by an adult to solder four wires from the ESP32-C3 Mini to the PCA9685: SDA, SCL, VCC, and GND
+
+### Quick build
+
+1. Download the [Mira v2 3D-print project](robot_arms/3D_models/3D_print_files/mira_sg90_arm_v2_bambulab_A1_mini_1x_with_stand.3mf), or use the individual [v2 STL files](robot_arms/3D_models/stl_files/stl_v2/).
+2. Print the parts on a home 3D printer. A complete set takes approximately three hours, depending on the printer and settings. See the [3D-printing guide](robot_arms/3D_models/README.md) for recommended material and print settings.
+3. Fit the five SG90 servos into the printed parts and assemble the arm with the M1.6 × 10 mm screws.
+4. With adult supervision, prepare four short wires and solder the ESP32-C3 Mini to the PCA9685: SDA to SDA, SCL to SCL, VCC to VCC, and GND to GND. Do not power the servos from the ESP32-C3; use a suitable 5–6 V servo power source.
+5. Connect the servos to the PCA9685, install the [Mira application](#get-the-mira-app), and let Mira program the ESP32-C3 as a robot controller.
+6. Follow the [family guide](robot_arms/README.md) to connect, calibrate, and teach your robot its first routine.
 
 ## Do you have a Mira robot arm?
 
