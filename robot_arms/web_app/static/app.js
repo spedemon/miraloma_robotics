@@ -282,6 +282,7 @@ let calibrationAtHome = true; // false while a claw test/preview is away from Ho
 let calibrationGripTestPosition = "closed";
 let loadedCalibration = { base: 0, shoulder: 0, elbow: 0, grip: 0 };
 let customGestures = [];     // Array of custom gesture names from robot
+let activeMobileWorkspace = "move";
 
 // Control mode
 let controlMode = 'joint';  // 'cartesian' or 'joint'
@@ -781,6 +782,8 @@ function renderRobotList() {
     const onlineCount = robots.filter((r) => r.online).length;
     const totalCount = robots.length;
     countEl.textContent = `${onlineCount}/${totalCount}`;
+    const mobileCountEl = document.getElementById("mobile-robot-count");
+    if (mobileCountEl) mobileCountEl.textContent = onlineCount;
 
     if (robots.length === 0) {
         emptyState.style.display = "flex";
@@ -907,6 +910,63 @@ function updateTargetBanner() {
         badgeEl.className = "target-badge";
         document.getElementById("all-robots-btn").classList.add("active");
     }
+}
+
+// ---------------------------------------------------------------------------
+// Adaptive workspace shell
+// ---------------------------------------------------------------------------
+
+function isCompactLayout() {
+    return window.matchMedia("(max-width: 768px), (max-width: 960px) and (max-height: 600px)").matches;
+}
+
+function openRobotWorkspace() {
+    if (isCompactLayout()) {
+        setMobileWorkspace("robots");
+    }
+}
+
+function setMobileWorkspace(workspace) {
+    const allowed = new Set(["move", "animate", "dances", "robots"]);
+    if (!allowed.has(workspace)) return;
+
+    activeMobileWorkspace = workspace;
+    const app = document.getElementById("app");
+    app.dataset.mobileWorkspace = workspace;
+
+    document.querySelectorAll("[data-mobile-workspace]").forEach((button) => {
+        const selected = button.dataset.mobileWorkspace === workspace;
+        button.classList.toggle("active", selected);
+        if (selected) button.setAttribute("aria-current", "page");
+        else button.removeAttribute("aria-current");
+    });
+
+    document.querySelectorAll("[data-workspace]").forEach((panel) => {
+        const panelWorkspace = panel.dataset.workspace;
+        if (!isCompactLayout()) {
+            panel.removeAttribute("aria-hidden");
+            return;
+        }
+        panel.setAttribute("aria-hidden", panelWorkspace === workspace ? "false" : "true");
+    });
+
+    const backgroundByWorkspace = {
+        move: "bg-arm",
+        animate: "bg-animation",
+        dances: "bg-dance",
+        robots: null,
+    };
+    setSectionBackground(backgroundByWorkspace[workspace]);
+
+    // Canvas-based controls need a redraw after becoming visible.
+    requestAnimationFrame(() => {
+        if (workspace === "move") scheduleXYZWorkspaceDraw();
+        if (workspace === "animate") kfRender();
+    });
+}
+
+function syncAdaptiveShell() {
+    setMobileWorkspace(activeMobileWorkspace);
 }
 
 // ---------------------------------------------------------------------------
@@ -2149,6 +2209,7 @@ function revealCalibration() {
     calibrationLoadPending = true;
     setCalibrationGripTestPosition("closed");
     document.getElementById("calibration-card").style.display = "";
+    document.getElementById("control-panel").classList.add("calibration-active");
 
     // Show a neutral value until the device replies with its saved offsets.
     ["cal-base", "cal-shoulder", "cal-elbow", "cal-grip"].forEach(id => {
@@ -2254,6 +2315,7 @@ function closeCalibration() {
     calibrationLoadTimer = null;
     setCalibrationControlsLoading(false);
     document.getElementById("calibration-card").style.display = "none";
+    document.getElementById("control-panel").classList.remove("calibration-active");
 }
 
 /** Update the displayed values next to each calibration slider. */
@@ -3394,6 +3456,9 @@ document.addEventListener("DOMContentLoaded", () => {
     kfAutoload();
     initConsoleResize();
     initSectionBackground();
+    syncAdaptiveShell();
+    const compactQuery = window.matchMedia("(max-width: 768px), (max-width: 960px) and (max-height: 600px)");
+    compactQuery.addEventListener("change", syncAdaptiveShell);
 
     // Useful for documentation links and screenshots, e.g. ?help=animate.
     const requestedHelp = new URLSearchParams(window.location.search).get("help");

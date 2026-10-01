@@ -7,6 +7,8 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.graphics.Color;
+import android.view.WindowInsets;
 import android.webkit.MimeTypeMap;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -24,12 +26,40 @@ public final class MainActivity extends Activity {
     private WebView webView;
     private MiraBleManager bleManager;
     private MiraWebBridge bridge;
+    private int safeTopPx;
+    private int safeRightPx;
+    private int safeBottomPx;
+    private int safeLeftPx;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         webView = new WebView(this);
         setContentView(webView);
+
+        // Android 15 enforces edge-to-edge for targetSdk 35. Keep the background
+        // immersive while publishing the untouchable system-bar/cutout area to
+        // the web shell so controls never sit under the camera or navigation UI.
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+        webView.setOnApplyWindowInsetsListener((view, insets) -> {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                android.graphics.Insets safe = insets.getInsets(
+                        WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                safeTopPx = safe.top;
+                safeRightPx = safe.right;
+                safeBottomPx = safe.bottom;
+                safeLeftPx = safe.left;
+            } else {
+                safeTopPx = insets.getStableInsetTop();
+                safeRightPx = insets.getStableInsetRight();
+                safeBottomPx = insets.getStableInsetBottom();
+                safeLeftPx = insets.getStableInsetLeft();
+            }
+            publishSafeArea();
+            return insets;
+        });
+        webView.requestApplyInsets();
 
         bleManager = new MiraBleManager(this, this::publishState);
         bridge = new MiraWebBridge(this, webView, bleManager);
@@ -78,9 +108,26 @@ public final class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 bridge.setPageReady(true);
+                publishSafeArea();
                 publishState();
             }
         });
+    }
+
+    private void publishSafeArea() {
+        if (webView == null) return;
+        float density = getResources().getDisplayMetrics().density;
+        float top = safeTopPx / density;
+        float right = safeRightPx / density;
+        float bottom = safeBottomPx / density;
+        float left = safeLeftPx / density;
+        String script = String.format(java.util.Locale.US,
+                "document.documentElement.style.setProperty('--android-safe-top','%.2fpx');" +
+                "document.documentElement.style.setProperty('--android-safe-right','%.2fpx');" +
+                "document.documentElement.style.setProperty('--android-safe-bottom','%.2fpx');" +
+                "document.documentElement.style.setProperty('--android-safe-left','%.2fpx');",
+                top, right, bottom, left);
+        webView.post(() -> webView.evaluateJavascript(script, null));
     }
 
     public void ensureBluetoothPermissions() {

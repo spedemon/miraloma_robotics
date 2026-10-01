@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Control Mira robot arms over USB, Bluetooth, or an ESP-NOW wireless controller">
     <title>Mira — Miraloma Robotics</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,7 +55,7 @@
         <div class="main">
 
             <!-- Sidebar: Robot List -->
-            <aside class="sidebar">
+            <aside class="sidebar" data-workspace="robots" aria-label="Robots workspace">
                 <div class="sidebar-header">
                     <div class="sidebar-title"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#robots"></use></svg> Robots Detected</div>
                     <button class="all-robots-btn active" id="all-robots-btn" onclick="selectAllRobots()">
@@ -77,17 +77,19 @@
             <div class="control-area">
 
                 <!-- Target Banner -->
-                <div class="target-banner">
+                <button class="target-banner" id="target-banner" type="button" onclick="openRobotWorkspace()"
+                    aria-label="Choose which robots to control">
                     <span class="target-label">Talking to:</span>
                     <span class="target-name all" id="target-name">All Robots</span>
                     <span class="target-badge all" id="target-badge">ALL ROBOTS</span>
-                </div>
+                    <svg class="ui-icon target-chevron" aria-hidden="true"><use href="/static/icons.svg#chevron-down"></use></svg>
+                </button>
 
                 <!-- Scrollable Control Panel — contains ALL cards now -->
                 <div class="control-panel" id="control-panel">
 
                     <!-- Position / Joint Sliders -->
-                    <div class="card">
+                    <div class="card move-card" data-workspace="move">
                         <div class="card-title"><span class="title-with-mark"><svg class="project-icon" aria-hidden="true"><use href="/static/icons.svg#robots"></use></svg> Move the Arm</span><button class="card-help" type="button" onclick="openHelp('move')" aria-label="Help with moving the robot"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#help"></use></svg></button></div>
 
                         <!-- Control mode selector -->
@@ -229,7 +231,7 @@
                     </div>
 
                     <!-- Calibration Panel (hidden by default) -->
-                    <div class="card calibration-card" id="calibration-card" style="display: none;">
+                    <div class="card calibration-card" id="calibration-card" data-workspace="move" style="display: none;">
                         <div class="card-title"><span class="title-with-mark"><svg class="project-icon" aria-hidden="true"><use href="/static/icons.svg#calibrate"></use></svg> Servo Calibration</span><button class="card-help" type="button" onclick="openHelp('calibrate')" aria-label="Help with calibration"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#help"></use></svg></button></div>
                         <p class="calibration-hint">
                             Calibration fixes small differences between servo motors and how the robot was assembled. Align the arm at Home, then adjust the Grip offset and test both claw positions. Click <strong>Apply</strong> to save the offsets to the robot.<br>
@@ -305,7 +307,7 @@
                     </div>
 
                     <!-- Keyframe Sequencer — right under the sliders -->
-                    <div class="card keyframe-card" id="keyframe-card">
+                    <div class="card keyframe-card" id="keyframe-card" data-workspace="animate">
                         <div class="card-title"><span class="title-with-mark"><svg class="project-icon" aria-hidden="true"><use href="/static/icons.svg#animation"></use></svg> Animation Maker</span><button class="card-help" type="button" onclick="openHelp('animate')" aria-label="Help with making animations"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#help"></use></svg></button></div>
 
                         <!-- Toolbar -->
@@ -396,7 +398,7 @@
                     </div>
 
                     <!-- Gestures — at the bottom -->
-                    <div class="card">
+                    <div class="card dance-card" data-workspace="dances">
                         <div class="card-title"><span class="title-with-mark"><svg class="project-icon" aria-hidden="true"><use href="/static/icons.svg#dance"></use></svg> Dance Moves</span><button class="card-help" type="button" onclick="openHelp('dance')" aria-label="Help with dance moves"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#help"></use></svg></button></div>
                         <div class="gesture-grid" id="gesture-grid">
                             <!-- Populated by JS -->
@@ -412,6 +414,31 @@
             </div> <!-- /control-area -->
 
         </div> <!-- /main -->
+
+        <button class="mobile-emergency-stop" id="mobile-emergency-stop" type="button" onclick="sendStop()">
+            <svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#stop"></use></svg>
+            Stop all motion
+        </button>
+
+        <nav class="mobile-workspace-nav" id="mobile-workspace-nav" aria-label="Mira workspaces">
+            <button type="button" data-mobile-workspace="move" onclick="setMobileWorkspace('move')" aria-current="page">
+                <svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#robots"></use></svg>
+                <span>Move</span>
+            </button>
+            <button type="button" data-mobile-workspace="animate" onclick="setMobileWorkspace('animate')">
+                <svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#animation"></use></svg>
+                <span>Animate</span>
+            </button>
+            <button type="button" data-mobile-workspace="dances" onclick="setMobileWorkspace('dances')">
+                <svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#dance"></use></svg>
+                <span>Dances</span>
+            </button>
+            <button type="button" data-mobile-workspace="robots" onclick="setMobileWorkspace('robots')">
+                <svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#radio"></use></svg>
+                <span>Robots</span>
+                <span class="mobile-nav-count" id="mobile-robot-count" aria-label="robots online">0</span>
+            </button>
+        </nav>
 
         <!-- Console (collapsible) -->
         <div class="console collapsed" id="console-panel">

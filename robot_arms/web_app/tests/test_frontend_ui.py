@@ -9,6 +9,10 @@ INDEX = (WEB_APP_DIR / "static" / "index.html").read_text()
 APP_JS = (WEB_APP_DIR / "static" / "app.js").read_text()
 STYLE = (WEB_APP_DIR / "static" / "style.css").read_text()
 ICONS_PATH = WEB_APP_DIR / "static" / "icons.svg"
+ANDROID_ACTIVITY = (
+    WEB_APP_DIR.parent / "android_app" / "app" / "src" / "main" / "java"
+    / "org" / "miraloma" / "mira" / "MainActivity.java"
+).read_text()
 
 
 class ArmControlMarkupTests(unittest.TestCase):
@@ -232,6 +236,49 @@ class ArmControlMarkupTests(unittest.TestCase):
             STYLE,
             r"\.console\s*\{[^}]*min-height:\s*var\(--console-height\)[^}]*overflow:\s*hidden",
         )
+
+    def test_mobile_shell_exposes_four_task_workspaces(self):
+        workspace_buttons = re.findall(
+            r'data-mobile-workspace="(move|animate|dances|robots)"', INDEX
+        )
+        self.assertEqual(workspace_buttons, ["move", "animate", "dances", "robots"])
+        for workspace in ("move", "animate", "dances", "robots"):
+            self.assertIn(f'data-workspace="{workspace}"', INDEX)
+        self.assertIn("function setMobileWorkspace(workspace)", APP_JS)
+        self.assertIn('app.dataset.mobileWorkspace = workspace', APP_JS)
+
+    def test_mobile_target_control_opens_the_robot_workspace(self):
+        target = re.search(r'<button class="target-banner".*?</button>', INDEX, re.S).group(0)
+        self.assertIn('onclick="openRobotWorkspace()"', target)
+        self.assertIn('aria-label="Choose which robots to control"', target)
+        self.assertIn('setMobileWorkspace("robots")', self._function_body("openRobotWorkspace"))
+
+    def test_compact_layout_supports_portrait_and_short_landscape_windows(self):
+        media = "(max-width: 768px), (max-width: 960px) and (max-height: 600px)"
+        self.assertIn(media, STYLE)
+        self.assertIn(media, self._function_body("isCompactLayout"))
+        self.assertIn("orientation: landscape", STYLE)
+        self.assertIn("--mobile-rail-width", STYLE)
+
+    def test_safe_area_is_shared_between_android_and_css(self):
+        self.assertIn("viewport-fit=cover", INDEX)
+        for side in ("top", "right", "bottom", "left"):
+            self.assertIn(f"--android-safe-{side}", STYLE)
+            self.assertIn(f"--android-safe-{side}", ANDROID_ACTIVITY)
+        self.assertIn("WindowInsets.Type.systemBars()", ANDROID_ACTIVITY)
+        self.assertIn("WindowInsets.Type.displayCutout()", ANDROID_ACTIVITY)
+        self.assertIn("setOnApplyWindowInsetsListener", ANDROID_ACTIVITY)
+
+    def test_mobile_touch_controls_do_not_depend_on_hover(self):
+        self.assertRegex(
+            STYLE,
+            r"\.custom-gesture-delete\s*\{[^}]*width:\s*36px[^}]*opacity:\s*1",
+        )
+        self.assertRegex(
+            STYLE,
+            r"\.robot-menu-btn\s*\{[^}]*width:\s*48px[^}]*height:\s*48px[^}]*opacity:\s*1",
+        )
+        self.assertIn("prefers-reduced-motion: reduce", STYLE)
 
 
 if __name__ == "__main__":
