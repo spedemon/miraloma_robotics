@@ -29,7 +29,7 @@ with Android Studio, or with `adb install -r` while USB debugging is enabled.
 
 ```bash
 cd robot_arms/android_app
-./scripts/build_release.sh 0.2.1
+./scripts/build_release.sh 0.2.2
 ```
 
 On the first run, the script creates a self-signed 4096-bit RSA update key in

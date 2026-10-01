@@ -11,7 +11,7 @@ root:
 
 ```bash
 python3 -m pip install platformio
-python3 robot_arms/web_app/scripts/build_all.py --version 0.2.1
+python3 robot_arms/web_app/scripts/build_all.py --version 0.2.2
 ```
 
 The command builds both ESP32-C3 firmware projects, creates their checksummed
@@ -30,7 +30,7 @@ Useful partial commands:
 python3 robot_arms/web_app/scripts/build_all.py --firmware-only
 
 # Native desktop package only, using the files already in firmware/
-python3 robot_arms/web_app/scripts/build_all.py --app-only --version 0.2.1
+python3 robot_arms/web_app/scripts/build_all.py --app-only --version 0.2.2
 ```
 
 The older `build_macos.sh` and `build_windows.ps1` files are platform-specific
@@ -40,7 +40,7 @@ entry point.
 Build the self-signed Android package separately with:
 
 ```bash
-robot_arms/android_app/scripts/build_release.sh 0.2.1
+robot_arms/android_app/scripts/build_release.sh 0.2.2
 ```
 
 The first build creates a private update key under the ignored
@@ -53,8 +53,8 @@ commit it. All later Android updates must use the same key. See the
 Create and push one semantic-version tag:
 
 ```bash
-git tag v0.2.1
-git push origin v0.2.1
+git tag v0.2.2
+git push origin v0.2.2
 ```
 
 The **Build Mira** workflow builds firmware on Linux, packages the macOS,
