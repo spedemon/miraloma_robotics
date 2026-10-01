@@ -29,7 +29,7 @@ class FirmwareTrackingTests(unittest.TestCase):
 
     def test_robot_name_is_persisted_and_published_by_every_transport(self):
         self.assertIn('preferences.putString(NAME_KEY, value)', IDENTITY_CPP)
-        self.assertIn('" name=%s"', SWARM_CPP)
+        self.assertIn('hardware=esp32c3 name=%s', SWARM_CPP)
         self.assertIn('" hardware=esp32c3 name="', BLE_CPP)
         self.assertIn('cmd.startsWith("name set ")', CONSOLE_CPP)
 

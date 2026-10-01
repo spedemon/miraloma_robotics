@@ -50,6 +50,11 @@
       "role": "wireless_controller",
       "version": "0.3.0",
       "elf_sha256": "4685dbca3254bdc5684afdf2c82ec609ab1b662749971be53b32b9097b6b1879"
+    },
+    {
+      "role": "wireless_controller",
+      "version": "0.3.0",
+      "elf_sha256": "3416e71b0d4b6777b8ae5429bb1068c2324640bccd8c5b6e7d1a201b3293a596"
     }
   ],
   "robot": {
@@ -72,12 +77,12 @@
     "chip": "esp32c3",
     "offset": "0x10000",
     "asset": "mira-wireless-controller-0.3.0.bin",
-    "sha256": "84087a8f2a2959892889f3ecd70d126853d8658e1eb98ed9881a78ebeced1db0",
-    "size": 1026608,
-    "elf_sha256": "4685dbca3254bdc5684afdf2c82ec609ab1b662749971be53b32b9097b6b1879",
+    "sha256": "59a47c2c2858dcbc4e88476ae6e617ec1944b0a18edaa46c87fb602468c74c27",
+    "size": 1026736,
+    "elf_sha256": "3416e71b0d4b6777b8ae5429bb1068c2324640bccd8c5b6e7d1a201b3293a596",
     "provisioning_offset": "0x0",
     "provisioning_asset": "mira-wireless-controller-0.3.0-factory.bin",
-    "provisioning_sha256": "1edd40271010acc508cac8b5036fb5c226571772aabcf4c25bb6161fd1d2adc5",
-    "provisioning_size": 1092144
+    "provisioning_sha256": "96800adafb1f26624ac203c24328070ddb19cf694d1f62e703de31a17b8b59e8",
+    "provisioning_size": 1092272
   }
 }

@@ -510,7 +510,8 @@ def _device_state_changed():
                     {"transport": "usb", "port": session.port.device, "online": True},
                     firmware=info.firmware, legacy=info.legacy, name=info.name,
                 )
-                _migrate_local_name(info.device_id)
+                if not info.name:
+                    _migrate_local_name(info.device_id)
             elif info.role == "wireless_controller":
                 session.write("swarm list")
     if ble_manager:
@@ -521,7 +522,8 @@ def _device_state_changed():
                 {"transport": "ble", "port": session.port.device, "online": True},
                 firmware=info.firmware, legacy=info.legacy, name=info.name,
             )
-            _migrate_local_name(info.device_id)
+            if not info.name:
+                _migrate_local_name(info.device_id)
     devices = _device_snapshot()
     socketio.emit("device_inventory", {"devices": devices})
     socketio.emit("serial_status", {"connected": bool([d for d in devices if d["state"] == "connected"])})
