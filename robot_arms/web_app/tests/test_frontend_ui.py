@@ -280,6 +280,16 @@ class ArmControlMarkupTests(unittest.TestCase):
         )
         self.assertIn("prefers-reduced-motion: reduce", STYLE)
 
+    def test_xyz_mode_is_desktop_only(self):
+        adaptive_shell = self._function_body("syncAdaptiveShell")
+        self.assertIn('isCompactLayout() && controlMode !== "joint"', adaptive_shell)
+        self.assertIn('setControlMode("joint")', adaptive_shell)
+        compact_start = STYLE.index(
+            "@media (max-width: 768px), (max-width: 960px) and (max-height: 600px)"
+        )
+        compact_style = STYLE[compact_start:]
+        self.assertRegex(compact_style, r"\.toggle-row\s*\{[^}]*display:\s*none")
+
 
 if __name__ == "__main__":
     unittest.main()

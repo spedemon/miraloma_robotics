@@ -39,8 +39,8 @@ The web layout has a second, independent problem. At 768 px it changes the deskt
 - Default to Joint mode.
 - Use four large sliders with 48 px or larger touch rows and immediate value feedback.
 - Keep Home and Stop visible without page scrolling.
-- In portrait XYZ mode, show one projection at a time with Top/Side/Front tabs; hide the decorative 3D overview.
-- In landscape XYZ mode, show the active projection plus coordinates; allow the remaining projections behind tabs. The current desktop four-panel view is too dense for a phone.
+- Keep XYZ mode off phones in both orientations. Its projections and coordinate model are too dense for a compact touch interface.
+- Keep XYZ available on tablets and desktops, where the projections have enough space to remain understandable and safe to operate.
 
 #### Animate
 
@@ -146,7 +146,7 @@ This can ship independently, but it does not constitute the mobile redesign.
 
 ### Phase 2 — feature adaptations
 
-- Recompose Move for portrait and landscape.
+- Recompose Move around Joint mode for portrait and phone landscape; retain XYZ for tablet and desktop.
 - Add compact and timeline Animation views over one animation model.
 - Rework Dances for touch and persistent Stop.
 - Make help/setup dialogs safe-area and keyboard aware.

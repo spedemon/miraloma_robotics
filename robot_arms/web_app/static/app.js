@@ -966,6 +966,9 @@ function setMobileWorkspace(workspace) {
 }
 
 function syncAdaptiveShell() {
+    if (isCompactLayout() && controlMode !== "joint") {
+        setControlMode("joint");
+    }
     setMobileWorkspace(activeMobileWorkspace);
 }
 

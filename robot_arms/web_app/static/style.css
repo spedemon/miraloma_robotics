@@ -3269,7 +3269,7 @@ input[type="range"].slider-grip::-moz-range-thumb { border-color: var(--slider-g
     }
 
     .toggle-row {
-        margin-bottom: 8px;
+        display: none;
     }
 
     .toggle-group {

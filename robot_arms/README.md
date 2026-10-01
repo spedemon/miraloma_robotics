@@ -4,9 +4,9 @@
 
 | Platform | App | Available connections |
 |---|---|---|
-| macOS | [![Download for macOS](https://img.shields.io/badge/macOS-Download-000000?logo=apple&logoColor=white)](https://github.com/spedemon/miraloma_robotics/releases/latest/download/Mira-0.3.0-macOS-arm64.dmg) | Bluetooth, direct USB, wireless controller |
-| Windows | [![Download for Windows](https://img.shields.io/badge/Windows-Download-0078D4?logo=windows11&logoColor=white)](https://github.com/spedemon/miraloma_robotics/releases/latest/download/Mira-Setup-0.3.0.exe) | Bluetooth, direct USB, wireless controller |
-| Android | [![Download Android APK](https://img.shields.io/badge/Android-Download_APK-3DDC84?logo=android&logoColor=white)](https://github.com/spedemon/miraloma_robotics/releases/latest/download/Mira-0.3.0-Android.apk) | Bluetooth |
+| macOS | [![Download for macOS](https://img.shields.io/badge/macOS-Download-000000?logo=apple&logoColor=white)](https://github.com/spedemon/miraloma_robotics/releases/latest/download/Mira-0.3.1-macOS-arm64.dmg) | Bluetooth, direct USB, wireless controller |
+| Windows | [![Download for Windows](https://img.shields.io/badge/Windows-Download-0078D4?logo=windows11&logoColor=white)](https://github.com/spedemon/miraloma_robotics/releases/latest/download/Mira-Setup-0.3.1.exe) | Bluetooth, direct USB, wireless controller |
+| Android | [![Download Android APK](https://img.shields.io/badge/Android-Download_APK-3DDC84?logo=android&logoColor=white)](https://github.com/spedemon/miraloma_robotics/releases/latest/download/Mira-0.3.1-Android.apk) | Bluetooth |
 | iPhone and iPad | [![iPhone and iPad status](https://img.shields.io/badge/iPhone_%26_iPad-Awaiting_Apple_account-555555?logo=apple&logoColor=white)](#iphone-and-ipad) | Bluetooth; Apple signing not yet available |
 
 [🆘 Jump to troubleshooting](#troubleshooting)
@@ -54,7 +54,7 @@ Home is Mira’s neutral pose: the arm points straight up and the claw is closed
 > download is broken. Follow the steps below to approve it once; afterward it
 > opens normally.
 
-1. [Download Mira for macOS](https://github.com/spedemon/miraloma_robotics/releases/latest/download/Mira-0.3.0-macOS-arm64.dmg).
+1. [Download Mira for macOS](https://github.com/spedemon/miraloma_robotics/releases/latest/download/Mira-0.3.1-macOS-arm64.dmg).
 2. Open the downloaded `.dmg` file and drag **Mira** into **Applications**.
 3. Try to open Mira from **Applications**. If the warning appears, click **Done**.
 4. Immediately open **Apple menu → System Settings → Privacy & Security**.
@@ -65,7 +65,7 @@ If **Open Anyway** is not visible, try opening Mira again and return to **Privac
 
 #### Windows computers
 
-1. [Download Mira for Windows](https://github.com/spedemon/miraloma_robotics/releases/latest/download/Mira-Setup-0.3.0.exe).
+1. [Download Mira for Windows](https://github.com/spedemon/miraloma_robotics/releases/latest/download/Mira-Setup-0.3.1.exe).
 2. Open the downloaded installer and follow its steps.
 3. If Windows SmartScreen appears, choose **More info → Run anyway**.
 
@@ -75,7 +75,7 @@ The Windows launcher is built automatically on GitHub’s Windows runner, but it
 
 No developer account or app-store registration is required.
 
-1. [Download Mira for Android](https://github.com/spedemon/miraloma_robotics/releases/latest/download/Mira-0.3.0-Android.apk) on the tablet.
+1. [Download Mira for Android](https://github.com/spedemon/miraloma_robotics/releases/latest/download/Mira-0.3.1-Android.apk) on the tablet.
 2. Open the downloaded `.apk` file.
 3. If Android blocks it, open the offered settings screen and allow **Install unknown apps** for the browser or file manager you used, then try again.
 4. Tap **Install**, launch Mira, and allow **Nearby devices** when asked.
