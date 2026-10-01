@@ -976,6 +976,8 @@ function startRename(itemEl, robot) {
                 const data = await res.json();
                 if (data.ok) {
                     addConsoleLine(`Renamed ${currentName} → ${newName}`, "system");
+                } else {
+                    addConsoleLine(data.error || "Rename failed", "error");
                 }
             } catch (e) {
                 addConsoleLine("Rename failed", "error");
@@ -1013,7 +1015,7 @@ function startRename(itemEl, robot) {
 
 function getTargetName() {
     if (selectedTarget) {
-        return selectedTarget.masterName || selectedTarget.name;
+        return selectedTarget.mac;
     }
     return "all";
 }

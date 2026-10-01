@@ -15,9 +15,11 @@ extern void cancelSleep();
 
 SerialConsole::SerialConsole(MiraArm& arm, ArmController& ctrl,
                              MotionPlanner& planner, GestureManager& gestures,
-                             SmoothMover& smooth, CustomGestureStore& customStore)
+                             SmoothMover& smooth, CustomGestureStore& customStore,
+                             RobotIdentity& identity)
     : _arm(arm), _ctrl(ctrl), _planner(planner), _gestures(gestures),
-      _smooth(smooth), _customStore(customStore), _captureBuffer(nullptr) {
+      _smooth(smooth), _customStore(customStore), _identity(identity),
+      _captureBuffer(nullptr) {
 }
 
 void SerialConsole::begin() {
@@ -136,6 +138,10 @@ void SerialConsole::_processCommand(const String& line) {
         _out(MIRA_FIRMWARE_VERSION);
         _out(" protocol=");
         _out(String(MIRA_PROTOCOL_VERSION));
+        if (_identity.name()[0]) {
+            _out(" name=");
+            _out(RobotIdentity::encode(_identity.name()));
+        }
         _outln(" hardware=esp32c3");
     } else if (cmd == "help" || cmd == "?") {
         _cmdHelp();
@@ -195,6 +201,12 @@ void SerialConsole::_processCommand(const String& line) {
         _outln("Usage: test <base|shoulder|elbow|grip|wave|all>");
     } else if (cmd == "id") {
         _cmdId();
+    } else if (cmd.startsWith("name set ")) {
+        _cmdName(cmd.substring(9));
+    } else if (cmd == "name" || cmd == "name get") {
+        _cmdName("");
+    } else if (cmd == "name set") {
+        _outln("Usage: name set <robot name>");
     } else if (cmd.startsWith("cal_set ")) {
         _cmdCalSet(cmd.substring(8));
     } else if (cmd == "cal_set") {
@@ -283,6 +295,8 @@ void SerialConsole::_cmdHelp() {
     _outln();
     _outln("  help                      Show this message");
     _outln("  id                        Show device MAC address");
+    _outln("  name                      Show the persistent robot name");
+    _outln("  name set <robot name>     Save the name to robot flash");
     _outln();
     _outln("  ── Calibration ──");
     _outln("  cal_set B S E G           Save joint offsets to flash");
@@ -296,6 +310,23 @@ void SerialConsole::_cmdId() {
     String mac = WiFi.macAddress();
     _out("ID: ");
     _outln(mac);
+}
+
+void SerialConsole::_cmdName(const String& args) {
+    if (args.length() == 0) {
+        _out("MIRA_NAME name=");
+        _outln(RobotIdentity::encode(_identity.name()));
+        return;
+    }
+
+    String error;
+    if (!_identity.setName(args, error)) {
+        _out("MIRA_NAME_ERROR ");
+        _outln(error);
+        return;
+    }
+    _out("MIRA_NAME name=");
+    _outln(RobotIdentity::encode(_identity.name()));
 }
 
 void SerialConsole::_cmdHome() {

@@ -74,6 +74,12 @@ public final class MiraWebBridge {
                     if (id.isEmpty() || name.isEmpty() || name.length() > 15) {
                         return envelope(400, new JSONObject().put("error", "Use a name from 1 to 15 characters."));
                     }
+                    if (name.chars().anyMatch(value -> value < 0x20 || value > 0x7e)) {
+                        return envelope(400, new JSONObject().put("error", "Use printable English characters."));
+                    }
+                    if (!bleManager.renameRobot(id, name)) {
+                        return envelope(409, new JSONObject().put("error", "Robot is not connected."));
+                    }
                     preferences.edit().putString("name." + id, name).apply();
                     publishState();
                     return envelope(200, new JSONObject().put("ok", true));

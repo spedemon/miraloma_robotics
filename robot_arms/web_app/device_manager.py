@@ -6,6 +6,7 @@ import random
 import re
 import threading
 import time
+from urllib.parse import unquote
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -63,6 +64,7 @@ class DeviceInfo:
     protocol: int = 0
     hardware: str = "esp32c3"
     legacy: bool = False
+    name: str | None = None
 
 
 @dataclass
@@ -123,6 +125,7 @@ def parse_device_info(line: str, nonce: str | None = None) -> DeviceInfo | None:
         firmware=values.get("firmware"),
         protocol=protocol,
         hardware=values.get("hardware", "esp32c3"),
+        name=unquote(values["name"]) if values.get("name") else None,
     )
 
 

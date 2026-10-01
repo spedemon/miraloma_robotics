@@ -33,6 +33,7 @@
 #include "SwarmNode.h"
 #include "BoostButton.h"
 #include "BleTransport.h"
+#include "RobotIdentity.h"
 
 // --- Layer 0: PWM driver ---
 MiraArm arm;
@@ -60,12 +61,13 @@ FSquareGesture  fsquareGesture(planner, controller, smooth);
 FTriangleGesture ftriangleGesture(planner, controller, smooth);
 WaveGesture     waveGesture(planner, controller, smooth);
 CustomGestureStore customStore(smooth);
+RobotIdentity robotIdentity;
 
 // --- Peripherals ---
 StatusLed led;
 
 // --- Console ---
-SerialConsole console(arm, controller, planner, gestures, smooth, customStore);
+SerialConsole console(arm, controller, planner, gestures, smooth, customStore, robotIdentity);
 
 // --- Swarm (ESP-NOW) ---
 SwarmNode swarmNode;
@@ -79,6 +81,7 @@ BoostButton boostButton(gestures, controller, &customStore);
 // --- Idle detection & deferred sleep ---
 bool wasGestureActive = false;
 bool sleepPending = false;  // true when sleep is requested but motion still active
+uint32_t identityRevision = 0;
 
 /**
  * Request deferred sleep — servos will go to sleep once all motion
@@ -164,6 +167,7 @@ void setup() {
     // Load and register custom gestures from flash
     customStore.begin();
     customStore.registerAll(gestures);
+    robotIdentity.begin();
 
     console.begin();
 
@@ -172,11 +176,11 @@ void setup() {
 
     // --- Swarm init ---
     swarmNode.onCommand(handleSwarmCommand);
-    swarmNode.begin();
+    swarmNode.begin(robotIdentity.name());
 
     // BLE advertises the same stable ID used by USB and ESP-NOW, allowing the
     // applications to merge sightings of the same physical robot.
-    bleTransport.begin(swarmNode.getMacString(), handleBleCommand);
+    bleTransport.begin(swarmNode.getMacString(), robotIdentity.name(), handleBleCommand);
 
     // --- Initial idle: sleep servos after homing ---
     arm.sleep();
@@ -187,6 +191,12 @@ void loop() {
     smooth.update();      // Smooth joint-space motions
     gestures.update();    // Feed planner if a gesture is active
     console.update();     // Process serial input (USB)
+    if (identityRevision != robotIdentity.revision()) {
+        identityRevision = robotIdentity.revision();
+        swarmNode.setRobotName(robotIdentity.name());
+        swarmNode.announceIdentity();
+        bleTransport.setRobotName(robotIdentity.name());
+    }
     swarmNode.update();   // Process swarm commands (ESP-NOW)
     bleTransport.update();// Process direct BLE commands
     boostButton.update(); // BOOT button mode cycling

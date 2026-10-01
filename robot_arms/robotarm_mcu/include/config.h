@@ -8,8 +8,8 @@
 #ifndef MIRA_CONFIG_H
 #define MIRA_CONFIG_H
 
-#define MIRA_FIRMWARE_VERSION "0.6.0"
-#define MIRA_PROTOCOL_VERSION 2
+#define MIRA_FIRMWARE_VERSION "0.7.0"
+#define MIRA_PROTOCOL_VERSION 3
 
 // ---------------------------------------------------------------------------
 // Bluetooth Low Energy

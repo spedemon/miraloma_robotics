@@ -14,6 +14,7 @@ import json
 import re
 import time
 import threading
+from urllib.parse import unquote
 from datetime import datetime
 
 import serial
@@ -104,6 +105,7 @@ def save_names(names):
         json.dump(names, f, indent=2)
 
 name_map = load_names()  # { "AA:BB:CC:DD:EE:FF": "Lefty", ... }
+name_migrations = set()
 
 # ---------------------------------------------------------------------------
 # Serial port helpers
@@ -314,7 +316,7 @@ def process_serial_line(text):
     if m:
         master_name = m.group(1)
         mac = m.group(2).upper()
-        display_name = name_map.get(mac, mac)
+        display_name = name_map.get(mac, master_name)
 
         robots[mac] = {
             "name": display_name,
@@ -324,7 +326,7 @@ def process_serial_line(text):
             "lastSeen": time.time(),
         }
 
-        # If we have a stored name and the master's name differs, send rename
+        # Migrate names saved by older app versions into upgraded robot firmware.
         if mac in name_map and name_map[mac] != master_name:
             serial_write(f"swarm rename {master_name} {name_map[mac]}")
 
@@ -337,7 +339,7 @@ def process_serial_line(text):
     if m:
         master_name = m.group(1)
         mac = m.group(2).upper()
-        display_name = name_map.get(mac, mac)
+        display_name = name_map.get(mac, master_name)
 
         robots[mac] = {
             "name": display_name,
@@ -455,7 +457,14 @@ def _upsert_endpoint(mac, endpoint_key, endpoint, **fields):
         if value is not None:
             changed = changed or robot.get(key) != value
             robot[key] = value
-    robot["name"] = name_map.get(mac, robot.get("name", mac))
+    device_name = fields.get("name")
+    if device_name:
+        robot["name"] = device_name
+        if name_map.get(mac) != device_name:
+            name_map[mac] = device_name
+            save_names(name_map)
+    elif not robot.get("name") or robot.get("name") == mac:
+        robot["name"] = name_map.get(mac, mac)
     if changed:
         socketio.emit("robot_list", get_robot_list())
 
@@ -479,6 +488,16 @@ def _prune_missing_sessions():
         socketio.emit("robot_list", get_robot_list())
 
 
+def _migrate_local_name(mac):
+    """Write a legacy app-local alias to upgraded robot flash once."""
+    mac = mac.upper()
+    legacy_name = name_map.get(mac)
+    if not legacy_name or legacy_name == mac or mac in name_migrations:
+        return
+    if _route_command(mac, f"name set {legacy_name}"):
+        name_migrations.add(mac)
+
+
 def _device_state_changed():
     """Reconcile USB/BLE sessions and publish one complete UI snapshot."""
     _prune_missing_sessions()
@@ -489,8 +508,9 @@ def _device_state_changed():
                 _upsert_endpoint(
                     info.device_id, f"usb:{session.port.device}",
                     {"transport": "usb", "port": session.port.device, "online": True},
-                    firmware=info.firmware, legacy=info.legacy,
+                    firmware=info.firmware, legacy=info.legacy, name=info.name,
                 )
+                _migrate_local_name(info.device_id)
             elif info.role == "wireless_controller":
                 session.write("swarm list")
     if ble_manager:
@@ -499,8 +519,9 @@ def _device_state_changed():
             _upsert_endpoint(
                 info.device_id, f"ble:{session.address}",
                 {"transport": "ble", "port": session.port.device, "online": True},
-                firmware=info.firmware, legacy=info.legacy,
+                firmware=info.firmware, legacy=info.legacy, name=info.name,
             )
+            _migrate_local_name(info.device_id)
     devices = _device_snapshot()
     socketio.emit("device_inventory", {"devices": devices})
     socketio.emit("serial_status", {"connected": bool([d for d in devices if d["state"] == "connected"])})
@@ -524,7 +545,7 @@ def _managed_line(session: DeviceSession, text: str):
         _upsert_endpoint(
             info.device_id, f"{transport}:{session.port.device}",
             {"transport": transport, "port": session.port.device, "online": True},
-            firmware=info.firmware, legacy=info.legacy,
+            firmware=info.firmware, legacy=info.legacy, name=info.name,
         )
 
     # Machine-readable controller events from new firmware.
@@ -544,9 +565,15 @@ def _managed_line(session: DeviceSession, text: str):
                 _upsert_endpoint(
                     mac, key,
                     {"transport": "wireless", "port": session.port.device, "online": True},
-                    masterName=values.get("name", mac), firmware=values.get("firmware"),
+                    masterName=unquote(values.get("name", mac)),
+                    name=(unquote(values["name"])
+                          if values.get("name") and values.get("named", "1") == "1"
+                          else None),
+                    firmware=values.get("firmware"),
                     legacy=values.get("protocol", "0") == "0",
                 )
+                if values.get("named") == "0":
+                    _migrate_local_name(mac)
         return
 
     # Legacy master events remain supported during development.
@@ -797,23 +824,22 @@ def api_rename():
     if len(new_name) > 15:
         return jsonify({"error": "Name too long (max 15 chars)"}), 400
 
+    if any(ord(character) < 0x20 or ord(character) > 0x7e for character in new_name):
+        return jsonify({"error": "Name must use printable ASCII characters"}), 400
+
     # Find current master-side name for this robot
     robot = robots.get(mac)
     if not robot:
         return jsonify({"error": "Robot not found"}), 404
 
-    old_master_name = robot.get("masterName", robot.get("name"))
-
-    # Rename on every wireless controller that currently sees this robot.
-    for endpoint in robot.get("endpoints", {}).values():
-        if endpoint.get("transport") == "wireless" and device_manager:
-            device_manager.write(endpoint["port"], f"swarm rename {old_master_name} {new_name}")
+    if not _route_command(mac, f"name set {new_name}"):
+        return jsonify({"error": "Robot is not connected"}), 409
 
     # Update local state
     robot["name"] = new_name
-    robot["masterName"] = new_name
     name_map[mac] = new_name
     save_names(name_map)
+    name_migrations.add(mac)
 
     socketio.emit("robot_list", get_robot_list())
     return jsonify({"ok": True})

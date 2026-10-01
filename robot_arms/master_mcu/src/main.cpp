@@ -63,6 +63,7 @@ struct RobotEntry {
     bool     active;
     char     firmware[16];
     uint8_t  protocol;
+    bool     named;
 };
 
 static RobotEntry robots[MAX_ROBOTS];
@@ -76,6 +77,49 @@ static String inputBuffer;
 
 // Forward declaration
 static void printPrompt();
+
+static int hexValue(char value) {
+    if (value >= '0' && value <= '9') return value - '0';
+    if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+    if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+    return -1;
+}
+
+static String decodeMetadataValue(const char* value, size_t length) {
+    String decoded;
+    for (size_t index = 0; index < length; ++index) {
+        if (value[index] == '%' && index + 2 < length) {
+            int high = hexValue(value[index + 1]);
+            int low = hexValue(value[index + 2]);
+            if (high >= 0 && low >= 0) {
+                decoded += static_cast<char>((high << 4) | low);
+                index += 2;
+                continue;
+            }
+        }
+        decoded += value[index];
+    }
+    return decoded;
+}
+
+static String encodeMetadataValue(const char* value) {
+    String encoded;
+    static const char hex[] = "0123456789ABCDEF";
+    for (const uint8_t* cursor = reinterpret_cast<const uint8_t*>(value); cursor && *cursor; ++cursor) {
+        const uint8_t character = *cursor;
+        if ((character >= 'a' && character <= 'z') ||
+            (character >= 'A' && character <= 'Z') ||
+            (character >= '0' && character <= '9') ||
+            character == '-' || character == '_' || character == '.') {
+            encoded += static_cast<char>(character);
+        } else {
+            encoded += '%';
+            encoded += hex[character >> 4];
+            encoded += hex[character & 0x0f];
+        }
+    }
+    return encoded;
+}
 
 // Reply collection buffer
 static String replyBuffer;
@@ -115,18 +159,21 @@ static void printRobotEvent(const RobotEntry& robot, bool online) {
     Serial.print("MIRA_EVENT ROBOT id=");
     Serial.print(macStr);
     Serial.print(" name=");
-    Serial.print(robot.name);
+    Serial.print(encodeMetadataValue(robot.name));
     Serial.print(" online=");
     Serial.print(online ? 1 : 0);
     Serial.print(" firmware=");
     Serial.print(robot.firmware[0] ? robot.firmware : "unknown");
     Serial.print(" protocol=");
-    Serial.println(robot.protocol);
+    Serial.print(robot.protocol);
+    Serial.print(" named=");
+    Serial.println(robot.named ? 1 : 0);
 }
 
 static void parseHelloMetadata(RobotEntry& robot, const char* payload) {
     robot.firmware[0] = '\0';
     robot.protocol = 0;
+    robot.named = false;
     if (!payload || !payload[0]) return;
     const char* fw = strstr(payload, "firmware=");
     if (fw) {
@@ -138,6 +185,16 @@ static void parseHelloMetadata(RobotEntry& robot, const char* payload) {
     }
     const char* proto = strstr(payload, "protocol=");
     if (proto) robot.protocol = (uint8_t)atoi(proto + 9);
+    const char* name = strstr(payload, "name=");
+    if (name) {
+        name += 5;
+        size_t len = strcspn(name, " ");
+        String decoded = decodeMetadataValue(name, len);
+        if (decoded.length() > 0 && decoded.length() < sizeof(robot.name)) {
+            decoded.toCharArray(robot.name, sizeof(robot.name));
+            robot.named = true;
+        }
+    }
 }
 
 static void registerRobot(const uint8_t mac[6], const char* metadata) {
@@ -146,9 +203,15 @@ static void registerRobot(const uint8_t mac[6], const char* metadata) {
     if (idx >= 0) {
         // Existing robot — refresh timestamp
         bool wasOffline = !robots[idx].active;
+        char previousName[sizeof(robots[idx].name)];
+        strlcpy(previousName, robots[idx].name, sizeof(previousName));
         robots[idx].lastSeenMs = millis();
         robots[idx].active = true;
         parseHelloMetadata(robots[idx], metadata);
+
+        if (strcmp(previousName, robots[idx].name) != 0) {
+            printRobotEvent(robots[idx], true);
+        }
 
         // Notify serial when a robot comes back online
         if (wasOffline) {
@@ -177,6 +240,7 @@ static void registerRobot(const uint8_t mac[6], const char* metadata) {
     snprintf(robots[idx].name, sizeof(robots[idx].name), "R%d", idx + 1);
     robots[idx].lastSeenMs = millis();
     robots[idx].active = true;
+    robots[idx].named = false;
     parseHelloMetadata(robots[idx], metadata);
 
     char macStr[18];
@@ -398,13 +462,10 @@ static void cmdSwarmRename(const String& args) {
         return;
     }
 
-    strncpy(robots[idx].name, newName.c_str(), sizeof(robots[idx].name) - 1);
-    robots[idx].name[sizeof(robots[idx].name) - 1] = '\0';
-
-    Serial.print("OK — ");
-    Serial.print(oldName);
-    Serial.print(" renamed to ");
-    Serial.println(newName);
+    String command = "name set " + newName;
+    sendCommand(robots[idx].mac, command.c_str());
+    Serial.print("Rename requested on ");
+    Serial.println(oldName);
 }
 
 static void cmdHelp() {

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Control panel for the Mira robot arm swarm — manage 30 robots via ESP-NOW">
+    <meta name="description" content="Control Mira robot arms over USB, Bluetooth, or an ESP-NOW wireless controller">
     <title>Mira — Miraloma Robotics</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,7 +48,7 @@
         <!-- Disconnected Banner (hidden when connected) -->
         <div class="disconnected-banner" id="disconnected-banner" style="display: none;">
             <svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#warning"></use></svg>
-            <span id="disconnected-message">Looking for robots… Connect a robot or a Wireless board with a USB cable.</span>
+            <span id="disconnected-message">Looking for robots… Use Bluetooth, connect a robot by USB, or connect a Wireless controller by USB.</span>
         </div>
 
         <!-- Main Content -->
@@ -449,8 +449,17 @@
             </div>
             <div class="help-content">
                 <section class="help-topic" data-help-topic="start">
-                    <h2>Connect one of two ways</h2>
+                    <h2>Connect one of three ways</h2>
                     <div class="help-choice-grid">
+                        <div class="help-choice">
+                            <h3 class="title-with-mark"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#radio"></use></svg> Bluetooth</h3>
+                            <ol>
+                                <li>Insert the robot’s batteries and turn it on.</li>
+                                <li>Allow Bluetooth or Nearby devices access if Mira asks.</li>
+                                <li>Open the connection badge above and choose <strong>Connect</strong> beside the robot.</li>
+                            </ol>
+                            <p>Bluetooth talks directly to powered robots without a cable or wireless controller.</p>
+                        </div>
                         <div class="help-choice">
                             <h3 class="title-with-mark"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#usb"></use></svg> USB cable</h3>
                             <ol>
@@ -458,7 +467,7 @@
                                 <li>Connect its small control board to the laptop with a USB-C data cable.</li>
                                 <li>Wait for the badge above to show the robot.</li>
                             </ol>
-                            <p>The laptop powers the robot in this mode.</p>
+                            <p>The computer powers one robot in this desktop-only mode.</p>
                         </div>
                         <div class="help-choice">
                             <h3 class="title-with-mark"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#radio"></use></svg> Radio</h3>
@@ -467,7 +476,7 @@
                                 <li>Look for a red motor-board light and a slowly blinking blue control-board light.</li>
                                 <li>Connect the ESP32-C3 Mini Pro remote board to the laptop by USB-C.</li>
                             </ol>
-                            <p>If prompted, set the new board up as a <strong>Wireless controller</strong>.</p>
+                            <p>If prompted, set the new board up as a <strong>Wireless controller</strong>. This desktop mode can reach several robots over ESP-NOW.</p>
                         </div>
                     </div>
                     <div class="help-callout"><strong>No computer?</strong> Use batteries or a USB-C phone charger, then press the small <strong>BOOST</strong> button to alternate between Home and built-in moves.</div>

@@ -20,6 +20,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelUuid;
+import android.net.Uri;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -104,13 +105,30 @@ final class MiraBleManager {
         synchronized (this) {
             for (GattSession session : sessions.values()) {
                 if (!session.ready) continue;
-                String alias = aliasLookup.apply(session.robotId);
+                String alias = displayName(session);
                 if ("all".equals(target) || target.equalsIgnoreCase(session.robotId) || target.equals(alias)) {
                     selected.add(session);
                 }
             }
         }
         for (GattSession session : selected) session.enqueue(command);
+    }
+
+    synchronized boolean renameRobot(String robotId, String name) {
+        for (GattSession session : sessions.values()) {
+            if (session.ready && robotId.equalsIgnoreCase(session.robotId)) {
+                session.robotName = name;
+                session.enqueue("name set " + name);
+                scheduleStatePublish();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String displayName(GattSession session) {
+        if (session.robotName != null && !session.robotName.isBlank()) return session.robotName;
+        return aliasLookup.apply(session.robotId);
     }
 
     synchronized int connectedCount() {
@@ -126,7 +144,7 @@ final class MiraBleManager {
             JSONObject item = new JSONObject();
             put(item, "port", "ble:" + device.address);
             put(item, "address", device.address);
-            put(item, "name", session != null && session.ready ? aliasLookup.apply(session.robotId) : device.name);
+            put(item, "name", session != null && session.ready ? displayName(session) : device.name);
             put(item, "state", session != null && session.ready ? "connected" : device.state);
             put(item, "role", "robot");
             put(item, "deviceId", session != null && session.ready ? session.robotId : JSONObject.NULL);
@@ -145,7 +163,7 @@ final class MiraBleManager {
         for (GattSession session : sessions.values()) {
             if (!session.ready) continue;
             JSONObject robot = new JSONObject();
-            String alias = aliasLookup.apply(session.robotId);
+            String alias = displayName(session);
             put(robot, "name", alias);
             put(robot, "masterName", session.robotId);
             put(robot, "mac", session.robotId);
@@ -227,6 +245,7 @@ final class MiraBleManager {
             switch (pair[0]) {
                 case "id": session.robotId = pair[1].toUpperCase(); break;
                 case "firmware": session.firmware = pair[1]; break;
+                case "name": session.robotName = Uri.decode(pair[1]); break;
                 case "protocol":
                     try { session.protocol = Integer.parseInt(pair[1]); } catch (NumberFormatException ignored) {}
                     break;
@@ -237,6 +256,12 @@ final class MiraBleManager {
             return;
         }
         session.ready = true;
+        String legacyName = aliasLookup.apply(session.robotId);
+        if ((session.robotName == null || session.robotName.isBlank()) &&
+                session.protocol >= 3 && !legacyName.equals(session.robotId)) {
+            session.robotName = legacyName;
+            session.enqueue("name set " + legacyName);
+        }
         NearbyDevice device;
         synchronized (this) { device = nearby.get(session.address); }
         if (device != null) device.state = "connected";
@@ -409,6 +434,7 @@ final class MiraBleManager {
         BluetoothGattCharacteristic info;
         String robotId;
         String firmware;
+        String robotName;
         int protocol;
         boolean ready;
         boolean discovering;

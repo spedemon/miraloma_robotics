@@ -22,7 +22,8 @@ class BleTransport {
 public:
     BleTransport();
 
-    void begin(const char* stableId, BleCommandHandler handler);
+    void begin(const char* stableId, const char* robotName, BleCommandHandler handler);
+    void setRobotName(const char* robotName);
     void update();
     bool isConnected() const;
 
@@ -39,14 +40,18 @@ private:
 
     BleCommandHandler _handler;
     NimBLECharacteristic* _response;
+    NimBLECharacteristic* _info;
     NimBLEServer* _server;
     CommandEntry _commands[MIRA_BLE_COMMAND_QUEUE_SIZE];
     volatile uint8_t _head;
     uint8_t _tail;
     volatile bool _connected;
     volatile bool _stopAfterDisconnect;
+    char _stableId[18];
+    char _robotName[16];
 
     void notifyResponse(const String& response);
+    void refreshDeviceInfo();
 };
 
 #endif

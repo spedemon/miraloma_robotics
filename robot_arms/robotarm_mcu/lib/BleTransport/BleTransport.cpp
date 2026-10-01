@@ -2,6 +2,7 @@
 
 #include <NimBLEDevice.h>
 #include "config.h"
+#include "RobotIdentity.h"
 
 namespace {
 BleTransport* activeTransport = nullptr;
@@ -29,14 +30,18 @@ MiraCommandCallbacks commandCallbacks;
 }
 
 BleTransport::BleTransport()
-    : _handler(nullptr), _response(nullptr), _server(nullptr),
+    : _handler(nullptr), _response(nullptr), _info(nullptr), _server(nullptr),
       _head(0), _tail(0), _connected(false), _stopAfterDisconnect(false) {
+    _stableId[0] = '\0';
+    _robotName[0] = '\0';
     for (auto& command : _commands) command.pending = false;
 }
 
-void BleTransport::begin(const char* stableId, BleCommandHandler handler) {
+void BleTransport::begin(const char* stableId, const char* robotName, BleCommandHandler handler) {
     activeTransport = this;
     _handler = handler;
+    strlcpy(_stableId, stableId ? stableId : "", sizeof(_stableId));
+    strlcpy(_robotName, robotName ? robotName : "", sizeof(_robotName));
 
     String suffix(stableId ? stableId : "MIRA");
     suffix.replace(":", "");
@@ -65,16 +70,12 @@ void BleTransport::begin(const char* stableId, BleCommandHandler handler) {
     );
     _response->setValue("MIRA_READY\n");
 
-    NimBLECharacteristic* info = service->createCharacteristic(
+    _info = service->createCharacteristic(
         MIRA_BLE_DEVICE_INFO_UUID,
         NIMBLE_PROPERTY::READ,
         160
     );
-    String metadata = "role=robot id=" + String(stableId) +
-        " firmware=" MIRA_FIRMWARE_VERSION +
-        " protocol=" + String(MIRA_PROTOCOL_VERSION) +
-        " hardware=esp32c3";
-    info->setValue(metadata.c_str());
+    refreshDeviceInfo();
 
     _server->start();
     NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
@@ -85,6 +86,20 @@ void BleTransport::begin(const char* stableId, BleCommandHandler handler) {
 
     Serial.print("[BLE] Advertising as ");
     Serial.println(deviceName);
+}
+
+void BleTransport::setRobotName(const char* robotName) {
+    strlcpy(_robotName, robotName ? robotName : "", sizeof(_robotName));
+    refreshDeviceInfo();
+}
+
+void BleTransport::refreshDeviceInfo() {
+    if (!_info) return;
+    String metadata = "role=robot id=" + String(_stableId) +
+        " firmware=" MIRA_FIRMWARE_VERSION +
+        " protocol=" + String(MIRA_PROTOCOL_VERSION) +
+        " hardware=esp32c3 name=" + RobotIdentity::encode(_robotName);
+    _info->setValue(metadata.c_str());
 }
 
 void BleTransport::queueCommand(const char* command, size_t length) {

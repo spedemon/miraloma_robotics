@@ -20,6 +20,10 @@ if (-not (Test-Path $Python)) {
 & $Python -m pip install -r requirements-desktop.txt
 & $Python scripts/create_icon.py static/logo.png build/Mira.ico
 & $PyInstaller --noconfirm --clean Mira.spec
+& (Join-Path $AppDir "dist\Mira\Mira.exe") --verify-runtime
+if ($LASTEXITCODE -ne 0) {
+    throw "The packaged Mira runtime is missing one or more required dependencies."
+}
 
 $IsccCommand = Get-Command "iscc.exe" -ErrorAction SilentlyContinue
 if ($IsccCommand) {

@@ -1,5 +1,6 @@
 import importlib
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -32,6 +33,23 @@ class AppPathsTests(unittest.TestCase):
             first.release()
             self.assertTrue(second.acquire())
             second.release()
+
+
+class PackagedRuntimeTests(unittest.TestCase):
+    def test_every_desktop_runtime_dependency_is_declared(self):
+        requirements = (WEB_APP_DIR / "requirements.txt").read_text()
+        desktop_requirements = (WEB_APP_DIR / "requirements-desktop.txt").read_text()
+
+        for package in ("flask", "flask-socketio", "pyserial", "esptool", "bleak"):
+            self.assertRegex(requirements, rf"(?m)^{re.escape(package)}==")
+        for package in ("pywebview", "pyinstaller", "pillow"):
+            self.assertRegex(desktop_requirements, rf"(?m)^{re.escape(package)}==")
+
+    def test_packaged_runtime_verifier_imports_bluetooth(self):
+        launcher = (WEB_APP_DIR / "desktop_launcher.py").read_text()
+        self.assertIn("def _verify_runtime()", launcher)
+        self.assertIn("import bleak", launcher)
+        self.assertIn('"--verify-runtime"', launcher)
 
 
 class DirectRobotStartupTests(unittest.TestCase):

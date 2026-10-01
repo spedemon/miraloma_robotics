@@ -15,9 +15,24 @@ class DeviceInfoTests(unittest.TestCase):
         self.assertEqual(info.protocol, 2)
         self.assertFalse(info.legacy)
 
+    def test_parses_device_owned_name(self):
+        info = parse_device_info(
+            "role=robot id=aa:bb:cc:dd:ee:ff firmware=0.7.0 protocol=3 "
+            "hardware=esp32c3 name=Art%20Bot"
+        )
+        self.assertEqual(info.name, "Art Bot")
+
     def test_rejects_non_mira_metadata(self):
         with self.assertRaises(ValueError):
             parse_device_info("role=controller protocol=2")
+
+    def test_decodes_persistent_robot_name(self):
+        info = parse_device_info(
+            "role=robot id=AA:BB:CC:DD:EE:FF firmware=0.7.0 "
+            "protocol=3 hardware=esp32c3 name=Mira%20Blue"
+        )
+
+        self.assertEqual(info.name, "Mira Blue")
 
 
 class NotificationTests(unittest.TestCase):

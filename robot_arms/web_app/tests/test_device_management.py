@@ -49,12 +49,14 @@ class FakeHandle:
 class DeviceProtocolTests(unittest.TestCase):
     def test_parses_nonce_bound_identity(self):
         info = parse_device_info(
-            "MIRA_DEVICE ab12 role=robot id=aa:bb:cc:dd:ee:ff firmware=0.5.0 protocol=1 hardware=esp32c3",
+            "MIRA_DEVICE ab12 role=robot id=aa:bb:cc:dd:ee:ff firmware=0.7.0 "
+            "protocol=3 hardware=esp32c3 name=Mira%20Blue",
             "ab12",
         )
         self.assertEqual(info.role, "robot")
         self.assertEqual(info.device_id, "AA:BB:CC:DD:EE:FF")
-        self.assertEqual(info.firmware, "0.5.0")
+        self.assertEqual(info.firmware, "0.7.0")
+        self.assertEqual(info.name, "Mira Blue")
         self.assertIsNone(parse_device_info(
             "MIRA_DEVICE stale role=robot id=AA:BB:CC:DD:EE:FF", "current"
         ))
@@ -244,6 +246,23 @@ class RoutingTests(unittest.TestCase):
             }
         self.assertTrue(self.mira._route_command("all", "gesture dance"))
         self.assertEqual(self.writes, [("COM5", "gesture dance")])
+
+    def test_rename_is_written_to_robot_flash_over_the_selected_path(self):
+        mac = "AA:BB:CC:DD:EE:FF"
+        self.mira.robots[mac] = {
+            "mac": mac, "name": "Old name", "masterName": "R1",
+            "endpoints": {
+                "wireless:COM5": {"transport": "wireless", "port": "COM5"},
+            },
+        }
+
+        response = self.mira.app.test_client().post(
+            "/api/robots/rename", json={"mac": mac, "name": "Art Bot"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.writes, [("COM5", f"@{mac} name set Art Bot")])
+        self.assertEqual(self.mira.robots[mac]["name"], "Art Bot")
 
 
 class BoardInspectionParsingTests(unittest.TestCase):

@@ -89,6 +89,11 @@ class ArmControlMarkupTests(unittest.TestCase):
         self.assertIn("connectBluetoothDevice", settings)
         self.assertIn("disconnectBluetoothDevice", settings)
 
+    def test_help_explains_all_three_connection_methods(self):
+        self.assertIn("Connect one of three ways", INDEX)
+        for label in ("Bluetooth", "USB cable", "Radio"):
+            self.assertRegex(INDEX, rf'<h3 class="title-with-mark">.*?{label}</h3>')
+
     def test_calibration_reveals_before_requesting_home(self):
         body = self._function_body("openCalibration")
         self.assertLess(body.index("revealCalibration();"), body.index("sendHome();"))

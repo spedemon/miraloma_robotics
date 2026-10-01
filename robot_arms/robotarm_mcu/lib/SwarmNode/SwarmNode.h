@@ -44,7 +44,9 @@ public:
      * Initialize WiFi (STA, no connection), ESP-NOW, register broadcast peer,
      * and send initial HELLO. Call in setup() after Serial.begin().
      */
-    void begin();
+    void begin(const char* robotName = nullptr);
+    void setRobotName(const char* robotName);
+    void announceIdentity();
 
     /**
      * Call every loop() iteration. Handles:
@@ -75,6 +77,7 @@ public:
 private:
     uint8_t  _myMac[6];
     char     _myMacStr[18];
+    char     _robotName[16];
     uint8_t  _seq;
     uint32_t _lastHelloMs;
     SwarmCommandHandler _handler;

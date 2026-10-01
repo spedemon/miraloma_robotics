@@ -46,12 +46,14 @@
 #include "Gesture.h"
 #include "SmoothMover.h"
 #include "CustomGestureStore.h"
+#include "RobotIdentity.h"
 
 class SerialConsole {
 public:
     SerialConsole(MiraArm& arm, ArmController& ctrl,
                   MotionPlanner& planner, GestureManager& gestures,
-                  SmoothMover& smooth, CustomGestureStore& customStore);
+                  SmoothMover& smooth, CustomGestureStore& customStore,
+                  RobotIdentity& identity);
 
     void begin();
     void update();
@@ -78,6 +80,7 @@ private:
     GestureManager&     _gestures;
     SmoothMover&        _smooth;
     CustomGestureStore& _customStore;
+    RobotIdentity&      _identity;
     String          _inputBuffer;
 
     // --- Output redirection ---
@@ -112,6 +115,7 @@ private:
     void _cmdRawset(const String& args);
     void _cmdTest(const String& args);
     void _cmdId();
+    void _cmdName(const String& args);
     void _cmdCalSet(const String& args);
     void _cmdCalGet();
     void _cmdCalReset();

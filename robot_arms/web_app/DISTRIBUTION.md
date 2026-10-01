@@ -11,7 +11,7 @@ root:
 
 ```bash
 python3 -m pip install platformio
-python3 robot_arms/web_app/scripts/build_all.py --version 0.2.0
+python3 robot_arms/web_app/scripts/build_all.py --version 0.2.1
 ```
 
 The command builds both ESP32-C3 firmware projects, creates their checksummed
@@ -30,7 +30,7 @@ Useful partial commands:
 python3 robot_arms/web_app/scripts/build_all.py --firmware-only
 
 # Native desktop package only, using the files already in firmware/
-python3 robot_arms/web_app/scripts/build_all.py --app-only --version 0.2.0
+python3 robot_arms/web_app/scripts/build_all.py --app-only --version 0.2.1
 ```
 
 The older `build_macos.sh` and `build_windows.ps1` files are platform-specific
@@ -40,7 +40,7 @@ entry point.
 Build the self-signed Android package separately with:
 
 ```bash
-robot_arms/android_app/scripts/build_release.sh 0.2.0
+robot_arms/android_app/scripts/build_release.sh 0.2.1
 ```
 
 The first build creates a private update key under the ignored
@@ -53,18 +53,25 @@ commit it. All later Android updates must use the same key. See the
 Create and push one semantic-version tag:
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.2.1
+git push origin v0.2.1
 ```
 
 The **Build Mira** workflow builds firmware on Linux, packages the macOS,
 Windows, and signed Android applications on GitHub-hosted runners, and
 publishes one GitHub Release only after every build succeeds. A manual workflow
 run creates downloadable workflow artifacts for testing but does not publish a
-release. If the four `MIRA_ANDROID_*` repository secrets documented in the
-Android build guide are configured, the APK is built and attached
-automatically. Otherwise that job is skipped and a locally signed APK must be
-uploaded to the release.
+release. Tagged releases require the four `MIRA_ANDROID_*` repository secrets
+documented in the Android build guide; the release fails rather than silently
+publishing without an APK when the protected update key is unavailable.
+
+The macOS and Windows build scripts launch the packaged executable with
+`--verify-runtime` before creating the installer. This imports every required
+desktop runtime, including Bleak, so a missing Bluetooth or application
+dependency fails the build. The Android build embeds the shared web assets,
+compiles its native Bluetooth layer, and verifies the completed APK signature.
+The final release job also checks that the firmware manifest, DMG, EXE, and APK
+are all present before publishing anything.
 
 Windows packaging is configured and exercised by the GitHub Windows runner,
 but it has not yet been validated on a physical Windows computer. Treat the
@@ -85,6 +92,11 @@ Every published release uses these names:
 | `Mira-<app-version>-macOS-<arch>.dmg` | macOS application and launcher |
 | `Mira-Setup-<app-version>.exe` | Windows installer and launcher |
 | `Mira-<app-version>-Android.apk` | Self-signed Android application |
+
+There is no iPhone/iPad asset in the release yet. iOS uses a signed `.ipa`, not
+an Android `.apk`; producing and distributing it requires an active Apple
+Developer account and Apple provisioning. The mobile application is ready for
+that signing/distribution step once the account is available.
 
 Firmware versions come from `MIRA_FIRMWARE_VERSION` in each firmware project's
 `include/config.h`. The application version comes from the `v<version>` Git tag.

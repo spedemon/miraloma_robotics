@@ -6,6 +6,7 @@ import asyncio
 import re
 import threading
 import time
+from urllib.parse import quote, unquote
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Callable
@@ -31,6 +32,7 @@ class BleDeviceInfo:
     protocol: int = 0
     hardware: str | None = None
     legacy: bool = False
+    name: str | None = None
 
 
 def parse_device_info(text: str) -> BleDeviceInfo:
@@ -48,6 +50,7 @@ def parse_device_info(text: str) -> BleDeviceInfo:
         protocol=protocol,
         hardware=values.get("hardware"),
         legacy=protocol < 2,
+        name=unquote(values["name"]) if values.get("name") else None,
     )
 
 
@@ -223,7 +226,8 @@ class BleManager:
                 self.discovered[address]["state"] = "connected"
             await client.start_notify(RESPONSE_UUID, lambda _, data: self._notification(address, data))
             self.on_change()
-            self.on_line(session, f"MIRA_DEVICE ble role=robot id={info.device_id} firmware={info.firmware or 'unknown'} protocol={info.protocol} hardware={info.hardware or 'esp32c3'}")
+            name = f" name={quote(info.name, safe='-_.')}" if info.name else ""
+            self.on_line(session, f"MIRA_DEVICE ble role=robot id={info.device_id} firmware={info.firmware or 'unknown'} protocol={info.protocol} hardware={info.hardware or 'esp32c3'}{name}")
         except Exception:
             try:
                 await client.disconnect()

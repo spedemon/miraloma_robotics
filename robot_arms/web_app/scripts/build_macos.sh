@@ -16,6 +16,7 @@ python3 -m venv "$VENV_DIR"
 "$VENV_DIR/bin/python" -m pip install -r requirements-desktop.txt
 "$VENV_DIR/bin/python" scripts/create_icon.py static/logo.png build/Mira.icns
 "$VENV_DIR/bin/pyinstaller" --noconfirm --clean Mira.spec
+"$DIST_DIR/Mira.app/Contents/MacOS/Mira" --verify-runtime
 
 # PyInstaller applies an ad-hoc signature when no trusted identity is supplied.
 # Re-sign the completed bundle to cover every nested component consistently.

@@ -17,6 +17,15 @@ from app_paths import user_data_dir
 from instance_lock import InstanceLock
 
 
+def _verify_runtime() -> None:
+    """Fail the build if a dependency needed by the packaged app is absent."""
+    import bleak  # noqa: F401
+    import esptool  # noqa: F401
+    import flask  # noqa: F401
+    import flask_socketio  # noqa: F401
+    import serial  # noqa: F401
+
+
 def _configure_file_logging() -> Path:
     log_path = user_data_dir() / "mira.log"
     logging.basicConfig(
@@ -54,6 +63,10 @@ def _wait_until_ready(url: str, timeout: float = 15.0) -> None:
 
 
 def main() -> int:
+    if "--verify-runtime" in sys.argv:
+        _verify_runtime()
+        return 0
+
     log_path = _configure_file_logging()
     instance_lock = InstanceLock()
     if not instance_lock.acquire():

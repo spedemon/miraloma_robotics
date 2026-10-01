@@ -2,7 +2,14 @@
 
 > Mira is the robot arm built by Miraloma students. This page is for parents and children who want to make it move, teach it a routine, and save their work. No programming experience is needed.
 
-[⬇️ Download Mira for Android](https://github.com/spedemon/miraloma_robotics/releases/latest) · [⬇️ Download Mira for macOS](https://github.com/spedemon/miraloma_robotics/releases/latest) · [⬇️ Download Mira for Windows](https://github.com/spedemon/miraloma_robotics/releases/latest) · [🆘 Jump to troubleshooting](#troubleshooting)
+| Platform | App | Available connections |
+|---|---|---|
+| macOS | [![Download for macOS](https://img.shields.io/badge/macOS-Download-000000?logo=apple&logoColor=white)](https://github.com/spedemon/miraloma_robotics/releases/latest) | Bluetooth, direct USB, wireless controller |
+| Windows | [![Download for Windows](https://img.shields.io/badge/Windows-Download-0078D4?logo=windows11&logoColor=white)](https://github.com/spedemon/miraloma_robotics/releases/latest) | Bluetooth, direct USB, wireless controller |
+| Android | [![Download Android APK](https://img.shields.io/badge/Android-Download_APK-3DDC84?logo=android&logoColor=white)](https://github.com/spedemon/miraloma_robotics/releases/latest) | Bluetooth |
+| iPhone and iPad | [![iPhone and iPad status](https://img.shields.io/badge/iPhone_%26_iPad-Awaiting_Apple_account-555555?logo=apple&logoColor=white)](#iphone-and-ipad) | Bluetooth; Apple signing not yet available |
+
+[🆘 Jump to troubleshooting](#troubleshooting)
 
 ![The Mira application, with robot controls at the top and the Animation Maker below](screenshot.png)
 
@@ -13,7 +20,7 @@ Choose what you want to do:
 | I want to… | What I need | Go to |
 |---|---|---|
 | Let the robot perform without a computer | Batteries **or** a USB-C phone charger | [Standalone mode](#use-mira-without-a-computer) |
-| Control one robot from a tablet without a cable | Mira app, Android tablet, batteries | [Bluetooth mode](#connect-from-an-android-tablet-by-bluetooth) |
+| Control one robot from a tablet without a cable | Mira app, Android tablet, batteries | [Bluetooth mode](#connect-directly-by-bluetooth) |
 | Control one robot from a computer | Mira app, laptop, USB-C data cable or Bluetooth | [Choose a connection](#2-choose-a-connection) |
 | Control a robot without tethering it to the computer | Mira app, laptop, batteries, USB-C cable, ESP32-C3 Mini Pro | [Wireless mode](#connect-by-radio-wireless-mode) |
 | Teach the robot a routine | A connected robot | [Make an animation](#make-an-animation-sequence) |
@@ -79,24 +86,33 @@ The APK is signed with Mira's own update certificate. Android displays the
 normal warning for applications installed outside Google Play. Future versions
 can install as updates because releases keep using that same certificate.
 
+#### iPhone and iPad
+
+The Mira iPhone/iPad application is ready for Apple signing and distribution,
+but it cannot be offered as a normal downloadable installation yet. Apple
+requires an active Apple Developer account to create the signed provisioning
+profiles and distributable `.ipa`, and iOS does not install Android `.apk`
+files. Once the account is available, the iOS build can be signed and added to
+GitHub Releases or distributed through TestFlight. Until then, use the Android,
+macOS, or Windows application.
+
 ### 2. Choose a connection
 
-Mira works the same way in the application after it is connected. The only difference is whether the laptop talks directly through a cable or through a small radio board.
+Mira has three connection methods. The desktop applications support all three;
+the Android application uses direct Bluetooth.
 
-#### Connect from an Android tablet by Bluetooth
+#### Connect directly by Bluetooth
 
-1. Install batteries in the robot and turn it on. Do not connect the robot to the tablet by USB.
-2. Launch Mira and allow the **Nearby devices** permission.
+1. Install batteries in the robot and turn it on. Do not connect the robot to the computer or tablet by USB.
+2. Launch Mira and allow Bluetooth access. On Android this permission is called **Nearby devices**.
 3. Tap the connection badge at the top. A nearby robot appears under **Bluetooth**.
 4. Tap **Connect** next to that robot. The badge changes to the robot's name when it is ready.
 
-The tablet communicates directly with one or more robots using Bluetooth Low
+The application communicates directly with one or more robots using Bluetooth Low
 Energy. It does not need Wi-Fi, a USB cable, or the separate wireless
 controller. Each connection is deliberate rather than automatic, so a nearby
-classmate's tablet cannot silently take control.
-
-The macOS and Windows applications offer the same direct Bluetooth option.
-They also retain both USB choices below.
+classmate's device cannot silently take control. Bluetooth is available on
+Android, macOS, and Windows.
 
 #### Connect with a USB cable
 
@@ -120,9 +136,7 @@ You need one [ESP32-C3 Mini Pro development board](https://www.amazon.com/Develo
 
 The robot and remote board communicate directly by radio; they do not need Wi-Fi or pairing. The same remote can discover more than one powered robot.
 
-![Mira’s Start here guide showing the USB cable and radio connection steps](help_connect.png)
-
-*The **Start here** button opens the same connection instructions inside the application.*
+The **Start here** button inside Mira explains the same three connection methods.
 
 <div align="center">
 
@@ -236,7 +250,7 @@ Mira v1 is the four-axis classroom arm built by Miraloma students. Mira v2 uses 
 - **Direct USB:** The application sends commands straight to one robot’s serial connection.
 - **Direct Bluetooth:** Android, macOS, or Windows connects to a robot's BLE service and uses the same command protocol without a cable.
 - **Wireless:** A USB-connected ESP32-C3 runs `master_mcu` and bridges application commands to the robots over ESP-NOW.
-- **Discovery:** Every robot runs the same firmware and announces its factory MAC address. The controller assigns display names and routes commands without manual pairing or a Wi-Fi network.
+- **Discovery and names:** Every robot announces its factory MAC address and saved display name. Renaming in Mira stores the name in robot flash, so it follows the robot across USB, Bluetooth, and wireless-controller connections without manual pairing or Wi-Fi.
 - **Multiple robots:** Commands can target one MAC address or broadcast to every discovered robot.
 
 ### Run from source
@@ -265,7 +279,7 @@ cd robot_arms\web_app
 .\scripts\build_windows.ps1
 ```
 
-The [Build Mira workflow](../.github/workflows/build-desktop.yml) builds firmware and both desktop packages. Android has a repeatable signed build described in [the Android README](android_app/README.md). Tagged builds publish artifacts to GitHub Releases. Desktop launchers are currently unsigned, so operating systems may show the security prompts described above.
+The [Build Mira workflow](../.github/workflows/build-desktop.yml) builds firmware, both desktop packages, and the signed Android APK. Android has a repeatable signed build described in [the Android README](android_app/README.md). Tagged builds publish artifacts to GitHub Releases. Each desktop build now runs a packaged-runtime check before creating its installer, including a Bluetooth import check. Desktop launchers are currently unsigned, so operating systems may show the security prompts described above.
 
 ### Firmware and application development
 
@@ -275,4 +289,4 @@ Configuration lives in:
 - [`master_mcu/include/config.h`](master_mcu/include/config.h) for wireless and heartbeat behavior
 - [`web_app/mira.py`](web_app/mira.py) for the application server
 
-Please test application changes in both direct USB and wireless modes when hardware is available. General contribution guidance is in the [repository README](../README.md#for-contributors).
+Please test application changes with direct USB, Bluetooth, and the wireless controller when hardware is available. General contribution guidance is in the [repository README](../README.md#for-contributors).

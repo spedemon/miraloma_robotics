@@ -2,8 +2,8 @@ plugins {
     id "com.android.application"
 }
 
-def releaseVersion = providers.gradleProperty("miraVersion").getOrElse("0.2.0")
-def releaseCode = providers.gradleProperty("miraVersionCode").getOrElse("20000").toInteger()
+def releaseVersion = providers.gradleProperty("miraVersion").getOrElse("0.2.1")
+def releaseCode = providers.gradleProperty("miraVersionCode").getOrElse("201").toInteger()
 def keystorePath = System.getenv("MIRA_ANDROID_KEYSTORE") ?: "../keystore/mira-release.jks"
 def keystorePassword = System.getenv("MIRA_ANDROID_KEYSTORE_PASSWORD") ?: ""
 def releaseKeyAlias = System.getenv("MIRA_ANDROID_KEY_ALIAS") ?: "mira"

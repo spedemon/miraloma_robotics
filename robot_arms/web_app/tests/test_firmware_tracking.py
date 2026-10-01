@@ -10,19 +10,28 @@ CONFIG = (ROBOT_ROOT / "include" / "config.h").read_text()
 SMOOTH_H = (ROBOT_ROOT / "lib" / "SmoothMover" / "SmoothMover.h").read_text()
 SMOOTH_CPP = (ROBOT_ROOT / "lib" / "SmoothMover" / "SmoothMover.cpp").read_text()
 CONSOLE_CPP = (ROBOT_ROOT / "lib" / "SerialConsole" / "SerialConsole.cpp").read_text()
+IDENTITY_CPP = (ROBOT_ROOT / "lib" / "RobotIdentity" / "RobotIdentity.cpp").read_text()
+SWARM_CPP = (ROBOT_ROOT / "lib" / "SwarmNode" / "SwarmNode.cpp").read_text()
+BLE_CPP = (ROBOT_ROOT / "lib" / "BleTransport" / "BleTransport.cpp").read_text()
 APP_JS = (Path(__file__).resolve().parents[1] / "static" / "app.js").read_text()
 
 
 class FirmwareTrackingTests(unittest.TestCase):
-    def test_robot_firmware_is_version_060(self):
-        self.assertRegex(CONFIG, r'MIRA_FIRMWARE_VERSION\s+"0\.6\.0"')
-        self.assertRegex(CONFIG, r'MIRA_PROTOCOL_VERSION\s+2')
+    def test_robot_firmware_is_version_070(self):
+        self.assertRegex(CONFIG, r'MIRA_FIRMWARE_VERSION\s+"0\.7\.0"')
+        self.assertRegex(CONFIG, r'MIRA_PROTOCOL_VERSION\s+3')
 
     def test_bundled_manifest_tracks_the_firmware_protocol(self):
         manifest_path = Path(__file__).resolve().parents[1] / "firmware" / "manifest.json"
         manifest = json.loads(manifest_path.read_text())
-        self.assertEqual(manifest["robot"]["version"], "0.6.0")
-        self.assertEqual(manifest["robot"]["protocol"], 2)
+        self.assertEqual(manifest["robot"]["version"], "0.7.0")
+        self.assertEqual(manifest["robot"]["protocol"], 3)
+
+    def test_robot_name_is_persisted_and_published_by_every_transport(self):
+        self.assertIn('preferences.putString(NAME_KEY, value)', IDENTITY_CPP)
+        self.assertIn('" name=%s"', SWARM_CPP)
+        self.assertIn('" hardware=esp32c3 name="', BLE_CPP)
+        self.assertIn('cmd.startsWith("name set ")', CONSOLE_CPP)
 
     def test_tracking_command_is_atomic_and_silent_on_success(self):
         self.assertIn('cmd.startsWith("track ")', CONSOLE_CPP)

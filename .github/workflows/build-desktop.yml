@@ -111,6 +111,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Require the protected Android update key for releases
+        if: github.ref_type == 'tag' && env.HAS_ANDROID_RELEASE_KEY != 'true'
+        run: |
+          echo "The Android release key is required for a tagged release." >&2
+          exit 1
       - name: Restore Android release key
         if: env.HAS_ANDROID_RELEASE_KEY == 'true'
         env:
@@ -153,6 +158,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          test -f release-assets/mira-firmware-manifest.json
+          test -n "$(find release-assets -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -name '*.exe' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -name '*.apk' -print -quit)"
           if ! gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release create "${{ github.ref_name }}" --repo "${{ github.repository }}" --generate-notes --verify-tag
           fi

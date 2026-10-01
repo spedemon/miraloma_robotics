@@ -7,6 +7,7 @@
 
 #include "SwarmNode.h"
 #include "config.h"
+#include "RobotIdentity.h"
 
 #include <WiFi.h>
 #include <esp_wifi.h>
@@ -36,6 +37,7 @@ SwarmNode::SwarmNode()
       _cmdHead(0), _cmdTail(0) {
     memset(_myMac, 0, 6);
     memset(_myMacStr, 0, 18);
+    memset(_robotName, 0, sizeof(_robotName));
     for (int i = 0; i < SWARM_CMD_QUEUE_SIZE; i++) {
         _cmdQueue[i].pending = false;
     }
@@ -57,8 +59,9 @@ const char* SwarmNode::getMacString() const {
     return _myMacStr;
 }
 
-void SwarmNode::begin() {
+void SwarmNode::begin(const char* robotName) {
     _instance = this;
+    setRobotName(robotName);
 
     // --- Init WiFi in STA mode (no connection, just radio) ---
     WiFi.mode(WIFI_STA);
@@ -91,6 +94,15 @@ void SwarmNode::begin() {
     _lastHelloMs = millis();
 
     Serial.println("[Swarm] Node ready — listening for commands");
+}
+
+void SwarmNode::setRobotName(const char* robotName) {
+    strlcpy(_robotName, robotName ? robotName : "", sizeof(_robotName));
+}
+
+void SwarmNode::announceIdentity() {
+    _sendHello();
+    _lastHelloMs = millis();
 }
 
 void SwarmNode::update() {
@@ -168,9 +180,10 @@ void SwarmNode::_sendHello() {
     memcpy(pkt.target_mac, SWARM_BROADCAST_MAC, 6);
     memcpy(pkt.sender_mac, _myMac, 6);
     pkt.seq = _seq++;
+    const String encodedName = RobotIdentity::encode(_robotName);
     snprintf(pkt.payload, SWARM_EFFECTIVE_PAYLOAD,
-             "firmware=%s protocol=%d hardware=esp32c3",
-             MIRA_FIRMWARE_VERSION, MIRA_PROTOCOL_VERSION);
+             "firmware=%s protocol=%d hardware=esp32c3 name=%s",
+             MIRA_FIRMWARE_VERSION, MIRA_PROTOCOL_VERSION, encodedName.c_str());
     size_t payloadLen = strlen(pkt.payload);
 
     esp_now_send(SWARM_BROADCAST_MAC, (const uint8_t*)&pkt,

@@ -1,5 +1,7 @@
 # Mira for Android
 
+[![Download the latest Android APK](https://img.shields.io/badge/Android-Download_latest_APK-3DDC84?logo=android&logoColor=white)](https://github.com/spedemon/miraloma_robotics/releases/latest)
+
 Mira for Android is a small native WebView shell around the same HTML, CSS,
 and JavaScript interface used by the desktop applications. The native layer
 implements Bluetooth Low Energy discovery and communication; Gradle copies the
@@ -27,12 +29,12 @@ with Android Studio, or with `adb install -r` while USB debugging is enabled.
 
 ```bash
 cd robot_arms/android_app
-./scripts/build_release.sh 0.2.0
+./scripts/build_release.sh 0.2.1
 ```
 
 On the first run, the script creates a self-signed 4096-bit RSA update key in
 the ignored `keystore/` directory and writes the APK to
-`dist/Mira-0.2.0-Android.apk`. Back up the whole `keystore/` directory in a
+`dist/Mira-<version>-Android.apk`. Back up the whole `keystore/` directory in a
 secure password manager or encrypted backup. Android accepts future updates
 only when they are signed by the same key. Losing it means existing users must
 uninstall the app before installing a differently signed build.
@@ -51,6 +53,12 @@ keystore file:
 - `MIRA_ANDROID_KEY_ALIAS`
 
 Never commit the keystore or its passwords.
+
+The Android package contains the shared HTML, CSS, and JavaScript plus its
+native Java Bluetooth implementation. It does not embed Python or depend on a
+separate runtime on the tablet. Gradle compiles the native code, copies the
+current shared interface, and `apksigner` verifies the finished release APK;
+any missing Android build dependency therefore stops the release build.
 
 The GitHub workflow expects equivalent repository Actions secrets:
 

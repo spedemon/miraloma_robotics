@@ -5,8 +5,8 @@
 #ifndef MIRA_MASTER_CONFIG_H
 #define MIRA_MASTER_CONFIG_H
 
-#define MIRA_FIRMWARE_VERSION "0.2.0"
-#define MIRA_PROTOCOL_VERSION 1
+#define MIRA_FIRMWARE_VERSION "0.3.0"
+#define MIRA_PROTOCOL_VERSION 2
 
 // ---------------------------------------------------------------------------
 // Serial
