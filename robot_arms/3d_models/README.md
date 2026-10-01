@@ -49,6 +49,12 @@ Its compact cylindrical base attaches with just **two screws**, so the same arm 
 - Choose **v1** to reproduce the robot arm built by the Miraloma students on September 27, 2026.
 - Choose **v2** for a faster build, an additional degree of freedom, or a modular arm that can later be attached to a humanoid robot.
 
+## v2 Bambu Lab A1 Mini Print Plate
+
+The prepared [v2 Bambu Studio project](3D_print_files/mira_sg90_arm_v2_bambulab_A1_mini_1x_with_stand.3mf) fits all the parts for one complete Mira v2 arm—including the tabletop stand—on a single Bambu Lab A1 Mini print plate.
+
+![All Mira robot arm v2 parts, including the tabletop stand, arranged on a single Bambu Lab A1 Mini print plate](images/mira_v2_bambulab_a1_mini_print_plate.png)
+
 ## Printing Tips
 
 - Recommended material: **PLA** or **PETG**
