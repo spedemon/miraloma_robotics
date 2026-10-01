@@ -8,8 +8,21 @@
 #ifndef MIRA_CONFIG_H
 #define MIRA_CONFIG_H
 
-#define MIRA_FIRMWARE_VERSION "0.5.1"
-#define MIRA_PROTOCOL_VERSION 1
+#define MIRA_FIRMWARE_VERSION "0.6.0"
+#define MIRA_PROTOCOL_VERSION 2
+
+// ---------------------------------------------------------------------------
+// Bluetooth Low Energy
+// ---------------------------------------------------------------------------
+#define MIRA_BLE_SERVICE_UUID        "7f510001-1b15-4f8e-9f5d-6f6d69726100"
+#define MIRA_BLE_COMMAND_UUID        "7f510002-1b15-4f8e-9f5d-6f6d69726100"
+#define MIRA_BLE_RESPONSE_UUID       "7f510003-1b15-4f8e-9f5d-6f6d69726100"
+#define MIRA_BLE_DEVICE_INFO_UUID    "7f510004-1b15-4f8e-9f5d-6f6d69726100"
+#define MIRA_BLE_MAX_COMMAND_LENGTH  240
+// Twenty-byte notifications work even when a client keeps the default ATT
+// MTU. Clients reassemble newline-delimited replies across notifications.
+#define MIRA_BLE_RESPONSE_CHUNK      20
+#define MIRA_BLE_COMMAND_QUEUE_SIZE  8
 
 // ---------------------------------------------------------------------------
 // I2C Bus
@@ -85,6 +98,10 @@
 // ---------------------------------------------------------------------------
 #define GRIP_OPEN_ANGLE (-30)
 #define GRIP_CLOSED_ANGLE 45
+
+// User-adjustable calibration offset limits.
+#define CAL_OFFSET_JOINT_LIMIT 90.0f
+#define CAL_OFFSET_GRIP_LIMIT 120.0f
 
 // ---------------------------------------------------------------------------
 // Home Position (degrees) — all servos go here on startup / reset
@@ -166,6 +183,9 @@
 #define SMOOTH_DEFAULT_ACCEL 300.0f     // Acceleration (deg/s²)
 #define SMOOTH_UPDATE_INTERVAL_MS 5     // Update rate (~200 Hz)
 #define SMOOTH_MAX_JOINTS 4             // Max simultaneous smooth moves
+#define TRACKING_COMMAND_TIMEOUT_MS 300  // Settle after streamed targets stop
+#define TRACKING_POSITION_EPSILON 0.10f  // Joint target deadband (degrees)
+#define TRACKING_VELOCITY_EPSILON 0.01f  // Settle only after velocity reaches zero
 
 // ---------------------------------------------------------------------------
 // BOOT Button (GPIO 9 on ESP32-C3 Super Mini, active LOW)

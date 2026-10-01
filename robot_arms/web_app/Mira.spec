@@ -10,17 +10,18 @@ icon_name = "Mira.icns" if sys.platform == "darwin" else "Mira.ico"
 icon_path = app_dir / "build" / icon_name
 app_version = os.environ.get("MIRA_VERSION", "0.1.0")
 esptool_datas, esptool_binaries, esptool_hiddenimports = collect_all("esptool")
+bleak_datas, bleak_binaries, bleak_hiddenimports = collect_all("bleak")
 firmware_dir = app_dir / "firmware"
-app_datas = [(str(app_dir / "static"), "static"), *esptool_datas]
+app_datas = [(str(app_dir / "static"), "static"), *esptool_datas, *bleak_datas]
 if firmware_dir.exists():
     app_datas.append((str(firmware_dir), "firmware"))
 
 a = Analysis(
     [str(app_dir / "desktop_launcher.py")],
     pathex=[str(app_dir)],
-    binaries=esptool_binaries,
+    binaries=[*esptool_binaries, *bleak_binaries],
     datas=app_datas,
-    hiddenimports=["engineio.async_drivers.threading", *esptool_hiddenimports],
+    hiddenimports=["engineio.async_drivers.threading", *esptool_hiddenimports, *bleak_hiddenimports],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -71,6 +72,7 @@ if sys.platform == "darwin":
             "CFBundleShortVersionString": app_version,
             "CFBundleVersion": app_version,
             "NSHighResolutionCapable": True,
+            "NSBluetoothAlwaysUsageDescription": "Mira uses Bluetooth to find and control nearby Mira robot arms.",
             "NSHumanReadableCopyright": "Miraloma Robotics",
         },
     )

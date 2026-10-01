@@ -1,7 +1,10 @@
 import importlib
+import binascii
+import hashlib
 import io
 import json
 import os
+import struct
 import sys
 import tempfile
 import time
@@ -15,6 +18,15 @@ WEB_APP_DIR = Path(__file__).resolve().parents[1]
 if str(WEB_APP_DIR) not in sys.path:
     sys.path.insert(0, str(WEB_APP_DIR))
 
+from board_inspector import (
+    APP_DESCRIPTION_MAGIC,
+    BoardInspector,
+    BoardInspection,
+    Partition,
+    parse_app_fingerprint,
+    parse_partition_table,
+    selected_app_partition,
+)
 from device_manager import DeviceInfo, DeviceManager, DeviceSession, PortDescriptor, is_candidate, parse_device_info
 from firmware_update import FirmwareCatalog, FirmwareUpdater, version_tuple
 
@@ -81,16 +93,25 @@ class DeviceProtocolTests(unittest.TestCase):
         self.assertNotIn("COM4", manager.sessions)
         self.assertFalse(handle.is_open)
 
-    def test_invalid_flash_is_exposed_for_provisioning(self):
+    def test_invalid_boot_log_is_verified_before_provisioning(self):
         changes = []
-        manager = DeviceManager(lambda *_: None, lambda: changes.append(True))
+        inspector = mock.Mock()
+        inspector.inspect.return_value = BoardInspection("corrupt", mac="AA:BB:CC:DD:EE:FF")
+        manager = DeviceManager(
+            lambda *_: None, lambda: changes.append(True), inspector=inspector
+        )
         handle = FakeHandle()
         session = DeviceSession(PortDescriptor("COM4"), handle, "nonce")
         manager.sessions["COM4"] = session
 
         manager._identify(session, "invalid header: 0xffffffff")
+        deadline = time.monotonic() + 1
+        while session.state == "inspecting" and time.monotonic() < deadline:
+            time.sleep(0.01)
 
         self.assertEqual(session.state, "unrecognized")
+        self.assertEqual(session.classification, "corrupt")
+        inspector.inspect.assert_called_once()
         self.assertFalse(handle.is_open)
         self.assertTrue(changes)
 
@@ -106,23 +127,47 @@ class DeviceProtocolTests(unittest.TestCase):
 
         self.assertIn("COM4", manager.sessions)
 
-    def test_known_robot_is_never_downgraded_to_a_blank_board(self):
-        manager = DeviceManager(lambda *_: None, lambda: None)
-        descriptor = PortDescriptor("COM4", serial_number="board-1")
-        known = DeviceSession(descriptor, FakeHandle(), "first")
-        manager.sessions["COM4"] = known
-        manager._identify(
-            known,
-            "MIRA_DEVICE first role=robot id=AA:BB:CC:DD:EE:FF firmware=0.5.0 protocol=1 hardware=esp32c3",
+    def test_silent_mira_image_is_classified_from_flash_not_usb_history(self):
+        inspector = mock.Mock()
+        inspector.inspect.return_value = BoardInspection(
+            "mira", mac="AA:BB:CC:DD:EE:FF", role="robot", firmware="0.5.0"
         )
-        manager._remove("COM4", "test_reconnect")
-
+        manager = DeviceManager(lambda *_: None, lambda: None, inspector=inspector)
+        descriptor = PortDescriptor("COM4", serial_number="board-1")
         retry = DeviceSession(descriptor, FakeHandle(), "second")
         manager.sessions["COM4"] = retry
         manager._probe_failed(retry)
+        deadline = time.monotonic() + 1
+        while retry.state == "inspecting" and time.monotonic() < deadline:
+            time.sleep(0.01)
 
-        self.assertNotIn("COM4", manager.sessions)
+        self.assertEqual(retry.state, "repair")
         self.assertNotEqual(retry.state, "unrecognized")
+        self.assertEqual(retry.info.role, "robot")
+        self.assertEqual(retry.info.firmware, "0.5.0")
+        self.assertTrue(retry.requires_factory)
+
+    def test_reusing_a_usb_socket_does_not_reuse_the_previous_board_identity(self):
+        inspector = mock.Mock()
+        inspector.inspect.return_value = BoardInspection("erased", mac="11:22:33:44:55:66")
+        manager = DeviceManager(lambda *_: None, lambda: None, inspector=inspector)
+        descriptor = PortDescriptor("COM4", location="same-usb-socket")
+        old = DeviceSession(descriptor, FakeHandle(), "old")
+        old.info = DeviceInfo("robot", "AA:BB:CC:DD:EE:FF", "0.5.2", 1)
+        old.state = "connected"
+        manager.sessions["COM4"] = old
+        manager._remove("COM4", "unplugged")
+
+        replacement = DeviceSession(descriptor, FakeHandle(), "new")
+        manager.sessions["COM4"] = replacement
+        manager._probe_failed(replacement)
+        deadline = time.monotonic() + 1
+        while replacement.state == "inspecting" and time.monotonic() < deadline:
+            time.sleep(0.01)
+
+        self.assertEqual(replacement.state, "unrecognized")
+        self.assertEqual(replacement.classification, "erased")
+        self.assertIsNone(replacement.info)
 
     def test_update_reserves_the_physical_board_across_port_renames(self):
         replacement = SimpleNamespace(
@@ -201,6 +246,101 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(self.writes, [("COM5", "gesture dance")])
 
 
+class BoardInspectionParsingTests(unittest.TestCase):
+    @staticmethod
+    def partition_entry(part_type, subtype, offset, size, label):
+        return struct.pack(
+            "<HBBII16sI",
+            0x50AA,
+            part_type,
+            subtype,
+            offset,
+            size,
+            label.encode().ljust(16, b"\0"),
+            0,
+        )
+
+    def test_partition_table_checksum_is_validated(self):
+        entries = b"".join([
+            self.partition_entry(1, 0, 0xE000, 0x2000, "otadata"),
+            self.partition_entry(0, 0x10, 0x10000, 0x140000, "app0"),
+        ])
+        checksum = b"\xeb\xeb" + b"\xff" * 14 + hashlib.md5(entries).digest()
+        table = (entries + checksum).ljust(0x1000, b"\xff")
+
+        parsed = parse_partition_table(table)
+        self.assertEqual([part.label for part in parsed], ["otadata", "app0"])
+        damaged = bytearray(table)
+        damaged[10] ^= 1
+        self.assertIsNone(parse_partition_table(bytes(damaged)))
+
+    def test_application_fingerprint_requires_c3_and_app_description_magic(self):
+        fingerprint = bytes(range(32))
+        image = bytearray(b"\0" * 0x120)
+        image[0] = 0xE9
+        struct.pack_into("<H", image, 12, 5)
+        struct.pack_into("<I", image, 0x20, APP_DESCRIPTION_MAGIC)
+        image[0xB0:0xD0] = fingerprint
+
+        self.assertEqual(parse_app_fingerprint(bytes(image)), fingerprint.hex())
+        image[0] = 0
+        self.assertIsNone(parse_app_fingerprint(bytes(image)))
+
+    def test_ota_metadata_selects_the_active_application(self):
+        partitions = [
+            Partition(1, 0, 0xE000, 0x2000, "otadata"),
+            Partition(0, 0x10, 0x10000, 0x140000, "app0"),
+            Partition(0, 0x11, 0x150000, 0x140000, "app1"),
+        ]
+        flash = bytearray(b"\xff" * 0x9000)
+        sequence = 2
+        checksum = binascii.crc32(struct.pack("<I", sequence), 0xFFFFFFFF) & 0xFFFFFFFF
+        entry = struct.pack("<I20sII", sequence, b"\0" * 20, 2, checksum)
+        flash[0x6000:0x6020] = entry
+
+        self.assertEqual(selected_app_partition(partitions, bytes(flash)).label, "app1")
+
+    def test_inspector_recognizes_a_published_mira_image_without_running_it(self):
+        fingerprint = bytes(range(32))
+        partition_entries = b"".join([
+            self.partition_entry(1, 0, 0xE000, 0x2000, "otadata"),
+            self.partition_entry(0, 0x10, 0x10000, 0x140000, "app0"),
+        ])
+        checksum = b"\xeb\xeb" + b"\xff" * 14 + hashlib.md5(partition_entries).digest()
+        initial = bytearray(b"\xff" * 0x8120)
+        initial[:len(partition_entries + checksum)] = partition_entries + checksum
+        app = memoryview(initial)[0x8000:0x8120]
+        app[0] = 0xE9
+        struct.pack_into("<H", app, 12, 5)
+        struct.pack_into("<I", app, 0x20, APP_DESCRIPTION_MAGIC)
+        app[0xB0:0xD0] = fingerprint
+        inspector = BoardInspector(lambda value: {
+            "role": "robot", "version": "0.5.9"
+        } if value == fingerprint.hex() else None)
+
+        def fake_read(_resolver, _address, _size, destination):
+            destination.write_bytes(initial)
+            return "Connected to ESP32-C3\nMAC: aa:bb:cc:dd:ee:ff"
+
+        with mock.patch.object(inspector, "_read_flash", side_effect=fake_read):
+            result = inspector.inspect(lambda: "COM4")
+
+        self.assertEqual(result.kind, "mira")
+        self.assertEqual(result.role, "robot")
+        self.assertEqual(result.firmware, "0.5.9")
+        self.assertEqual(result.mac, "AA:BB:CC:DD:EE:FF")
+
+    def test_inspector_explains_when_another_program_owns_the_port(self):
+        failed = SimpleNamespace(returncode=2, stdout="Could not open COM4: Resource busy")
+        with tempfile.TemporaryDirectory() as directory, mock.patch(
+            "board_inspector.subprocess.run", return_value=failed
+        ), mock.patch("board_inspector.time.sleep"):
+            with self.assertRaisesRegex(RuntimeError, "Another program is using"):
+                BoardInspector._read_flash(
+                    lambda: "COM4", 0x8000, 0x1000, Path(directory) / "flash.bin"
+                )
+
+
 class FirmwareCatalogTests(unittest.TestCase):
     def test_refresh_reads_the_public_manifest_from_latest_github_release(self):
         release = {
@@ -224,11 +364,26 @@ class FirmwareCatalogTests(unittest.TestCase):
             side_effect=[io.BytesIO(json.dumps(release).encode()), io.BytesIO(json.dumps(manifest).encode())],
         ) as urlopen:
             catalog = FirmwareCatalog()
+            catalog.manifest = {}
             result = catalog.refresh(force=True)
 
         self.assertEqual(urlopen.call_count, 2)
         self.assertEqual(result["robot"]["version"], "0.5.0")
         self.assertIn("mira-robot-0.5.0.bin", result["_assets"])
+
+    def test_online_manifest_cannot_downgrade_bundled_firmware(self):
+        catalog = FirmwareCatalog()
+        catalog.manifest = {
+            "schema": 2,
+            "robot": {"version": "0.5.2", "asset": "robot-052.bin"},
+        }
+        merged = catalog._merge_manifests(
+            catalog.manifest,
+            {"schema": 1, "robot": {"version": "0.5.0", "asset": "robot-050.bin"}},
+        )
+
+        self.assertEqual(merged["robot"]["version"], "0.5.2")
+        self.assertEqual(merged["robot"]["asset"], "robot-052.bin")
 
     def test_semantic_versions_are_numeric(self):
         self.assertGreater(version_tuple("0.10.0"), version_tuple("0.9.9"))
@@ -244,8 +399,16 @@ class FirmwareCatalogTests(unittest.TestCase):
         catalog.manifest = {"robot": {
             "version": "0.5.0", "asset": "app.bin", "sha256": "abc"
         }}
-        with self.assertRaisesRegex(RuntimeError, "blank board"):
+        with self.assertRaisesRegex(RuntimeError, "new board"):
             catalog.obtain("robot", provisioning=True)
+
+    def test_deployed_robot_fingerprints_are_recognized_without_network(self):
+        catalog = FirmwareCatalog()
+        known = catalog.identify_fingerprint(
+            "46893ffebaa5e8cb74c2dac5e5995131294ee66da8aa95fefcf9bb67570fdaf9"
+        )
+
+        self.assertEqual(known, {"role": "robot", "version": "0.5.0"})
 
 
 class FirmwareUpdaterTests(unittest.TestCase):
@@ -271,6 +434,20 @@ class FirmwareUpdaterTests(unittest.TestCase):
         self.assertEqual(updater.state["operation"], "erase")
         self.assertEqual(updater.state["state"], "preparing")
         thread.return_value.start.assert_called_once()
+
+    def test_repair_uses_a_complete_factory_image(self):
+        manager = mock.Mock()
+        session = DeviceSession(PortDescriptor("COM4"), FakeHandle(), "nonce")
+        session.info = DeviceInfo("robot", "AA:BB:CC:DD:EE:FF", "0.5.2", 1)
+        session.state = "repair"
+        session.requires_factory = True
+        manager.session_for_device.return_value = session
+        updater = FirmwareUpdater(manager, mock.Mock(), lambda: None)
+
+        with mock.patch("firmware_update.threading.Thread") as thread:
+            updater.start(session.info.device_id, "robot")
+
+        self.assertTrue(thread.call_args.kwargs["args"][3])
 
     def test_programming_retries_transient_serial_handoff_failures(self):
         writer = mock.Mock()
@@ -302,6 +479,47 @@ class FirmwareUpdaterTests(unittest.TestCase):
 
         self.assertEqual(run_once.call_args_list[0].args[0][3], "COM4")
         self.assertEqual(run_once.call_args_list[1].args[0][3], "COM9")
+
+    def test_programming_recovery_slows_down_then_uses_rom_bootloader(self):
+        writer = mock.Mock()
+        writer.buffer = ""
+        with mock.patch("firmware_update.time.sleep"), mock.patch.object(
+            FirmwareUpdater,
+            "_run_esptool_once",
+            side_effect=[RuntimeError("first"), RuntimeError("second"), None],
+        ) as run_once:
+            FirmwareUpdater._run_esptool(
+                [
+                    "--chip", "esp32c3", "--port", "COM4", "--baud", "460800",
+                    "write-flash", "0x0", "factory.bin",
+                ],
+                writer,
+                "failed",
+            )
+
+        second_attempt = run_once.call_args_list[1].args[0]
+        final_attempt = run_once.call_args_list[2].args[0]
+        self.assertEqual(second_attempt[second_attempt.index("--baud") + 1], "115200")
+        self.assertEqual(final_attempt[final_attempt.index("--baud") + 1], "115200")
+        self.assertLess(final_attempt.index("--no-stub"), final_attempt.index("write-flash"))
+
+    def test_programming_failure_explains_how_to_enter_programming_mode(self):
+        message = FirmwareUpdater._programming_error(
+            "Fatal error: Failed to connect: No serial data received.",
+            "The device did not accept the firmware.",
+        )
+
+        self.assertIn("Hold BOOT", message)
+        self.assertNotIn("did not accept", message)
+
+    def test_force_is_not_suggested_for_a_security_protected_board(self):
+        message = FirmwareUpdater._programming_error(
+            "ESP32-C3 is in Secure Download Mode; security check failed",
+            "The device did not accept the firmware.",
+        )
+
+        self.assertIn("security settings", message)
+        self.assertNotIn("BOOT", message)
 
 
 if __name__ == "__main__":

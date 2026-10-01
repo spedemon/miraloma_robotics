@@ -15,6 +15,8 @@
  *   grip <angle>               — Set grip angle
  *
  *   move <x> <y> <z> [speed]   — Smooth move (default 50 mm/s)
+ *   smmove <x> <y> <z>         — Smooth coordinated joint move to XYZ
+ *   track <x> <y> <z>          — Stream a velocity-continuous XYZ target
  *   stop                       — Clear motion queue and stop gestures
  *
  *   gesture list               — List available gestures
@@ -98,6 +100,8 @@ private:
     void _cmdGoto(const String& args);
     void _cmdGrip(const String& args);
     void _cmdMove(const String& args);
+    void _cmdSmMove(const String& args);
+    void _cmdTrack(const String& args);
     void _cmdStop();
     void _cmdSleep();
     void _cmdWake();
@@ -111,6 +115,7 @@ private:
     void _cmdCalSet(const String& args);
     void _cmdCalGet();
     void _cmdCalReset();
+    void _cmdCalPreview(const String& args);
     void _cmdSeqClear();
     void _cmdSeqAdd(const String& args);
     void _cmdSeqLoop(const String& args);

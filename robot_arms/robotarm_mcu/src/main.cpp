@@ -32,6 +32,7 @@
 #include "SerialConsole.h"
 #include "SwarmNode.h"
 #include "BoostButton.h"
+#include "BleTransport.h"
 
 // --- Layer 0: PWM driver ---
 MiraArm arm;
@@ -69,6 +70,9 @@ SerialConsole console(arm, controller, planner, gestures, smooth, customStore);
 // --- Swarm (ESP-NOW) ---
 SwarmNode swarmNode;
 
+// --- Direct Bluetooth controller ---
+BleTransport bleTransport;
+
 // --- BOOT button mode cycler ---
 BoostButton boostButton(gestures, controller, &customStore);
 
@@ -95,6 +99,12 @@ void cancelSleep() {
 // ---------------------------------------------------------------------------
 
 void handleSwarmCommand(const char* command, char* response, size_t maxLen) {
+    // A directly connected tablet/computer owns the robot until it
+    // disconnects. STOP remains available over every transport.
+    if (bleTransport.isConnected() && strcmp(command, "stop") != 0) {
+        snprintf(response, maxLen, "BUSY — robot is controlled over Bluetooth");
+        return;
+    }
     String cmd(command);
     String resp;
 
@@ -108,6 +118,10 @@ void handleSwarmCommand(const char* command, char* response, size_t maxLen) {
         memcpy(response, resp.c_str(), copyLen);
         response[copyLen] = '\0';
     }
+}
+
+void handleBleCommand(const char* command, String& response) {
+    console.executeCommand(String(command), response);
 }
 
 // ---------------------------------------------------------------------------
@@ -160,6 +174,10 @@ void setup() {
     swarmNode.onCommand(handleSwarmCommand);
     swarmNode.begin();
 
+    // BLE advertises the same stable ID used by USB and ESP-NOW, allowing the
+    // applications to merge sightings of the same physical robot.
+    bleTransport.begin(swarmNode.getMacString(), handleBleCommand);
+
     // --- Initial idle: sleep servos after homing ---
     arm.sleep();
 }
@@ -170,6 +188,7 @@ void loop() {
     gestures.update();    // Feed planner if a gesture is active
     console.update();     // Process serial input (USB)
     swarmNode.update();   // Process swarm commands (ESP-NOW)
+    bleTransport.update();// Process direct BLE commands
     boostButton.update(); // BOOT button mode cycling
 
     // --- Auto-home when gesture finishes (but not during a transition) ---

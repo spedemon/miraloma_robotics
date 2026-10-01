@@ -20,12 +20,12 @@ Start with the **[Mira family guide](robot_arms/README.md)**. It explains, in pl
 
 - how to use the robot without a computer;
 - how to download and open the Mira application;
-- how to connect by USB cable or by radio;
+- how to connect by Bluetooth, USB cable, or radio;
 - how to move, program, save, load, loop, and upload sequences;
 - how to calibrate a hand-built arm; and
 - what to do when a joint was assembled in the wrong position.
 
-[⬇️ Download Mira for macOS](https://github.com/spedemon/miraloma_robotics/releases/latest) · [⬇️ Download Mira for Windows](https://github.com/spedemon/miraloma_robotics/releases/latest) · [🆘 Troubleshooting](robot_arms/README.md#troubleshooting)
+[⬇️ Download Mira for Android](https://github.com/spedemon/miraloma_robotics/releases/latest) · [⬇️ Download Mira for macOS](https://github.com/spedemon/miraloma_robotics/releases/latest) · [⬇️ Download Mira for Windows](https://github.com/spedemon/miraloma_robotics/releases/latest) · [🆘 Troubleshooting](robot_arms/README.md#troubleshooting)
 
 ## Projects
 
@@ -46,7 +46,7 @@ Repository layout:
 
 ```text
 miraloma_robotics/
-├── robot_arms/      # Mira hardware, firmware, desktop app, and documentation
+├── robot_arms/      # Mira hardware, firmware, Android/desktop apps, and documentation
 ├── wheeled_bots/    # Wheeled/walking robots, UI, and firmware
 └── media/           # Project images and video
 ```

@@ -22,8 +22,11 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 
 from app_paths import resource_path, user_data_dir
+from board_inspector import BoardInspector
 from device_manager import DeviceManager, DeviceSession
 from firmware_update import FirmwareCatalog, FirmwareUpdater
+from ble_manager import BleManager
+from instance_lock import InstanceLock
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -70,6 +73,7 @@ robots = {}  # MAC -> { "name": str, "mac": str, "online": bool, "lastSeen": flo
 device_manager = None
 firmware_catalog = FirmwareCatalog()
 firmware_updater = None
+ble_manager = None
 
 # Periodic poll timer
 swarm_poll_timer = None
@@ -424,11 +428,10 @@ def get_robot_list():
         item = {key: value for key, value in robot.items() if key != "endpoints"}
         endpoints = robot.get("endpoints", {})
         transports = {endpoint["transport"] for endpoint in endpoints.values()}
-        item["connection"] = (
-            "USB + Wireless" if transports == {"usb", "wireless"}
-            else "USB" if "usb" in transports
-            else "Wireless" if "wireless" in transports else None
-        )
+        labels = {"usb": "USB", "ble": "Bluetooth", "wireless": "Wireless"}
+        item["connection"] = " + ".join(
+            labels[value] for value in ("usb", "ble", "wireless") if value in transports
+        ) or None
         item["online"] = bool(endpoints) and any(e.get("online", True) for e in endpoints.values())
         public.append(item)
     return sorted(public,
@@ -458,9 +461,11 @@ def _upsert_endpoint(mac, endpoint_key, endpoint, **fields):
 
 
 def _prune_missing_sessions():
-    if not device_manager:
-        return
-    live_ports = {session.port.device for session in device_manager.connected_sessions()}
+    live_ports = set()
+    if device_manager:
+        live_ports.update(session.port.device for session in device_manager.connected_sessions())
+    if ble_manager:
+        live_ports.update(session.port.device for session in ble_manager.connected_sessions())
     changed = False
     for mac in list(robots):
         endpoints = robots[mac].setdefault("endpoints", {})
@@ -475,7 +480,7 @@ def _prune_missing_sessions():
 
 
 def _device_state_changed():
-    """Reconcile USB sessions and publish one complete UI snapshot."""
+    """Reconcile USB/BLE sessions and publish one complete UI snapshot."""
     _prune_missing_sessions()
     if device_manager:
         for session in device_manager.connected_sessions():
@@ -488,6 +493,14 @@ def _device_state_changed():
                 )
             elif info.role == "wireless_controller":
                 session.write("swarm list")
+    if ble_manager:
+        for session in ble_manager.connected_sessions():
+            info = session.info
+            _upsert_endpoint(
+                info.device_id, f"ble:{session.address}",
+                {"transport": "ble", "port": session.port.device, "online": True},
+                firmware=info.firmware, legacy=info.legacy,
+            )
     devices = _device_snapshot()
     socketio.emit("device_inventory", {"devices": devices})
     socketio.emit("serial_status", {"connected": bool([d for d in devices if d["state"] == "connected"])})
@@ -495,6 +508,8 @@ def _device_state_changed():
 
 def _device_snapshot():
     devices = device_manager.snapshot() if device_manager else []
+    if ble_manager:
+        devices.extend(ble_manager.snapshot())
     for device in devices:
         robot = robots.get(device.get("deviceId"))
         device["name"] = robot.get("name") if robot else None
@@ -502,12 +517,13 @@ def _device_snapshot():
 
 
 def _managed_line(session: DeviceSession, text: str):
-    """Parse output in the context of the USB device that produced it."""
+    """Parse output in the context of the USB or BLE device that produced it."""
     info = session.info
     if info and info.role == "robot" and info.device_id != "pending":
+        transport = "ble" if session.port.device.startswith("ble:") else "usb"
         _upsert_endpoint(
-            info.device_id, f"usb:{session.port.device}",
-            {"transport": "usb", "port": session.port.device, "online": True},
+            info.device_id, f"{transport}:{session.port.device}",
+            {"transport": transport, "port": session.port.device, "online": True},
             firmware=info.firmware, legacy=info.legacy,
         )
 
@@ -560,7 +576,7 @@ def _managed_line(session: DeviceSession, text: str):
 
 def _route_command(target, command):
     """Send a command exactly once to each selected MAC."""
-    if not device_manager:
+    if not device_manager and not ble_manager:
         return False
     if target in (None, "all"):
         selected = [robot for robot in robots.values() if robot.get("endpoints")]
@@ -584,10 +600,14 @@ def _route_command(target, command):
     for robot in selected:
         endpoints = list(robot.get("endpoints", {}).values())
         direct = next((e for e in endpoints if e["transport"] == "usb"), None)
-        endpoint = direct or next((e for e in endpoints if e["transport"] == "wireless"), None)
+        bluetooth = next((e for e in endpoints if e["transport"] == "ble"), None)
+        endpoint = direct or bluetooth or next((e for e in endpoints if e["transport"] == "wireless"), None)
         if endpoint:
-            outgoing = command if endpoint["transport"] == "usb" else f"@{robot['mac']} {command}"
-            sent = device_manager.write(endpoint["port"], outgoing) or sent
+            if endpoint["transport"] == "ble":
+                sent = bool(ble_manager and ble_manager.write(endpoint["port"], command)) or sent
+            else:
+                outgoing = command if endpoint["transport"] == "usb" else f"@{robot['mac']} {command}"
+                sent = device_manager.write(endpoint["port"], outgoing) or sent
     return sent
 
 
@@ -596,8 +616,13 @@ def _update_state_changed():
         socketio.emit("update_status", firmware_updater.state)
 
 
-device_manager = DeviceManager(_managed_line, _device_state_changed)
+device_manager = DeviceManager(
+    _managed_line,
+    _device_state_changed,
+    inspector=BoardInspector(firmware_catalog.identify_fingerprint),
+)
 firmware_updater = FirmwareUpdater(device_manager, firmware_catalog, _update_state_changed)
+ble_manager = BleManager(_managed_line, _device_state_changed)
 
 # ---------------------------------------------------------------------------
 # Serial connection management
@@ -822,13 +847,30 @@ def api_devices():
     })
 
 
+@app.route("/api/ble/connect", methods=["POST"])
+def api_ble_connect():
+    data = request.json or {}
+    try:
+        ble_manager.connect(data.get("address", ""))
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+    return jsonify({"ok": True})
+
+
+@app.route("/api/ble/disconnect", methods=["POST"])
+def api_ble_disconnect():
+    data = request.json or {}
+    ble_manager.disconnect(data.get("address", ""))
+    return jsonify({"ok": True})
+
+
 @app.route("/api/updates", methods=["GET"])
 def api_updates():
     force = request.args.get("refresh") == "1"
     manifest = firmware_catalog.refresh(force=force)
     devices_by_id = {}
     if device_manager:
-        for session in device_manager.connected_sessions():
+        for session in device_manager.firmware_sessions():
             info = session.info
             entry = firmware_catalog.entry(info.role)
             devices_by_id[info.device_id] = {
@@ -838,7 +880,8 @@ def api_updates():
                 "legacy": info.legacy,
                 "latest": entry.get("version") if entry else None,
                 "canUpdate": True,
-                "updateAvailable": firmware_catalog.update_available(
+                "repairRequired": session.state == "repair",
+                "updateAvailable": session.state == "repair" or firmware_catalog.update_available(
                     info.role, info.firmware, info.legacy
                 ),
             }
@@ -952,10 +995,24 @@ def ws_request_robot_list():
 # ---------------------------------------------------------------------------
 
 def initialize_serial():
-    """Start continuous automatic USB discovery."""
+    """Start continuous automatic USB and Bluetooth discovery."""
+    threading.Thread(
+        target=firmware_catalog.refresh,
+        kwargs={"force": True},
+        name="mira-firmware-catalog",
+        daemon=True,
+    ).start()
     device_manager.start()
-    print("  Automatic robot discovery started")
+    ble_manager.start()
+    print("  Automatic USB and Bluetooth robot discovery started")
     return None
+
+
+def shutdown_connections():
+    """Stop every hardware transport before the desktop window exits."""
+    if ble_manager:
+        ble_manager.stop()
+    disconnect_serial()
 
 
 def run_server(host="127.0.0.1", port=5050):
@@ -976,6 +1033,11 @@ if __name__ == "__main__":
     print("  Mira Swarm Controller — Web Server")
     print("═══════════════════════════════════════════")
     print()
+
+    instance_lock = InstanceLock()
+    if not instance_lock.acquire():
+        print("  Mira is already running. Use the existing Mira window at http://localhost:5050/")
+        raise SystemExit(0)
 
     initialize_serial()
 

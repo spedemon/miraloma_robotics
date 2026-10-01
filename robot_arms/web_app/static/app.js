@@ -67,27 +67,134 @@ function fk(baseServoDeg, shoulderServoDeg, elbowServoDeg) {
     };
 }
 
-/**
- * Inverse Kinematics: Cartesian position (mm) → servo angles (degrees).
- * Mirrors ArmController::solve() from ArmController.cpp.
- * Returns { base, shoulder, elbow } or null if unreachable.
- */
-function ik(x, y, z) {
+function stepXYZRobotJoint(current, target, velocity, dt) {
+    const error = target - current;
+    const absError = Math.abs(error);
+    let desiredSpeed = Math.min(
+        XYZ_MOTION_MAX_SPEED,
+        Math.sqrt(2 * XYZ_MOTION_ACCEL * absError),
+    );
+    let desiredVelocity = error < 0 ? -desiredSpeed : desiredSpeed;
+    if (absError <= XYZ_MOTION_POSITION_EPSILON) desiredVelocity = 0;
+
+    const maxVelocityChange = XYZ_MOTION_ACCEL * dt;
+    const velocityChange = Math.max(
+        -maxVelocityChange,
+        Math.min(maxVelocityChange, desiredVelocity - velocity),
+    );
+    const nextVelocity = velocity + velocityChange;
+    const step = nextVelocity * dt;
+    if (absError <= XYZ_MOTION_POSITION_EPSILON
+        && Math.abs(nextVelocity) <= XYZ_MOTION_VELOCITY_EPSILON) {
+        return { position: target, velocity: 0, settled: true };
+    }
+    const position = current + step;
+    return {
+        position,
+        velocity: nextVelocity,
+        settled: Math.abs(target - position) <= XYZ_MOTION_POSITION_EPSILON
+            && Math.abs(nextVelocity) <= XYZ_MOTION_VELOCITY_EPSILON,
+    };
+}
+
+function updateXYZRobotModel(nowMs) {
+    if (xyzRobotMotionLastMs === null) xyzRobotMotionLastMs = nowMs;
+    let remainingTime = Math.min(0.05, Math.max(0.001, (nowMs - xyzRobotMotionLastMs) / 1000));
+    xyzRobotMotionLastMs = nowMs;
+    let settled = false;
+
+    // Match the firmware's 5 ms control cadence even though browsers usually
+    // render at ~16 ms. Substeps keep the estimated pose and arrival time close
+    // to the physical follower instead of making them frame-rate dependent.
+    while (remainingTime > 0) {
+        const dt = Math.min(0.005, remainingTime);
+        remainingTime -= dt;
+        settled = true;
+        ["base", "shoulder", "elbow"].forEach((joint) => {
+            const next = stepXYZRobotJoint(
+                xyzRobotJoints[joint],
+                xyzRobotTargetJoints[joint],
+                xyzRobotJointVelocities[joint],
+                dt,
+            );
+            xyzRobotJoints[joint] = next.position;
+            xyzRobotJointVelocities[joint] = next.velocity;
+            settled = settled && next.settled;
+        });
+    }
+
+    lastValidCartesianTarget = fk(
+        xyzRobotJoints.base,
+        xyzRobotJoints.shoulder,
+        xyzRobotJoints.elbow,
+    );
+    scheduleXYZWorkspaceDraw();
+
+    if (settled) {
+        xyzRobotMotionFrame = null;
+        xyzRobotMotionLastMs = null;
+    } else {
+        xyzRobotMotionFrame = requestAnimationFrame(updateXYZRobotModel);
+    }
+}
+
+function setXYZRobotTarget(joints, instant = false) {
+    xyzRobotTargetJoints = {
+        base: joints.base,
+        shoulder: joints.shoulder,
+        elbow: joints.elbow,
+    };
+    if (instant) {
+        xyzRobotJoints = { ...xyzRobotTargetJoints };
+        xyzRobotJointVelocities = { base: 0, shoulder: 0, elbow: 0 };
+        lastValidCartesianTarget = fk(
+            xyzRobotJoints.base,
+            xyzRobotJoints.shoulder,
+            xyzRobotJoints.elbow,
+        );
+        scheduleXYZWorkspaceDraw();
+        return;
+    }
+    if (xyzRobotMotionFrame === null) {
+        xyzRobotMotionLastMs = null;
+        xyzRobotMotionFrame = requestAnimationFrame(updateXYZRobotModel);
+    }
+}
+
+/** Solve IK and retain a user-facing reason when the target is invalid. */
+function solveCartesianTarget(x, y, z) {
     const L1 = ARM_LINK1_LENGTH;
     const L2 = ARM_LINK2_LENGTH;
     const d0 = ARM_BASE_HEIGHT;
 
+    if (![x, y, z].every(Number.isFinite)) {
+        return { valid: false, reason: "Enter a number for X, Y, and Z." };
+    }
+    if (x < -126 || x > 126 || y < -126 || y > 126 || z < 0 || z > 148) {
+        return { valid: false, reason: "The target is outside the displayed XYZ workspace." };
+    }
+
+    // Treat signed zero as the centerline so typing "-0" cannot request a
+    // spurious 180-degree base rotation.
+    const safeX = Math.abs(x) < 0.0001 ? 0 : x;
+    const safeY = Math.abs(y) < 0.0001 ? 0 : y;
+
     // Base angle (top-down view)
-    const baseGeo = Math.atan2(y, x);
+    const baseGeo = Math.atan2(safeY, safeX);
 
     // 2-link planar IK in the vertical plane
-    const r = Math.sqrt(x * x + y * y);
+    const r = Math.sqrt(safeX * safeX + safeY * safeY);
     const zEff = z - d0;
 
     const distSq = r * r + zEff * zEff;
     const D = (distSq - L1 * L1 - L2 * L2) / (2.0 * L1 * L2);
 
-    if (D * D > 1.0) return null;  // Unreachable
+    if (D > 1.0) {
+        return { valid: false, reason: "The target is beyond the arm's maximum reach." };
+    }
+    if (D < -1.0) {
+        return { valid: false, reason: "The target is too close to the shoulder for the arm to fold there." };
+    }
 
     // Elbow angle (elbow-down solution)
     const elbowGeo = Math.atan2(-Math.sqrt(1.0 - D * D), D);
@@ -102,11 +209,30 @@ function ik(x, y, z) {
     const elbowAngle = SERVO_ELBOW_OFFSET + SERVO_ELBOW_DIRECTION * (elbowGeo * RAD2DEG);
 
     // Check joint limits
-    if (baseAngle < JOINT_BASE_MIN || baseAngle > JOINT_BASE_MAX) return null;
-    if (shoulderAngle < JOINT_SHOULDER_MIN || shoulderAngle > JOINT_SHOULDER_MAX) return null;
-    if (elbowAngle < JOINT_ELBOW_MIN || elbowAngle > JOINT_ELBOW_MAX) return null;
+    if (baseAngle < JOINT_BASE_MIN || baseAngle > JOINT_BASE_MAX) {
+        return { valid: false, reason: "The base cannot rotate far enough to face that target." };
+    }
+    if (shoulderAngle < JOINT_SHOULDER_MIN || shoulderAngle > JOINT_SHOULDER_MAX) {
+        return { valid: false, reason: "That target would move the shoulder beyond its safe limit." };
+    }
+    if (elbowAngle < JOINT_ELBOW_MIN || elbowAngle > JOINT_ELBOW_MAX) {
+        return { valid: false, reason: "That target would move the elbow beyond its safe limit." };
+    }
 
-    return { base: baseAngle, shoulder: shoulderAngle, elbow: elbowAngle };
+    return {
+        valid: true,
+        joints: { base: baseAngle, shoulder: shoulderAngle, elbow: elbowAngle },
+        reason: "",
+    };
+}
+
+/**
+ * Inverse Kinematics: Cartesian position (mm) → servo angles (degrees).
+ * Mirrors ArmController::solve() from ArmController.cpp.
+ */
+function ik(x, y, z) {
+    const solution = solveCartesianTarget(x, y, z);
+    return solution.valid ? solution.joints : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -153,12 +279,38 @@ let calibrationOpenTimer = null;
 let calibrationLoadPending = false; // true while waiting for cal_get
 let calibrationLoadTimer = null;
 let calibrationAtHome = true; // false while a claw test/preview is away from Home
+let calibrationGripTestPosition = "closed";
 let loadedCalibration = { base: 0, shoulder: 0, elbow: 0, grip: 0 };
 let customGestures = [];     // Array of custom gesture names from robot
 
-// Control mode & motion type
+// Control mode
 let controlMode = 'joint';  // 'cartesian' or 'joint'
-let motionType = 'smooth';      // 'smooth' or 'instant'
+let lastValidCartesianTarget = fk(0, 0, 0);
+let xyzWorkspaceInitialized = false;
+let xyzWorkspaceDrawPending = false;
+let xyzReachableVolumePoints = null;
+const XYZ_DEFAULT_VOLUME_ZOOM = 1.45;
+const XYZ_DEFAULT_VOLUME_YAW = -Math.PI / 4;
+const XYZ_DEFAULT_VOLUME_ELEVATION = 0.30;
+let xyzVolumeZoom = XYZ_DEFAULT_VOLUME_ZOOM;
+let xyzVolumeYaw = XYZ_DEFAULT_VOLUME_YAW;
+let xyzVolumeElevation = XYZ_DEFAULT_VOLUME_ELEVATION;
+let xyzLastSendMs = 0;
+let xyzPendingSendTimer = null;
+let xyzLastSentTargetKey = null;
+let xyzDragFilteredTarget = null;
+let xyzPositionNotice = "";
+const XYZ_LIVE_SEND_MS = 50;
+const XYZ_DRAG_FILTER_ALPHA = 0.42;
+const XYZ_MOTION_MAX_SPEED = 120.0;
+const XYZ_MOTION_ACCEL = 300.0;
+const XYZ_MOTION_POSITION_EPSILON = 0.10;
+const XYZ_MOTION_VELOCITY_EPSILON = 0.01;
+let xyzRobotJoints = { base: 0, shoulder: 0, elbow: 0 };
+let xyzRobotTargetJoints = { base: 0, shoulder: 0, elbow: 0 };
+let xyzRobotJointVelocities = { base: 0, shoulder: 0, elbow: 0 };
+let xyzRobotMotionFrame = null;
+let xyzRobotMotionLastMs = null;
 
 // Slider throttle
 let sliderThrottleTimer = null;
@@ -198,9 +350,8 @@ function initSocket() {
         renderDeviceSettings();
         refreshUpdates(false);
 
-        // A blank ESP32-C3 cannot identify its intended role. Bring the safe
-        // choice to the user instead of expecting them to discover it under
-        // Devices. Reconnecting the board allows the prompt to appear again.
+        // A board which read-only inspection proves has no working Mira image
+        // cannot identify its intended role. Bring that choice to the user.
         const presentPorts = new Set(connectedDevices.map((device) => device.port));
         if (!deviceOperationActive) {
             setupPromptedPorts = new Set([...setupPromptedPorts].filter((port) => presentPorts.has(port)));
@@ -223,8 +374,8 @@ function initSocket() {
         renderUpdateProgress(data);
         if (data.state === "complete" && data.operation === "erase"
             && connectedDevices.some((device) => device.state === "unrecognized")) {
-            const blankBoard = connectedDevices.find((device) => device.state === "unrecognized");
-            setupPromptedPorts.delete(blankBoard.port);
+            const newBoard = connectedDevices.find((device) => device.state === "unrecognized");
+            setupPromptedPorts.delete(newBoard.port);
             openProvisioningModal();
         }
         if (data.state === "complete") refreshUpdates(false);
@@ -298,10 +449,15 @@ function updateSerialUI(data) {
     const banner = document.getElementById("disconnected-banner");
     const message = document.getElementById("disconnected-message");
     const newBoards = connectedDevices.filter((device) => device.state === "unrecognized");
-    const checkingBoards = connectedDevices.filter((device) => device.state === "probing");
+    const checkingBoards = connectedDevices.filter((device) => ["probing", "inspecting"].includes(device.state));
+    const failedBoards = connectedDevices.filter((device) => device.state === "inspection_failed");
+    const repairBoards = connectedDevices.filter((device) => device.state === "repair");
+    const nearbyBluetooth = connectedDevices.filter(
+        (device) => device.transport === "ble" && device.state === "available"
+    );
 
-    badge.disabled = !data.connected && !newBoards.length;
-    badge.classList.toggle("attention", newBoards.length > 0);
+    badge.disabled = !data.connected && !newBoards.length && !nearbyBluetooth.length;
+    badge.classList.toggle("attention", newBoards.length > 0 || failedBoards.length > 0);
     if (newBoards.length) {
         badge.classList.remove("connected");
         label.textContent = newBoards.length === 1 ? "New USB board found" : `${newBoards.length} new USB boards found`;
@@ -312,15 +468,36 @@ function updateSerialUI(data) {
         const count = connectedDevices.filter((device) => device.state === "connected").length;
         label.textContent = count === 1 ? "1 device connected" : `${count || 1} devices connected`;
         banner.style.display = "none";
+    } else if (nearbyBluetooth.length) {
+        badge.classList.remove("connected");
+        label.textContent = nearbyBluetooth.length === 1
+            ? "Bluetooth robot nearby"
+            : `${nearbyBluetooth.length} Bluetooth robots nearby`;
+        message.textContent = "A Mira robot is nearby. Open the connection menu to connect over Bluetooth.";
+        banner.style.display = "flex";
     } else if (checkingBoards.length) {
         badge.classList.remove("connected");
         label.textContent = "Checking USB board…";
-        message.textContent = "Mira found a USB board and is checking whether it is already programmed.";
+        message.textContent = checkingBoards.some((device) => device.state === "inspecting")
+            ? "Mira is safely reading the board to identify the software already installed."
+            : "Mira found a USB board and is asking it to identify itself.";
+        banner.style.display = "flex";
+    } else if (repairBoards.length) {
+        badge.classList.remove("connected");
+        label.textContent = `${roleLabel(repairBoards[0].role)} needs repair`;
+        message.textContent = "Mira recognized the installed software, but it did not start correctly.";
+        banner.style.display = "flex";
+    } else if (failedBoards.length) {
+        badge.classList.remove("connected");
+        label.textContent = "USB board needs attention";
+        message.textContent = failedBoards[0].detail || "Mira could not identify this USB board. Reconnect it and try again.";
         banner.style.display = "flex";
     } else {
         badge.classList.remove("connected");
         label.textContent = "Looking for robots…";
-        message.textContent = "Looking for robots… Connect a robot or a Wireless board with a USB cable.";
+        message.textContent = window.MiraAndroid
+            ? "Looking for robots over Bluetooth…"
+            : "Looking for robots over Bluetooth and USB…";
         banner.style.display = "flex";
     }
 }
@@ -333,8 +510,15 @@ function openProvisioningModal() {
     deviceModalMode = "provisioning";
     const title = document.getElementById("devices-modal-title");
     const description = document.getElementById("devices-modal-description");
-    title.textContent = "Set up your new USB board";
-    description.textContent = "Mira found an unprogrammed ESP32-C3. Choose what this board will become. Mira will install the correct firmware automatically.";
+    const board = connectedDevices.find((device) => device.state === "unrecognized");
+    title.textContent = board?.classification === "other_firmware"
+        ? "Set up this ESP32-C3 board"
+        : "Set up your new USB board";
+    description.textContent = board?.classification === "other_firmware"
+        ? "This ESP32-C3 contains software that is not from Mira. Choose what the board will become. Its existing software will be replaced."
+        : board?.classification === "corrupt"
+            ? "Mira found an ESP32-C3 whose software is incomplete or damaged. Choose what the board will become. Mira will install fresh firmware."
+            : "Mira software was not found on this ESP32-C3. Choose what the board will become. Mira will install the correct firmware automatically.";
     document.getElementById("device-list").style.display = "grid";
     document.getElementById("update-progress").style.display = "none";
     document.getElementById("settings-modal").classList.add("visible");
@@ -377,7 +561,7 @@ function openDeviceSettings() {
         openProvisioningModal();
         return;
     }
-    if (!connectedDevices.some((device) => device.state === "connected")) return;
+    if (!connectedDevices.some((device) => device.state === "connected" || device.transport === "ble")) return;
     renderDeviceSettings();
     document.getElementById("device-settings-modal").classList.add("visible");
 }
@@ -389,30 +573,60 @@ function closeDeviceSettings() {
 function renderDeviceSettings() {
     const list = document.getElementById("device-settings-list");
     if (!list) return;
-    const devices = connectedDevices.filter((device) => device.state === "connected" && device.deviceId);
+    const devices = connectedDevices.filter(
+        (device) => device.state === "connected" || device.transport === "ble"
+    );
     if (!devices.length) {
-        list.innerHTML = '<div class="device-empty">No programmed USB devices are connected.</div>';
+        list.innerHTML = '<div class="device-empty">No Mira devices are nearby.</div>';
         return;
     }
     list.innerHTML = devices.map((device) => {
         const associatedRobot = robots.find((robot) => robot.mac === device.deviceId);
         const deviceName = device.name || associatedRobot?.name;
+        const isBluetooth = device.transport === "ble";
+        const isConnected = device.state === "connected";
+        const bluetoothAction = isBluetooth
+            ? `<div class="device-erase-action">
+                <div><strong>${isConnected ? "Bluetooth connected" : device.state === "connecting" ? "Connecting…" : "Bluetooth available"}</strong><br><span>${isConnected ? "Control this robot without a cable." : "Connect directly to this robot."}</span></div>
+                <button class="btn ${isConnected ? "" : "btn-primary"}" ${device.state === "connecting" ? "disabled" : ""}
+                    onclick="${isConnected ? "disconnectBluetoothDevice" : "connectBluetoothDevice"}('${escapeHtml(device.address || device.port.replace(/^ble:/, ""))}')">
+                    ${isConnected ? "Disconnect" : device.state === "connecting" ? "Connecting…" : "Connect"}
+                </button>
+            </div>`
+            : `<div class="device-erase-action">
+                <div><strong>Erase this board</strong><br><span>Remove its firmware so it can be programmed for a different purpose.</span></div>
+                <button class="btn btn-danger" onclick="confirmEraseDevice('${escapeHtml(device.deviceId)}')">Erase firmware…</button>
+            </div>`;
         return `
         <div class="device-info-card">
-            <div class="device-card-title">${roleLabel(device.role)}</div>
+            <div class="device-card-title">${escapeHtml(deviceName || device.name || roleLabel(device.role))}</div>
             <dl class="device-facts">
                 <div><dt>Firmware type</dt><dd>${roleLabel(device.role)}</dd></div>
                 <div><dt>Firmware version</dt><dd>${escapeHtml(device.firmware || "Unknown")}</dd></div>
-                <div><dt>MAC address</dt><dd class="device-id-value">${escapeHtml(device.deviceId)}</dd></div>
+                <div><dt>Connection</dt><dd>${isBluetooth ? "Bluetooth" : "USB"}</dd></div>
+                ${device.deviceId ? `<div><dt>Robot ID</dt><dd class="device-id-value">${escapeHtml(device.deviceId)}</dd></div>` : ""}
                 ${deviceName ? `<div><dt>Name</dt><dd>${escapeHtml(deviceName)}</dd></div>` : ""}
             </dl>
-            <div class="device-erase-action">
-                <div><strong>Erase this board</strong><br><span>Remove its firmware so it can be programmed for a different purpose.</span></div>
-                <button class="btn btn-danger" onclick="confirmEraseDevice('${escapeHtml(device.deviceId)}')">Erase firmware…</button>
-            </div>
+            ${bluetoothAction}
         </div>
     `;
     }).join("");
+}
+
+async function connectBluetoothDevice(address) {
+    const res = await fetch("/api/ble/connect", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address }),
+    });
+    const data = await res.json();
+    if (!res.ok) addConsoleLine(data.error || "Bluetooth connection failed", "error");
+}
+
+async function disconnectBluetoothDevice(address) {
+    await fetch("/api/ble/disconnect", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address }),
+    });
 }
 
 function confirmEraseDevice(deviceId) {
@@ -459,9 +673,9 @@ function renderDevices() {
         <div class="device-card">
             <div class="device-card-main">
                 <div class="device-card-title">${device.role ? roleLabel(device.role) : `New ESP32-C3 board${devices.length > 1 ? ` ${index + 1}` : ""}`}</div>
-                <div class="device-card-detail">${device.role ? (device.firmware ? `Firmware ${escapeHtml(device.firmware)}` : "Older firmware") : (device.state === "probing" ? "Checking this device…" : "Choose how this board will be used")}</div>
+                <div class="device-card-detail">${device.classification === "other_firmware" ? "Existing non-Mira software will be replaced" : device.classification === "corrupt" ? "Existing software is incomplete or damaged" : "Mira software was not found"}</div>
             </div>
-            <div class="device-setup-actions"><button class="btn" onclick="startFirmwareUpdate('', 'robot', '${escapeHtml(device.port)}')">Program as Robot</button> <button class="btn btn-primary" onclick="startFirmwareUpdate('', 'wireless_controller', '${escapeHtml(device.port)}')">Program as Wireless board</button></div>
+            <div class="device-setup-actions"><button class="btn" onclick="startFirmwareUpdate('', 'robot', '${escapeHtml(device.port)}')">${device.classification === "other_firmware" ? "Replace with Robot software" : "Program as Robot"}</button> <button class="btn btn-primary" onclick="startFirmwareUpdate('', 'wireless_controller', '${escapeHtml(device.port)}')">${device.classification === "other_firmware" ? "Replace with Wireless board software" : "Program as Wireless board"}</button></div>
         </div>
     `).join("");
 }
@@ -524,12 +738,16 @@ function maybePromptFirmwareUpdate() {
     firmwarePrompted.add(key);
     const label = roleLabel(device.role);
     const modal = document.getElementById("firmware-update-modal");
-    document.getElementById("firmware-update-title").textContent = `${label} update available`;
-    document.getElementById("firmware-update-description").textContent = device.legacy
+    document.getElementById("firmware-update-title").textContent = device.repairRequired
+        ? `${label} software needs repair`
+        : `${label} update available`;
+    document.getElementById("firmware-update-description").textContent = device.repairRequired
+        ? `Mira found ${label.toLowerCase()} firmware on this board, but it did not start correctly. Mira can reinstall it safely.`
+        : device.legacy
         ? `This ${label.toLowerCase()} needs a one-time update before using the new automatic connection features. Keep the USB cable connected until the update finishes.`
         : `Firmware ${device.latest} is available for this ${label.toLowerCase()}. Keep the USB cable connected until the update finishes.`;
     const button = document.getElementById("firmware-update-button");
-    button.textContent = `Update ${label}`;
+    button.textContent = device.repairRequired ? `Repair ${label}` : `Update ${label}`;
     button.onclick = () => startFirmwareUpdate(device.deviceId, device.role);
     modal.classList.add("visible");
 }
@@ -809,7 +1027,7 @@ function sendCommand(cmd) {
 }
 
 /** Reset all UI sliders to the home position (grip closed at 45°). */
-function resetSlidersToHome() {
+function resetSlidersToHome(instantRobotModel = false) {
     // Joint sliders
     document.getElementById("slider-base").value = 0;
     document.getElementById("slider-shoulder").value = 0;
@@ -821,7 +1039,10 @@ function resetSlidersToHome() {
     document.getElementById("slider-x").value = homePos.x.toFixed(1);
     document.getElementById("slider-y").value = homePos.y.toFixed(1);
     document.getElementById("slider-z").value = homePos.z.toFixed(1);
+    xyzPositionNotice = "";
+    setXYZRobotTarget({ base: 0, shoulder: 0, elbow: 0 }, instantRobotModel);
     updateSliderValues();
+    updateXYZWorkspace();
 }
 
 function sendHome() {
@@ -849,38 +1070,63 @@ function sendStop() {
     resetSlidersToHome();
 }
 
-function sendCartesianMove() {
+function sendCartesianMove(force = true, continuous = false) {
     const x = parseFloat(document.getElementById("slider-x").value);
     const y = parseFloat(document.getElementById("slider-y").value);
     const z = parseFloat(document.getElementById("slider-z").value);
-    if (motionType === 'smooth') {
-        sendCommand(`move ${x} ${y} ${z}`);
-    } else {
-        sendCommand(`goto ${x} ${y} ${z}`);
+    const solution = solveCartesianTarget(x, y, z);
+    if (!solution.valid) {
+        updateXYZWorkspace();
+        return false;
     }
+    const command = continuous ? "track" : "smmove";
+    const targetKey = `${getTargetName()}:${command}:${x.toFixed(1)},${y.toFixed(1)},${z.toFixed(1)}`;
+    if (!force && targetKey === xyzLastSentTargetKey) return false;
+
+    sendCommand(`${command} ${x.toFixed(1)} ${y.toFixed(1)} ${z.toFixed(1)}`);
+    xyzLastSentTargetKey = targetKey;
+    xyzLastSendMs = performance.now();
+    setXYZRobotTarget(solution.joints);
+    syncCartesianToJoint();
+    updateXYZWorkspace();
+    resetSliderIdleTimer();
+    return true;
+}
+
+function scheduleLiveCartesianMove(immediate = false) {
+    const target = getCartesianInputPosition();
+    if (!solveCartesianTarget(target.x, target.y, target.z).valid) return;
+
+    const now = performance.now();
+    const elapsed = now - xyzLastSendMs;
+    if (immediate || elapsed >= XYZ_LIVE_SEND_MS) {
+        if (xyzPendingSendTimer) clearTimeout(xyzPendingSendTimer);
+        xyzPendingSendTimer = null;
+        sendCartesianMove(false, true);
+        return;
+    }
+
+    if (xyzPendingSendTimer) clearTimeout(xyzPendingSendTimer);
+    xyzPendingSendTimer = setTimeout(() => {
+        xyzPendingSendTimer = null;
+        sendCartesianMove(false, true);
+    }, XYZ_LIVE_SEND_MS - elapsed);
 }
 
 function sendJointMove(joint) {
     const angle = parseFloat(document.getElementById(`slider-${joint}`).value);
-    if (motionType === 'smooth') {
-        sendCommand(`smset ${joint} ${angle}`);
-    } else {
-        sendCommand(`set ${joint} ${angle}`);
-    }
+    sendCommand(`smset ${joint} ${angle}`);
+    setXYZRobotTarget({ ...xyzRobotTargetJoints, [joint]: angle });
 }
 
 function sendGrip() {
     const sliderId = controlMode === 'joint' ? "slider-grip-joint" : "slider-grip";
     const grip = parseFloat(document.getElementById(sliderId).value);
-    if (motionType === 'smooth') {
-        sendCommand(`smset grip ${grip}`);
-    } else {
-        sendCommand(`set grip ${grip}`);
-    }
+    sendCommand(`smset grip ${grip}`);
 }
 
 // ---------------------------------------------------------------------------
-// Mode & Motion Toggles
+// Control Mode Toggle
 // ---------------------------------------------------------------------------
 
 function setControlMode(mode) {
@@ -899,6 +1145,7 @@ function setControlMode(mode) {
 
     document.getElementById('sliders-cartesian').style.display = mode === 'cartesian' ? '' : 'none';
     document.getElementById('sliders-joint').style.display = mode === 'joint' ? '' : 'none';
+    if (mode === 'cartesian') requestAnimationFrame(updateXYZWorkspace);
 }
 
 /**
@@ -921,6 +1168,7 @@ function syncCartesianToJoint() {
     document.getElementById("slider-grip-joint").value =
         document.getElementById("slider-grip").value;
     updateSliderValues();
+    return result !== null;
 }
 
 /**
@@ -943,18 +1191,12 @@ function syncJointToCartesian() {
     sliderX.value = Math.max(sliderX.min, Math.min(sliderX.max, pos.x.toFixed(1)));
     sliderY.value = Math.max(sliderY.min, Math.min(sliderY.max, pos.y.toFixed(1)));
     sliderZ.value = Math.max(sliderZ.min, Math.min(sliderZ.max, pos.z.toFixed(1)));
-
+    xyzPositionNotice = "";
     // Sync grip
     document.getElementById("slider-grip").value =
         document.getElementById("slider-grip-joint").value;
     updateSliderValues();
-}
-
-function setMotionType(type) {
-    motionType = type;
-
-    document.getElementById('motion-smooth').classList.toggle('active', type === 'smooth');
-    document.getElementById('motion-instant').classList.toggle('active', type === 'instant');
+    updateXYZWorkspace();
 }
 
 // ---------------------------------------------------------------------------
@@ -1007,19 +1249,561 @@ function initSliderTicks() {
 }
 
 // ---------------------------------------------------------------------------
+// XYZ Workspace Navigator
+// ---------------------------------------------------------------------------
+
+const XYZ_PLANE_DEFS = {
+    xy: { axisA: "x", axisB: "y", fixed: "z", rangeA: [-126, 126], rangeB: [-126, 126], labelA: "X", labelB: "Y" },
+    xz: { axisA: "x", axisB: "z", fixed: "y", rangeA: [-126, 126], rangeB: [0, 148], labelA: "X", labelB: "Z" },
+    yz: { axisA: "y", axisB: "z", fixed: "x", rangeA: [-126, 126], rangeB: [0, 148], labelA: "Y", labelB: "Z" },
+};
+
+function getCartesianInputPosition() {
+    return {
+        x: parseFloat(document.getElementById("slider-x").value),
+        y: parseFloat(document.getElementById("slider-y").value),
+        z: parseFloat(document.getElementById("slider-z").value),
+    };
+}
+
+function roundCartesianInput(value) {
+    return Math.round(value * 2) / 2;
+}
+
+function setCartesianInputPosition(position) {
+    ["x", "y", "z"].forEach((axis) => {
+        document.getElementById(`slider-${axis}`).value = roundCartesianInput(position[axis]).toFixed(1);
+    });
+    updateSliderValues();
+    const result = ik(position.x, position.y, position.z);
+    if (result) {
+        document.getElementById("slider-base").value = result.base.toFixed(1);
+        document.getElementById("slider-shoulder").value = result.shoulder.toFixed(1);
+        document.getElementById("slider-elbow").value = result.elbow.toFixed(1);
+    }
+    updateXYZWorkspace();
+}
+
+function xyzCanvasMetrics(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width < 10 || rect.height < 10) return null;
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.round(rect.width);
+    const height = Math.round(rect.height);
+    const pixelWidth = Math.round(width * ratio);
+    const pixelHeight = Math.round(height * ratio);
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth;
+        canvas.height = pixelHeight;
+    }
+    const context = canvas.getContext("2d");
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    return { context, width, height };
+}
+
+function xyzScale(value, range, start, length) {
+    return start + ((value - range[0]) / (range[1] - range[0])) * length;
+}
+
+function xyzUnscale(pixel, range, start, length) {
+    return range[0] + ((pixel - start) / length) * (range[1] - range[0]);
+}
+
+function xyzTargetForPlane(definition, axisA, axisB, fixedPosition) {
+    const target = { ...fixedPosition };
+    target[definition.axisA] = axisA;
+    target[definition.axisB] = axisB;
+    return target;
+}
+
+/** Find the closest reachable half-millimeter target in one projection plane. */
+function nearestReachableTargetInPlane(key, requestedTarget) {
+    const definition = XYZ_PLANE_DEFS[key];
+    let nearest = null;
+    let nearestDistanceSq = Infinity;
+
+    const consider = (axisA, axisB) => {
+        const candidate = xyzTargetForPlane(definition, axisA, axisB, requestedTarget);
+        if (!solveCartesianTarget(candidate.x, candidate.y, candidate.z).valid) return;
+        const deltaA = axisA - requestedTarget[definition.axisA];
+        const deltaB = axisB - requestedTarget[definition.axisB];
+        const distanceSq = deltaA * deltaA + deltaB * deltaB;
+        if (distanceSq < nearestDistanceSq) {
+            nearest = candidate;
+            nearestDistanceSq = distanceSq;
+        }
+    };
+
+    // Start with the current safe position when it belongs to this slice,
+    // then locate and refine the closest reachable region.
+    if (Math.abs(lastValidCartesianTarget[definition.fixed] - requestedTarget[definition.fixed]) < 0.001) {
+        consider(
+            roundCartesianInput(lastValidCartesianTarget[definition.axisA]),
+            roundCartesianInput(lastValidCartesianTarget[definition.axisB]),
+        );
+    }
+    const coarseStep = 2;
+    for (let axisB = definition.rangeB[0]; axisB <= definition.rangeB[1]; axisB += coarseStep) {
+        for (let axisA = definition.rangeA[0]; axisA <= definition.rangeA[1]; axisA += coarseStep) {
+            consider(axisA, axisB);
+        }
+    }
+    if (!nearest) return null;
+
+    const coarseA = nearest[definition.axisA];
+    const coarseB = nearest[definition.axisB];
+    for (let axisB = coarseB - coarseStep; axisB <= coarseB + coarseStep; axisB += 0.5) {
+        if (axisB < definition.rangeB[0] || axisB > definition.rangeB[1]) continue;
+        for (let axisA = coarseA - coarseStep; axisA <= coarseA + coarseStep; axisA += 0.5) {
+            if (axisA < definition.rangeA[0] || axisA > definition.rangeA[1]) continue;
+            consider(axisA, axisB);
+        }
+    }
+    return nearest;
+}
+
+function xyzDrawMarker(context, x, y, color, current = false) {
+    context.save();
+    context.strokeStyle = color;
+    context.fillStyle = "rgba(255, 255, 255, 0.9)";
+    context.lineWidth = 2;
+    if (current) {
+        context.beginPath();
+        context.arc(x, y, 4.5, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+    } else {
+        context.beginPath();
+        context.moveTo(x - 7, y);
+        context.lineTo(x + 7, y);
+        context.moveTo(x, y - 7);
+        context.lineTo(x, y + 7);
+        context.stroke();
+    }
+    context.restore();
+}
+
+function drawXYZPlane(key) {
+    const canvas = document.getElementById(`xyz-plane-${key}`);
+    const metrics = xyzCanvasMetrics(canvas);
+    if (!metrics) return;
+
+    const { context, width, height } = metrics;
+    const definition = XYZ_PLANE_DEFS[key];
+    const target = getCartesianInputPosition();
+    const pad = { left: 25, right: 8, top: 7, bottom: 21 };
+    const plotWidth = width - pad.left - pad.right;
+    const plotHeight = height - pad.top - pad.bottom;
+    const computed = getComputedStyle(document.documentElement);
+    const validColor = "rgba(34, 197, 94, 0.24)";
+    const gridColor = "rgba(67, 56, 202, 0.14)";
+    const textColor = computed.getPropertyValue("--text-muted").trim();
+    const targetColor = solveCartesianTarget(target.x, target.y, target.z).valid
+        ? computed.getPropertyValue("--accent-blue").trim()
+        : computed.getPropertyValue("--accent-red").trim();
+
+    context.clearRect(0, 0, width, height);
+    const sampleStep = 3;
+    context.fillStyle = validColor;
+    for (let py = pad.top; py < pad.top + plotHeight; py += sampleStep) {
+        for (let px = pad.left; px < pad.left + plotWidth; px += sampleStep) {
+            const axisA = xyzUnscale(px, definition.rangeA, pad.left, plotWidth);
+            const axisB = xyzUnscale(pad.top + plotHeight - py, definition.rangeB, 0, plotHeight);
+            const sample = xyzTargetForPlane(definition, axisA, axisB, target);
+            if (solveCartesianTarget(sample.x, sample.y, sample.z).valid) {
+                context.fillRect(px, py, sampleStep + 0.5, sampleStep + 0.5);
+            }
+        }
+    }
+
+    context.strokeStyle = gridColor;
+    context.lineWidth = 1;
+    const zeroA = xyzScale(0, definition.rangeA, pad.left, plotWidth);
+    if (zeroA >= pad.left && zeroA <= pad.left + plotWidth) {
+        context.beginPath();
+        context.moveTo(zeroA, pad.top);
+        context.lineTo(zeroA, pad.top + plotHeight);
+        context.stroke();
+    }
+    const zeroB = pad.top + plotHeight - xyzScale(0, definition.rangeB, 0, plotHeight);
+    if (zeroB >= pad.top && zeroB <= pad.top + plotHeight) {
+        context.beginPath();
+        context.moveTo(pad.left, zeroB);
+        context.lineTo(pad.left + plotWidth, zeroB);
+        context.stroke();
+    }
+    context.strokeRect(pad.left + 0.5, pad.top + 0.5, plotWidth - 1, plotHeight - 1);
+
+    context.fillStyle = textColor;
+    context.font = "700 9px Nunito, sans-serif";
+    context.fillText(definition.labelA, width - 14, height - 5);
+    context.fillText(definition.labelB, 7, 13);
+
+    const drawPositionMarker = (position, color, current) => {
+        const axisA = position[definition.axisA];
+        const axisB = position[definition.axisB];
+        if (axisA < definition.rangeA[0] || axisA > definition.rangeA[1]
+            || axisB < definition.rangeB[0] || axisB > definition.rangeB[1]) return;
+        const markerX = xyzScale(axisA, definition.rangeA, pad.left, plotWidth);
+        const markerY = pad.top + plotHeight - xyzScale(axisB, definition.rangeB, 0, plotHeight);
+        xyzDrawMarker(context, markerX, markerY, color, current);
+    };
+
+    drawPositionMarker(lastValidCartesianTarget, computed.getPropertyValue("--text-primary").trim(), true);
+    drawPositionMarker(target, targetColor, false);
+}
+
+function buildXYZReachableVolume() {
+    if (xyzReachableVolumePoints) return xyzReachableVolumePoints;
+    xyzReachableVolumePoints = [];
+    for (let z = 8; z <= 148; z += 10) {
+        for (let y = -120; y <= 120; y += 10) {
+            for (let x = -120; x <= 120; x += 10) {
+                if (solveCartesianTarget(x, y, z).valid) {
+                    xyzReachableVolumePoints.push({ x, y, z, depth: x + y });
+                }
+            }
+        }
+    }
+    xyzReachableVolumePoints.sort((a, b) => a.depth - b.depth);
+    return xyzReachableVolumePoints;
+}
+
+function xyzArmGeometry(joints) {
+    const baseGeo = joints.base * DEG2RAD;
+    const shoulderGeo = ((joints.shoulder - SERVO_SHOULDER_OFFSET)
+        / SERVO_SHOULDER_DIRECTION) * DEG2RAD;
+    const elbowGeo = ((joints.elbow - SERVO_ELBOW_OFFSET)
+        / SERVO_ELBOW_DIRECTION) * DEG2RAD;
+    const shoulder = { x: 0, y: 0, z: ARM_BASE_HEIGHT };
+    const elbowRadius = ARM_LINK1_LENGTH * Math.cos(shoulderGeo);
+    const elbow = {
+        x: elbowRadius * Math.cos(baseGeo),
+        y: elbowRadius * Math.sin(baseGeo),
+        z: ARM_BASE_HEIGHT + ARM_LINK1_LENGTH * Math.sin(shoulderGeo),
+    };
+    const end = fk(joints.base, joints.shoulder, joints.elbow);
+    return { base: { x: 0, y: 0, z: 0 }, shoulder, elbow, end };
+}
+
+function drawXYZRobotSchematic(context, project, computed) {
+    const arm = xyzArmGeometry(xyzRobotJoints);
+    const base = project(arm.base);
+    const shoulder = project(arm.shoulder);
+    const elbow = project(arm.elbow);
+    const end = project(arm.end);
+    const outline = "rgba(15, 23, 42, 0.82)";
+    const linkColor = computed.getPropertyValue("--text-primary").trim();
+    const jointColor = computed.getPropertyValue("--accent-blue").trim();
+
+    const strokeSegment = (from, to, width) => {
+        context.strokeStyle = outline;
+        context.lineWidth = width + 3;
+        context.beginPath();
+        context.moveTo(from.x, from.y);
+        context.lineTo(to.x, to.y);
+        context.stroke();
+        context.strokeStyle = linkColor;
+        context.lineWidth = width;
+        context.beginPath();
+        context.moveTo(from.x, from.y);
+        context.lineTo(to.x, to.y);
+        context.stroke();
+    };
+
+    context.save();
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    strokeSegment(base, shoulder, 7);
+    strokeSegment(shoulder, elbow, 6);
+    strokeSegment(elbow, end, 5);
+
+    [shoulder, elbow].forEach((joint) => {
+        context.fillStyle = outline;
+        context.beginPath();
+        context.arc(joint.x, joint.y, 6, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = jointColor;
+        context.beginPath();
+        context.arc(joint.x, joint.y, 3.2, 0, Math.PI * 2);
+        context.fill();
+    });
+
+    // A compact two-finger claw at the FK endpoint makes the arm's pose and
+    // orientation legible without obscuring the workspace volume.
+    const linkDx = end.x - elbow.x;
+    const linkDy = end.y - elbow.y;
+    const length = Math.max(1, Math.hypot(linkDx, linkDy));
+    const forwardX = linkDx / length;
+    const forwardY = linkDy / length;
+    const sideX = -forwardY;
+    const sideY = forwardX;
+    context.strokeStyle = outline;
+    context.lineWidth = 3;
+    [-1, 1].forEach((side) => {
+        context.beginPath();
+        context.moveTo(end.x, end.y);
+        context.lineTo(end.x + forwardX * 8 + sideX * side * 5,
+            end.y + forwardY * 8 + sideY * side * 5);
+        context.stroke();
+    });
+    context.restore();
+}
+
+function drawXYZVolume() {
+    const canvas = document.getElementById("xyz-volume-canvas");
+    const metrics = xyzCanvasMetrics(canvas);
+    if (!metrics) return;
+    const { context, width, height } = metrics;
+    const computed = getComputedStyle(document.documentElement);
+    const scale = Math.min(width / 350, height / 265) * xyzVolumeZoom;
+    const originX = width * 0.5;
+    const originY = height * 0.82;
+    const cosYaw = Math.cos(xyzVolumeYaw);
+    const sinYaw = Math.sin(xyzVolumeYaw);
+    const project = (point) => {
+        const rotatedX = point.x * cosYaw - point.y * sinYaw;
+        const rotatedDepth = point.x * sinYaw + point.y * cosYaw;
+        return {
+            x: originX + rotatedX * 0.82 * scale,
+            y: originY + rotatedDepth * xyzVolumeElevation * scale - point.z * 0.72 * scale,
+        };
+    };
+
+    context.clearRect(0, 0, width, height);
+    context.fillStyle = computed.getPropertyValue("--accent-green").trim();
+    context.globalAlpha = 0.23;
+    buildXYZReachableVolume().forEach((point) => {
+        const projected = project(point);
+        context.fillRect(projected.x, projected.y, 2, 2);
+    });
+    context.globalAlpha = 1;
+
+    const origin = project({ x: 0, y: 0, z: 0 });
+    const axes = [
+        [project({ x: 75, y: 0, z: 0 }), "X"],
+        [project({ x: 0, y: 75, z: 0 }), "Y"],
+        [project({ x: 0, y: 0, z: 100 }), "Z"],
+    ];
+    context.strokeStyle = "rgba(67, 56, 202, 0.20)";
+    context.fillStyle = computed.getPropertyValue("--text-muted").trim();
+    context.font = "700 9px Nunito, sans-serif";
+    axes.forEach(([end, label]) => {
+        context.beginPath();
+        context.moveTo(origin.x, origin.y);
+        context.lineTo(end.x, end.y);
+        context.stroke();
+        context.fillText(label, end.x + 3, end.y);
+    });
+
+    drawXYZRobotSchematic(context, project, computed);
+
+    const target = getCartesianInputPosition();
+    const currentProjected = project(lastValidCartesianTarget);
+    xyzDrawMarker(context, currentProjected.x, currentProjected.y,
+        computed.getPropertyValue("--text-primary").trim(), true);
+    if ([target.x, target.y, target.z].every(Number.isFinite)) {
+        const targetProjected = project(target);
+        const targetColor = solveCartesianTarget(target.x, target.y, target.z).valid
+            ? computed.getPropertyValue("--accent-blue").trim()
+            : computed.getPropertyValue("--accent-red").trim();
+        xyzDrawMarker(context, targetProjected.x, targetProjected.y, targetColor, false);
+    }
+
+    document.getElementById("xyz-volume-zoom").textContent = `${Math.round(xyzVolumeZoom * 100)}%`;
+}
+
+function clampXYZVolumeZoom(zoom) {
+    return Math.max(0.70, Math.min(2.50, zoom));
+}
+
+function adjustXYZVolumeZoom(delta) {
+    xyzVolumeZoom = clampXYZVolumeZoom(xyzVolumeZoom + delta);
+    scheduleXYZWorkspaceDraw();
+}
+
+function resetXYZVolumeView() {
+    xyzVolumeZoom = XYZ_DEFAULT_VOLUME_ZOOM;
+    xyzVolumeYaw = XYZ_DEFAULT_VOLUME_YAW;
+    xyzVolumeElevation = XYZ_DEFAULT_VOLUME_ELEVATION;
+    scheduleXYZWorkspaceDraw();
+}
+
+function scheduleXYZWorkspaceDraw() {
+    if (!xyzWorkspaceInitialized || xyzWorkspaceDrawPending) return;
+    xyzWorkspaceDrawPending = true;
+    requestAnimationFrame(() => {
+        xyzWorkspaceDrawPending = false;
+        drawXYZPlane("xy");
+        drawXYZPlane("xz");
+        drawXYZPlane("yz");
+        drawXYZVolume();
+    });
+}
+
+function updateXYZWorkspace() {
+    if (!xyzWorkspaceInitialized) return;
+    const target = getCartesianInputPosition();
+    const validation = solveCartesianTarget(target.x, target.y, target.z);
+    const validity = document.getElementById("xyz-validity");
+    const reason = document.getElementById("xyz-invalid-reason");
+    const moveButton = document.getElementById("xyz-move-btn");
+
+    const adjusted = validation.valid && Boolean(xyzPositionNotice);
+    validity.textContent = adjusted
+        ? xyzPositionNotice
+        : (validation.valid ? "Reachable position" : "Position not reachable");
+    validity.classList.toggle("valid", validation.valid && !adjusted);
+    validity.classList.toggle("invalid", !validation.valid || adjusted);
+    reason.hidden = validation.valid;
+    reason.textContent = validation.valid ? "" : validation.reason;
+    moveButton.disabled = !validation.valid;
+    ["x", "y", "z"].forEach((axis) => {
+        document.getElementById(`slider-${axis}`).setAttribute("aria-invalid", validation.valid ? "false" : "true");
+    });
+
+    document.getElementById("xyz-slice-xy").textContent = `Z = ${Number.isFinite(target.z) ? target.z.toFixed(1) : "—"} mm`;
+    document.getElementById("xyz-slice-xz").textContent = `Y = ${Number.isFinite(target.y) ? target.y.toFixed(1) : "—"} mm`;
+    document.getElementById("xyz-slice-yz").textContent = `X = ${Number.isFinite(target.x) ? target.x.toFixed(1) : "—"} mm`;
+    scheduleXYZWorkspaceDraw();
+}
+
+function updateCartesianFromPlane(key, event, resetFilter = false) {
+    const canvas = document.getElementById(`xyz-plane-${key}`);
+    const definition = XYZ_PLANE_DEFS[key];
+    const rect = canvas.getBoundingClientRect();
+    const pad = { left: 25, right: 8, top: 7, bottom: 21 };
+    const plotWidth = rect.width - pad.left - pad.right;
+    const plotHeight = rect.height - pad.top - pad.bottom;
+    const localX = Math.max(pad.left, Math.min(pad.left + plotWidth, event.clientX - rect.left));
+    const localY = Math.max(pad.top, Math.min(pad.top + plotHeight, event.clientY - rect.top));
+    const target = getCartesianInputPosition();
+    target[definition.axisA] = xyzUnscale(localX, definition.rangeA, pad.left, plotWidth);
+    target[definition.axisB] = xyzUnscale(pad.top + plotHeight - localY, definition.rangeB, 0, plotHeight);
+    if (resetFilter || !xyzDragFilteredTarget) {
+        xyzDragFilteredTarget = { ...target };
+    } else {
+        [definition.axisA, definition.axisB].forEach((axis) => {
+            xyzDragFilteredTarget[axis] += XYZ_DRAG_FILTER_ALPHA
+                * (target[axis] - xyzDragFilteredTarget[axis]);
+        });
+        xyzDragFilteredTarget[definition.fixed] = target[definition.fixed];
+    }
+    let moveTarget = xyzDragFilteredTarget;
+    xyzPositionNotice = "";
+    if (!solveCartesianTarget(moveTarget.x, moveTarget.y, moveTarget.z).valid) {
+        const nearest = nearestReachableTargetInPlane(key, moveTarget);
+        if (nearest) {
+            moveTarget = nearest;
+            xyzPositionNotice = "Position not reachable — going to the nearest reachable position.";
+        }
+    }
+    setCartesianInputPosition(moveTarget);
+    scheduleLiveCartesianMove();
+}
+
+function initXYZWorkspace() {
+    if (xyzWorkspaceInitialized) return;
+    xyzWorkspaceInitialized = true;
+
+    Object.keys(XYZ_PLANE_DEFS).forEach((key) => {
+        const canvas = document.getElementById(`xyz-plane-${key}`);
+        let dragging = false;
+        canvas.addEventListener("pointerdown", (event) => {
+            dragging = true;
+            canvas.setPointerCapture(event.pointerId);
+            updateCartesianFromPlane(key, event, true);
+            scheduleLiveCartesianMove(true);
+        });
+        canvas.addEventListener("pointermove", (event) => {
+            if (dragging) updateCartesianFromPlane(key, event);
+        });
+        const stopDragging = (event) => {
+            if (dragging) {
+                updateCartesianFromPlane(key, event, true);
+                scheduleLiveCartesianMove(true);
+            }
+            dragging = false;
+            xyzDragFilteredTarget = null;
+        };
+        canvas.addEventListener("pointerup", stopDragging);
+        canvas.addEventListener("pointercancel", () => {
+            dragging = false;
+            xyzDragFilteredTarget = null;
+        });
+    });
+
+    const volumeCanvas = document.getElementById("xyz-volume-canvas");
+    let rotating = false;
+    let previousPointerX = 0;
+    let previousPointerY = 0;
+    volumeCanvas.addEventListener("pointerdown", (event) => {
+        rotating = true;
+        previousPointerX = event.clientX;
+        previousPointerY = event.clientY;
+        volumeCanvas.classList.add("dragging");
+        volumeCanvas.setPointerCapture(event.pointerId);
+    });
+    volumeCanvas.addEventListener("pointermove", (event) => {
+        if (!rotating) return;
+        const deltaX = event.clientX - previousPointerX;
+        const deltaY = event.clientY - previousPointerY;
+        previousPointerX = event.clientX;
+        previousPointerY = event.clientY;
+        xyzVolumeYaw += deltaX * 0.012;
+        xyzVolumeElevation = Math.max(0.08, Math.min(0.62,
+            xyzVolumeElevation + deltaY * 0.004));
+        scheduleXYZWorkspaceDraw();
+    });
+    const stopRotating = () => {
+        rotating = false;
+        volumeCanvas.classList.remove("dragging");
+    };
+    volumeCanvas.addEventListener("pointerup", stopRotating);
+    volumeCanvas.addEventListener("pointercancel", stopRotating);
+    volumeCanvas.addEventListener("dblclick", resetXYZVolumeView);
+    volumeCanvas.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        const zoomFactor = Math.exp(-event.deltaY * 0.0015);
+        xyzVolumeZoom = clampXYZVolumeZoom(xyzVolumeZoom * zoomFactor);
+        scheduleXYZWorkspaceDraw();
+    }, { passive: false });
+
+    ["x", "y", "z"].forEach((axis) => {
+        const input = document.getElementById(`slider-${axis}`);
+        input.addEventListener("input", () => {
+            xyzPositionNotice = "";
+            const target = getCartesianInputPosition();
+            const result = ik(target.x, target.y, target.z);
+            if (result) {
+                document.getElementById("slider-base").value = result.base.toFixed(1);
+                document.getElementById("slider-shoulder").value = result.shoulder.toFixed(1);
+                document.getElementById("slider-elbow").value = result.elbow.toFixed(1);
+            }
+            updateXYZWorkspace();
+        });
+        input.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && !document.getElementById("xyz-move-btn").disabled) {
+                sendCartesianMove();
+            }
+        });
+    });
+
+    const workspace = document.getElementById("sliders-cartesian");
+    if (window.ResizeObserver) {
+        new ResizeObserver(scheduleXYZWorkspaceDraw).observe(workspace);
+    } else {
+        window.addEventListener("resize", scheduleXYZWorkspaceDraw);
+    }
+    updateXYZWorkspace();
+}
+
+// ---------------------------------------------------------------------------
 // Sliders
 // ---------------------------------------------------------------------------
 
 function initSliders() {
-    // Cartesian sliders
-    ["slider-x", "slider-y", "slider-z"].forEach((id) => {
-        document.getElementById(id).addEventListener("input", () => {
-            updateSliderValues();
-            // Keep joint sliders in sync (background, no commands sent for joints)
-            syncCartesianToJoint();
-            throttledSend(() => sendCartesianMove());
-        });
-    });
+    initXYZWorkspace();
 
     document.getElementById("slider-grip").addEventListener("input", () => {
         updateSliderValues();
@@ -1050,10 +1834,6 @@ function initSliders() {
 }
 
 function updateSliderValues() {
-    // Cartesian
-    document.getElementById("value-x").textContent = parseFloat(document.getElementById("slider-x").value).toFixed(1);
-    document.getElementById("value-y").textContent = parseFloat(document.getElementById("slider-y").value).toFixed(1);
-    document.getElementById("value-z").textContent = parseFloat(document.getElementById("slider-z").value).toFixed(1);
     updateGripValue("slider-grip", "value-grip");
 
     // Joint
@@ -1302,9 +2082,11 @@ function toggleCalibration() {
 }
 
 function setCalibrationControlsLoading(loading) {
+    const controlsDisabled = loading || calibrationOpening;
     document.querySelectorAll("#calibration-sliders input").forEach(input => {
-        input.disabled = loading;
+        input.disabled = controlsDisabled;
     });
+    document.getElementById("calibration-card").setAttribute("aria-busy", controlsDisabled ? "true" : "false");
     updateCalibrationActionState();
 }
 
@@ -1313,10 +2095,20 @@ function calibrationPreviewPending() {
 }
 
 function updateCalibrationActionState() {
-    const controlsDisabled = calibrationLoadPending || calibrationPreviewPending();
+    const controlsDisabled = calibrationOpening || calibrationLoadPending || calibrationPreviewPending();
     document.getElementById("cal-apply").disabled = controlsDisabled || !calibrationAtHome;
+    document.getElementById("cal-reset").disabled = controlsDisabled;
     document.querySelectorAll(".btn-claw-test").forEach(button => {
         button.disabled = controlsDisabled;
+    });
+}
+
+function setCalibrationGripTestPosition(position) {
+    calibrationGripTestPosition = position;
+    document.querySelectorAll(".btn-claw-test").forEach(button => {
+        const active = button.dataset.position === position;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", active ? "true" : "false");
     });
 }
 
@@ -1327,26 +2119,33 @@ function clearCalibrationPreviewTimers() {
     calThrottleTimers = {};
 }
 
-/** Return Home first, then reveal calibration and load saved offsets. */
+/** Reveal calibration immediately while Home and saved offsets are prepared. */
 function openCalibration() {
     calibrationOpening = true;
+    calibrationAtHome = false;
     document.getElementById("btn-calibrate").disabled = true;
+
+    // Give immediate visual feedback. Controls remain disabled until both the
+    // Home move and the calibration-value request have had time to complete.
+    revealCalibration();
     sendHome();
+    loadCalibrationValues();
     addConsoleLine("Returning Home before calibration…", "system");
 
     if (calibrationOpenTimer) clearTimeout(calibrationOpenTimer);
     calibrationOpenTimer = setTimeout(() => {
         calibrationOpenTimer = null;
         calibrationOpening = false;
+        calibrationAtHome = true;
         document.getElementById("btn-calibrate").disabled = false;
-        revealCalibration();
+        setCalibrationControlsLoading(calibrationLoadPending);
     }, 900);
 }
 
 function revealCalibration() {
     calibrationOpen = true;
     calibrationLoadPending = true;
-    calibrationAtHome = true;
+    setCalibrationGripTestPosition("closed");
     document.getElementById("calibration-card").style.display = "";
 
     // Show a neutral value until the device replies with its saved offsets.
@@ -1360,7 +2159,11 @@ function revealCalibration() {
     // Re-init tick marks for calibration sliders (they're dynamically shown)
     initSliderTicks();
 
-    // Read offsets from the selected robot only after Home has been requested.
+    addConsoleLine("Calibration mode: adjust sliders until robot is in home position", "system");
+}
+
+function loadCalibrationValues() {
+    // Preserve command ordering: request Home before reading saved offsets.
     sendCommand("cal_get");
 
     if (calibrationLoadTimer) clearTimeout(calibrationLoadTimer);
@@ -1371,8 +2174,6 @@ function revealCalibration() {
         setCalibrationControlsLoading(false);
         addConsoleLine("Could not read saved calibration; showing zero values", "warning");
     }, 1500);
-
-    addConsoleLine("Calibration mode: adjust sliders until robot is in home position", "system");
 }
 
 /** Persist the already-previewed pose without issuing another movement. */
@@ -1393,6 +2194,7 @@ function calApply() {
 function calReset() {
     clearCalibrationPreviewTimers();
     calibrationAtHome = false;
+    setCalibrationGripTestPosition("closed");
     sendCommand("cal_reset");
     calibrationLoadPending = false;
     if (calibrationLoadTimer) clearTimeout(calibrationLoadTimer);
@@ -1418,9 +2220,8 @@ function calReset() {
 /** Preview the candidate grip calibration at a known open or closed pose. */
 function calGripTest(position) {
     const candidateOffset = parseFloat(document.getElementById("cal-grip").value);
-    const referenceAngle = position === "open" ? GRIP_OPEN_ANGLE : GRIP_CLOSED_ANGLE;
-    const commandAngle = referenceAngle + candidateOffset - loadedCalibration.grip;
-    sendCommand(`set grip ${commandAngle}`);
+    sendCommand(`cal_preview grip ${candidateOffset} ${position}`);
+    setCalibrationGripTestPosition(position);
     calibrationAtHome = position === "closed";
     updateCalibrationActionState();
     resetSliderIdleTimer();
@@ -1446,6 +2247,7 @@ function closeCalibration() {
     calibrationOpen = false;
     calibrationLoadPending = false;
     calibrationAtHome = true;
+    setCalibrationGripTestPosition("closed");
     if (calibrationLoadTimer) clearTimeout(calibrationLoadTimer);
     calibrationLoadTimer = null;
     setCalibrationControlsLoading(false);
@@ -1466,9 +2268,8 @@ function updateCalValues() {
 
 /** Wire up calibration slider input events. */
 function initCalibrationSliders() {
-    // Every offset is previewed against the device's actual Home command.
-    const CAL_PREVIEW = { base: 0, shoulder: 0, elbow: 0, grip: GRIP_CLOSED_ANGLE };
-
+    // Arm offsets are previewed at Home. Grip uses whichever exclusive test
+    // pose is active so moving its slider never jumps between open and closed.
     const joints = [
         { id: "cal-base", joint: "base" },
         { id: "cal-shoulder", joint: "shoulder" },
@@ -1488,10 +2289,10 @@ function initCalibrationSliders() {
                 const offset = parseFloat(document.getElementById(id).value);
                 // The firmware also applies its saved offset. Subtract the
                 // loaded value so the slider represents the desired total.
-                const angle = CAL_PREVIEW[joint] + offset - loadedCalibration[joint];
-                sendCommand(`set ${joint} ${angle}`);
+                const pose = joint === "grip" ? calibrationGripTestPosition : "home";
+                sendCommand(`cal_preview ${joint} ${offset} ${pose}`);
                 calThrottleTimers[joint] = null;
-                calibrationAtHome = true;
+                calibrationAtHome = calibrationGripTestPosition === "closed";
                 updateCalibrationActionState();
             }, SLIDER_THROTTLE_MS);
             updateCalibrationActionState();

@@ -14,6 +14,7 @@ from pathlib import Path
 import webview
 
 from app_paths import user_data_dir
+from instance_lock import InstanceLock
 
 
 def _configure_file_logging() -> Path:
@@ -54,6 +55,10 @@ def _wait_until_ready(url: str, timeout: float = 15.0) -> None:
 
 def main() -> int:
     log_path = _configure_file_logging()
+    instance_lock = InstanceLock()
+    if not instance_lock.acquire():
+        logging.info("Mira is already running; refusing to start a competing USB session.")
+        return 0
 
     # Import after logging and writable paths are configured.
     import mira
@@ -93,7 +98,7 @@ def main() -> int:
     )
 
     def _on_closed() -> None:
-        mira.disconnect_serial()
+        mira.shutdown_connections()
 
     window.events.closed += _on_closed
     webview.start(private_mode=False)

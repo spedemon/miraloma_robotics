@@ -15,8 +15,9 @@ import serial.tools.list_ports
 
 BAUD_RATE = 115200
 SCAN_INTERVAL = 0.75
-PROBE_TIMEOUT = 2.5
+PROBE_TIMEOUT = 5.0
 UNRECOGNIZED_DISCONNECT_GRACE = 4.0
+INSPECTION_DISCONNECT_GRACE = 30.0
 
 # Espressif native USB plus the USB/UART bridges commonly fitted to ESP32-C3
 # boards.  Metadata only selects candidates; the Mira handshake is authoritative.
@@ -78,6 +79,9 @@ class DeviceSession:
     stopped: threading.Event = field(default_factory=threading.Event)
     write_lock: threading.Lock = field(default_factory=threading.Lock)
     reader_thread: threading.Thread | None = None
+    classification: str | None = None
+    inspection_detail: str | None = None
+    requires_factory: bool = False
 
     @property
     def key(self) -> str:
@@ -131,11 +135,13 @@ class DeviceManager:
         on_change: Callable[[], None],
         serial_factory=serial.Serial,
         port_lister=serial.tools.list_ports.comports,
+        inspector=None,
     ):
         self.on_line = on_line
         self.on_change = on_change
         self.serial_factory = serial_factory
         self.port_lister = port_lister
+        self.inspector = inspector
         self.sessions: dict[str, DeviceSession] = {}
         self._ignored_until: dict[str, float] = {}
         self._lock = threading.RLock()
@@ -144,9 +150,6 @@ class DeviceManager:
         self._paused_ports: set[str] = set()
         self._paused_physical_keys: set[str] = set()
         self._missing_since: dict[str, float] = {}
-        # Once a physical USB board completes Mira's identity handshake,
-        # transient timeouts must never turn it back into a "new board".
-        self._known_devices: dict[str, DeviceInfo] = {}
 
     def start(self) -> None:
         if self._monitor and self._monitor.is_alive():
@@ -181,12 +184,12 @@ class DeviceManager:
             paused_physical_keys = set(self._paused_physical_keys)
 
         # Native USB ESP32-C3 boards can briefly disappear and return with a
-        # different tty name while boot-looping without valid firmware. Keep
-        # the provisioning card stable and follow the same USB serial/location.
+        # different tty name while boot-looping or entering their ROM loader.
+        # Keep the UI session stable and follow the same physical USB location.
         for old_port in existing - set(descriptors):
             with self._lock:
                 session = self.sessions.get(old_port)
-            if not session or session.state != "unrecognized":
+            if not session or session.state not in {"unrecognized", "inspecting"}:
                 continue
             replacement = next(
                 (
@@ -209,9 +212,14 @@ class DeviceManager:
         for missing in existing - set(descriptors):
             with self._lock:
                 session = self.sessions.get(missing)
-            if session and session.state == "unrecognized":
+            if session and session.state in {"unrecognized", "inspecting"}:
                 first_missing = self._missing_since.setdefault(missing, now)
-                if now - first_missing < UNRECOGNIZED_DISCONNECT_GRACE:
+                grace = (
+                    INSPECTION_DISCONNECT_GRACE
+                    if session.state == "inspecting"
+                    else UNRECOGNIZED_DISCONNECT_GRACE
+                )
+                if now - first_missing < grace:
                     continue
             self._remove(missing, "unplugged")
             self._missing_since.pop(missing, None)
@@ -249,9 +257,7 @@ class DeviceManager:
             )
 
     def forget_physical_key(self, physical_key: str) -> None:
-        """Allow an intentionally erased board to enter provisioning again."""
-        with self._lock:
-            self._known_devices.pop(physical_key, None)
+        """Compatibility hook; flash inspection, not USB history, is authoritative."""
 
     def port_for_physical_key(self, physical_key: str, fallback: str) -> str:
         """Return the board's current port after a USB reset/reenumeration."""
@@ -269,6 +275,14 @@ class DeviceManager:
     def connected_sessions(self) -> list[DeviceSession]:
         with self._lock:
             return [s for s in self.sessions.values() if s.state == "connected" and s.info]
+
+    def firmware_sessions(self) -> list[DeviceSession]:
+        """Devices which can be updated or repaired, including silent Mira images."""
+        with self._lock:
+            return [
+                session for session in self.sessions.values()
+                if session.info and session.state in {"connected", "repair"}
+            ]
 
     def write(self, port: str, text: str) -> bool:
         with self._lock:
@@ -312,6 +326,9 @@ class DeviceManager:
                 "firmware": s.info.firmware if s.info else None,
                 "protocol": s.info.protocol if s.info else None,
                 "legacy": s.info.legacy if s.info else False,
+                "classification": s.classification,
+                "detail": s.inspection_detail,
+                "repairRequired": s.state == "repair",
             }
             for s in sessions
         ]
@@ -365,24 +382,69 @@ class DeviceManager:
             self._probe_failed(session)
 
     def _probe_failed(self, session: DeviceSession) -> None:
-        with self._lock:
-            previously_identified = session.port.physical_key in self._known_devices
-        if previously_identified or session.info:
-            # This is a known Mira board that is temporarily silent (or a
-            # legacy Mira banner whose ID reply was delayed). Retry discovery;
-            # never offer destructive provisioning for it.
-            self._ignored_until[session.port.device] = time.monotonic() + 1
-            self._remove(session.port.device, "known_device_probe_timeout")
-            return
+        self._start_inspection(session)
 
-        # Keep a closed placeholder while the USB device remains present so an
-        # unknown ESP32-C3 can be intentionally provisioned from the UI.
-        session.state = "unrecognized"
+    def _start_inspection(self, session: DeviceSession) -> None:
+        """Release serial and inspect flash asynchronously through the ROM loader."""
+        with self._lock:
+            if self.sessions.get(session.port.device) is not session:
+                return
+            if session.state == "inspecting":
+                return
+            session.state = "inspecting"
         session.stopped.set()
         try:
             session.handle.close()
         except Exception:
             pass
+        self.on_change()
+        if not self.inspector:
+            session.state = "inspection_failed"
+            session.inspection_detail = "Mira could not inspect this USB board."
+            self.on_change()
+            return
+        threading.Thread(
+            target=self._inspect_session,
+            args=(session,),
+            name=f"mira-inspect-{session.port.device}",
+            daemon=True,
+        ).start()
+
+    def _inspect_session(self, session: DeviceSession) -> None:
+        physical_key = session.port.physical_key
+        result = self.inspector.inspect(
+            lambda: self.port_for_physical_key(physical_key, session.port.device)
+        )
+        with self._lock:
+            current = next(
+                (
+                    candidate for candidate in self.sessions.values()
+                    if candidate is session
+                ),
+                None,
+            )
+            if not current or current.state != "inspecting":
+                return
+            current.classification = result.kind
+            current.inspection_detail = result.detail
+            if result.kind == "mira":
+                device_id = result.mac or f"ESP32C3-{physical_key}"
+                current.info = DeviceInfo(
+                    result.role,
+                    device_id,
+                    result.firmware,
+                    protocol=1,
+                    hardware="esp32c3",
+                )
+                current.requires_factory = True
+                current.state = "repair"
+            elif result.kind in {"erased", "corrupt", "other_firmware"}:
+                current.info = None
+                current.state = "unrecognized"
+                current.requires_factory = True
+            else:
+                current.info = None
+                current.state = "inspection_failed"
         self.on_change()
 
     def _reader_loop(self, session: DeviceSession) -> None:
@@ -408,22 +470,10 @@ class DeviceManager:
 
     def _identify(self, session: DeviceSession, text: str) -> None:
         if "invalid header:" in text.lower():
-            with self._lock:
-                previously_identified = session.port.physical_key in self._known_devices
-            if previously_identified:
-                self._ignored_until[session.port.device] = time.monotonic() + 1
-                self._remove(session.port.device, "known_device_boot_error")
-                return
-            # A blank/corrupt ESP32-C3 can reset and re-enumerate faster than
-            # the normal probe timeout. Surface it immediately for intentional
-            # robot/controller provisioning instead of reconnecting forever.
-            session.state = "unrecognized"
-            session.stopped.set()
-            try:
-                session.handle.close()
-            except Exception:
-                pass
-            self.on_change()
+            # A boot error is evidence that the application did not start, but
+            # not evidence that flash is blank. Read flash before offering any
+            # destructive provisioning action.
+            self._start_inspection(session)
             return
         info = parse_device_info(text, session.nonce)
         if info:
@@ -445,8 +495,8 @@ class DeviceManager:
                         "robot", match.group(1).upper(), None, 0, legacy=True
                     )
         if session.info and session.info.device_id != "pending" and session.state != "connected":
-            with self._lock:
-                self._known_devices[session.port.physical_key] = session.info
+            session.classification = "mira"
+            session.requires_factory = False
             session.state = "connected"
             self.on_change()
 

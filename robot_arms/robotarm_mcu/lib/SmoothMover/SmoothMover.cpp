@@ -30,9 +30,16 @@ SmoothMover::SmoothMover(ArmController& ctrl)
     : _ctrl(ctrl),
       _lastUpdateMs(0),
       _maxSpeed(SMOOTH_DEFAULT_MAX_SPEED),
-      _accel(SMOOTH_DEFAULT_ACCEL) {
+      _accel(SMOOTH_DEFAULT_ACCEL),
+      _trackingActive(false),
+      _trackingLastStepMs(0),
+      _trackingLastCommandMs(0) {
     for (int i = 0; i < SMOOTH_MAX_JOINTS; i++) {
         _motions[i].active = false;
+    }
+    for (int i = 0; i < 3; i++) {
+        _trackingTargets[i] = 0.0f;
+        _trackingVelocities[i] = 0.0f;
     }
 }
 
@@ -81,6 +88,9 @@ int SmoothMover::_findSlot(uint8_t channel) const {
 // ---------------------------------------------------------------------------
 
 void SmoothMover::startMove(uint8_t channel, float targetAngle) {
+    if (_isArmChannel(channel)) {
+        _stopTracking();
+    }
     int slot = _findSlot(channel);
     if (slot < 0) {
         Serial.println("[SmoothMover] No available slot");
@@ -138,6 +148,163 @@ void SmoothMover::startMove(uint8_t channel, float targetAngle) {
 
     m.tTotal = m.tAccel + m.tCruise + m.tDecel;
     m.startTimeMs = millis();
+}
+
+void SmoothMover::startCoordinatedMove(float baseAngle, float shoulderAngle,
+                                        float elbowAngle) {
+    _stopTracking();
+    // Interactive XYZ control owns all three arm joints. Leave no stale arm
+    // profile running when a new Cartesian target replaces the old one.
+    stopJoint(SERVO_CH_BASE);
+    stopJoint(SERVO_CH_SHOULDER);
+    stopJoint(SERVO_CH_ELBOW);
+
+    const uint8_t channels[3] = {
+        SERVO_CH_BASE, SERVO_CH_SHOULDER, SERVO_CH_ELBOW
+    };
+    const float targets[3] = { baseAngle, shoulderAngle, elbowAngle };
+    float distances[3];
+
+    // Use one duration for every joint. With the fixed 25/50/25 trapezoid:
+    //   maxSpeed = distance / (0.75 * duration)
+    //   accel    = distance / (0.1875 * duration^2)
+    // Choose the longest duration required by either limit for any joint.
+    float durationSec = 0.05f;
+    for (int i = 0; i < 3; i++) {
+        distances[i] = fabsf(targets[i] - _ctrl.getJointAngle(channels[i]));
+        if (distances[i] < 0.5f) continue;
+
+        float speedDuration = distances[i] / (0.75f * _maxSpeed);
+        float accelDuration = sqrtf(distances[i] / (0.1875f * _accel));
+        durationSec = max(durationSec, max(speedDuration, accelDuration));
+    }
+
+    uint32_t nowMs = millis();
+    for (int i = 0; i < 3; i++) {
+        float currentAngle = _ctrl.getJointAngle(channels[i]);
+        float dist = distances[i];
+
+        if (dist < 0.5f) {
+            _ctrl.setJointAngle(channels[i], targets[i]);
+            continue;
+        }
+
+        int slot = _findSlot(channels[i]);
+        if (slot < 0) continue;
+
+        JointMotion& m = _motions[slot];
+        m.active = true;
+        m.channel = channels[i];
+        m.startAngle = currentAngle;
+        m.targetAngle = targets[i];
+        m.direction = (targets[i] > currentAngle) ? 1.0f : -1.0f;
+        m.distance = dist;
+        m.tAccel = 0.25f * durationSec;
+        m.tCruise = 0.50f * durationSec;
+        m.tDecel = 0.25f * durationSec;
+        m.tTotal = durationSec;
+        m.maxSpeed = dist / (0.75f * durationSec);
+        m.accel = m.maxSpeed / m.tAccel;
+        m.startTimeMs = nowMs;
+    }
+}
+
+void SmoothMover::setTrackingTarget(float baseAngle, float shoulderAngle,
+                                    float elbowAngle) {
+    const uint8_t channels[3] = {
+        SERVO_CH_BASE, SERVO_CH_SHOULDER, SERVO_CH_ELBOW
+    };
+    const float targets[3] = { baseAngle, shoulderAngle, elbowAngle };
+
+    if (!_trackingActive) {
+        // A streaming target owns all arm joints atomically. Clear only their
+        // one-shot profiles; grip motion may continue independently.
+        for (int slot = 0; slot < SMOOTH_MAX_JOINTS; slot++) {
+            if (_motions[slot].active && _isArmChannel(_motions[slot].channel)) {
+                _motions[slot].active = false;
+            }
+        }
+        for (int i = 0; i < 3; i++) {
+            _trackingVelocities[i] = 0.0f;
+        }
+        _trackingActive = true;
+        _trackingLastStepMs = millis();
+    }
+
+    for (int i = 0; i < 3; i++) {
+        _trackingTargets[i] = targets[i];
+    }
+    _trackingLastCommandMs = millis();
+}
+
+bool SmoothMover::isTracking() const {
+    return _trackingActive;
+}
+
+bool SmoothMover::_isArmChannel(uint8_t channel) const {
+    return channel == SERVO_CH_BASE || channel == SERVO_CH_SHOULDER ||
+           channel == SERVO_CH_ELBOW;
+}
+
+void SmoothMover::_stopTracking() {
+    _trackingActive = false;
+    for (int i = 0; i < 3; i++) {
+        _trackingVelocities[i] = 0.0f;
+    }
+}
+
+void SmoothMover::_updateTracking(uint32_t now) {
+    if (!_trackingActive) return;
+
+    float dt = (now - _trackingLastStepMs) / 1000.0f;
+    _trackingLastStepMs = now;
+    if (dt <= 0.0f) return;
+    if (dt > 0.05f) dt = 0.05f;  // Avoid a large jump after a stalled loop.
+
+    const uint8_t channels[3] = {
+        SERVO_CH_BASE, SERVO_CH_SHOULDER, SERVO_CH_ELBOW
+    };
+    bool settled = true;
+
+    for (int i = 0; i < 3; i++) {
+        float current = _ctrl.getJointAngle(channels[i]);
+        float error = _trackingTargets[i] - current;
+        float absError = fabsf(error);
+
+        // The braking-speed bound guarantees that the joint can stop at the
+        // moving target under the configured acceleration limit.
+        float desiredSpeed = sqrtf(2.0f * _accel * absError);
+        desiredSpeed = min(desiredSpeed, _maxSpeed);
+        float desiredVelocity = error < 0.0f ? -desiredSpeed : desiredSpeed;
+        if (absError <= TRACKING_POSITION_EPSILON) desiredVelocity = 0.0f;
+
+        float maxVelocityChange = _accel * dt;
+        float velocityChange = desiredVelocity - _trackingVelocities[i];
+        velocityChange = max(-maxVelocityChange,
+                             min(maxVelocityChange, velocityChange));
+        _trackingVelocities[i] += velocityChange;
+
+        float step = _trackingVelocities[i] * dt;
+        if (absError <= TRACKING_POSITION_EPSILON &&
+            fabsf(_trackingVelocities[i]) <= TRACKING_VELOCITY_EPSILON) {
+            current = _trackingTargets[i];
+            _trackingVelocities[i] = 0.0f;
+        } else {
+            current += step;
+        }
+        _ctrl.setJointAngle(channels[i], current);
+
+        if (fabsf(_trackingTargets[i] - current) > TRACKING_POSITION_EPSILON ||
+            fabsf(_trackingVelocities[i]) > TRACKING_VELOCITY_EPSILON) {
+            settled = false;
+        }
+    }
+
+    // A dropped browser or radio link cannot leave a perpetual live-control
+    // mode behind. Finish at the last safe target, then release the joints.
+    if (settled && now - _trackingLastCommandMs >= TRACKING_COMMAND_TIMEOUT_MS) {
+        _stopTracking();
+    }
 }
 
 void SmoothMover::startTimedMove(float baseAngle, float shoulderAngle,
@@ -199,6 +366,7 @@ void SmoothMover::startTimedMove(float baseAngle, float shoulderAngle,
 }
 
 void SmoothMover::stopAll() {
+    _stopTracking();
     for (int i = 0; i < SMOOTH_MAX_JOINTS; i++) {
         _motions[i].active = false;
     }
@@ -214,6 +382,7 @@ void SmoothMover::stopJoint(uint8_t channel) {
 }
 
 bool SmoothMover::isBusy() const {
+    if (_trackingActive) return true;
     for (int i = 0; i < SMOOTH_MAX_JOINTS; i++) {
         if (_motions[i].active) return true;
     }
@@ -221,6 +390,7 @@ bool SmoothMover::isBusy() const {
 }
 
 bool SmoothMover::isJointBusy(uint8_t channel) const {
+    if (_trackingActive && _isArmChannel(channel)) return true;
     for (int i = 0; i < SMOOTH_MAX_JOINTS; i++) {
         if (_motions[i].active && _motions[i].channel == channel) return true;
     }
@@ -272,6 +442,8 @@ void SmoothMover::update() {
         return;
     }
     _lastUpdateMs = now;
+
+    _updateTracking(now);
 
     for (int i = 0; i < SMOOTH_MAX_JOINTS; i++) {
         JointMotion& m = _motions[i];

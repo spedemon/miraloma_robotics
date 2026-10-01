@@ -21,3 +21,9 @@ robot_names.json
 robot_arms/web_app/.venv-desktop/
 robot_arms/web_app/build/
 robot_arms/web_app/dist/
+robot_arms/android_app/.gradle/
+robot_arms/android_app/local.properties
+robot_arms/android_app/app/build/
+robot_arms/android_app/app/src/main/assets/static/
+robot_arms/android_app/keystore/
+robot_arms/android_app/dist/

@@ -61,6 +61,29 @@ public:
     void startMove(uint8_t channel, float targetAngle);
 
     /**
+     * Start a coordinated, speed- and acceleration-limited move for the three
+     * arm joints. All moving joints arrive together. The shared duration is
+     * chosen so no joint exceeds the runtime max speed or acceleration.
+     *
+     * This is intended for interactive Cartesian control after inverse
+     * kinematics has converted an XYZ target into joint angles.
+     */
+    void startCoordinatedMove(float baseAngle, float shoulderAngle,
+                              float elbowAngle);
+
+    /**
+     * Update an interactive three-joint target without restarting velocity.
+     * The first call takes ownership of the arm joints; subsequent calls only
+     * replace the destination. update() continuously applies the configured
+     * velocity and acceleration limits.
+     */
+    void setTrackingTarget(float baseAngle, float shoulderAngle,
+                           float elbowAngle);
+
+    /** True while the streamed target follower owns the arm joints. */
+    bool isTracking() const;
+
+    /**
      * Stop all active smooth motions immediately.
      */
     void stopAll();
@@ -105,6 +128,16 @@ private:
 
     float _maxSpeed;    // deg/s (runtime adjustable)
     float _accel;       // deg/s² (runtime adjustable)
+
+    bool _trackingActive;
+    float _trackingTargets[3];
+    float _trackingVelocities[3];
+    uint32_t _trackingLastStepMs;
+    uint32_t _trackingLastCommandMs;
+
+    void _stopTracking();
+    bool _isArmChannel(uint8_t channel) const;
+    void _updateTracking(uint32_t now);
 
     /**
      * Find the motion slot for a channel, or an empty slot.

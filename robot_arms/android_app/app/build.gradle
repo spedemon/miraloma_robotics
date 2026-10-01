@@ -1,0 +1,57 @@
+plugins {
+    id "com.android.application"
+}
+
+def releaseVersion = providers.gradleProperty("miraVersion").getOrElse("0.2.0")
+def releaseCode = providers.gradleProperty("miraVersionCode").getOrElse("20000").toInteger()
+def keystorePath = System.getenv("MIRA_ANDROID_KEYSTORE") ?: "../keystore/mira-release.jks"
+def keystorePassword = System.getenv("MIRA_ANDROID_KEYSTORE_PASSWORD") ?: ""
+def releaseKeyAlias = System.getenv("MIRA_ANDROID_KEY_ALIAS") ?: "mira"
+def releaseKeyPassword = System.getenv("MIRA_ANDROID_KEY_PASSWORD") ?: keystorePassword
+
+android {
+    namespace "org.miraloma.mira"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "org.miraloma.mira"
+        minSdk 26
+        targetSdk 35
+        versionCode releaseCode
+        versionName releaseVersion
+    }
+
+    signingConfigs {
+        release {
+            if (file(keystorePath).exists() && keystorePassword) {
+                storeFile file(keystorePath)
+                storePassword keystorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+        release {
+            minifyEnabled false
+            if (signingConfigs.release.storeFile != null) {
+                signingConfig signingConfigs.release
+            }
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    sourceSets.main.assets.srcDirs = ["src/main/assets"]
+}
+
+tasks.register("syncMiraWebAssets", Sync) {
+    from("../../web_app/static")
+    into("src/main/assets/static")
+}
+
+tasks.named("preBuild").configure { dependsOn("syncMiraWebAssets") }

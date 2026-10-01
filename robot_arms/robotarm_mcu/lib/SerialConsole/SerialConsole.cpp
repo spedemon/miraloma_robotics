@@ -155,6 +155,14 @@ void SerialConsole::_processCommand(const String& line) {
         _outln("Usage: grip <angle>");
     } else if (cmd.startsWith("move ")) {
         _cmdMove(cmd.substring(5));
+    } else if (cmd.startsWith("smmove ")) {
+        _cmdSmMove(cmd.substring(7));
+    } else if (cmd == "smmove") {
+        _outln("Usage: smmove <x> <y> <z>");
+    } else if (cmd.startsWith("track ")) {
+        _cmdTrack(cmd.substring(6));
+    } else if (cmd == "track") {
+        _outln("Usage: track <x> <y> <z>");
     } else if (cmd == "stop") {
         _cmdStop();
     } else if (cmd == "sleep") {
@@ -195,6 +203,10 @@ void SerialConsole::_processCommand(const String& line) {
         _cmdCalGet();
     } else if (cmd == "cal_reset") {
         _cmdCalReset();
+    } else if (cmd.startsWith("cal_preview ")) {
+        _cmdCalPreview(cmd.substring(12));
+    } else if (cmd == "cal_preview") {
+        _outln("Usage: cal_preview <joint> <offset> <home|open|closed>");
     } else if (cmd == "seq_clear") {
         _cmdSeqClear();
     } else if (cmd.startsWith("seq_add ")) {
@@ -244,6 +256,8 @@ void SerialConsole::_cmdHelp() {
     _outln();
     _outln("  ── Smooth Motion ──");
     _outln("  move <x> <y> <z> [speed]  Move smoothly (mm/s)");
+    _outln("  smmove <x> <y> <z>         Smooth XYZ control (joint-limited)");
+    _outln("  track <x> <y> <z>          Stream a continuous XYZ target");
     _outln("  stop                      Stop all motion + sleep servos");
     _outln("  sleep                     Disable servo PWM (go limp)");
     _outln("  wake                      Re-enable servo PWM");
@@ -274,6 +288,7 @@ void SerialConsole::_cmdHelp() {
     _outln("  cal_set B S E G           Save joint offsets to flash");
     _outln("  cal_get                   Show current calibration offsets");
     _outln("  cal_reset                 Reset all offsets to zero");
+    _outln("  cal_preview J O P         Preview offset O at pose P");
     _outln("──────────────────────────────────────────");
 }
 
@@ -471,6 +486,68 @@ void SerialConsole::_cmdMove(const String& args) {
     } else {
         _outln("ERROR — motion queue full");
     }
+}
+
+void SerialConsole::_cmdSmMove(const String& args) {
+    // Parse and validate the endpoint before interrupting an active move.
+    float x, y, z;
+    int sp1 = args.indexOf(' ');
+    if (sp1 < 0) { _outln("Usage: smmove <x> <y> <z>"); return; }
+    int sp2 = args.indexOf(' ', sp1 + 1);
+    if (sp2 < 0) { _outln("Usage: smmove <x> <y> <z>"); return; }
+
+    String sx = args.substring(0, sp1);
+    String sy = args.substring(sp1 + 1, sp2);
+    String sz = args.substring(sp2 + 1);
+    if (!_parseFloat(sx, x) || !_parseFloat(sy, y) || !_parseFloat(sz, z)) {
+        _outln("Invalid coordinates");
+        return;
+    }
+
+    float base, shoulder, elbow;
+    if (!_ctrl.solve(x, y, z, base, shoulder, elbow)) {
+        _outln("ERROR — position unreachable (outside workspace or joint limits)");
+        return;
+    }
+
+    _interruptMotion();
+    _smooth.startCoordinatedMove(base, shoulder, elbow);
+
+    String msg = "OK — smooth XYZ (" + String(x, 1) + ", " + String(y, 1) +
+                 ", " + String(z, 1) + ")";
+    _outln(msg);
+}
+
+void SerialConsole::_cmdTrack(const String& args) {
+    float x, y, z;
+    int sp1 = args.indexOf(' ');
+    if (sp1 < 0) { _outln("Usage: track <x> <y> <z>"); return; }
+    int sp2 = args.indexOf(' ', sp1 + 1);
+    if (sp2 < 0) { _outln("Usage: track <x> <y> <z>"); return; }
+
+    String sx = args.substring(0, sp1);
+    String sy = args.substring(sp1 + 1, sp2);
+    String sz = args.substring(sp2 + 1);
+    if (!_parseFloat(sx, x) || !_parseFloat(sy, y) || !_parseFloat(sz, z)) {
+        _outln("Invalid coordinates");
+        return;
+    }
+
+    float base, shoulder, elbow;
+    if (!_ctrl.solve(x, y, z, base, shoulder, elbow)) {
+        _outln("ERROR — position unreachable (outside workspace or joint limits)");
+        return;
+    }
+
+    cancelSleep();
+    if (!_smooth.isTracking()) {
+        _gestures.stopAll();
+        _planner.clearQueue();
+        _smooth.stopAll();
+    }
+    _smooth.setTrackingTarget(base, shoulder, elbow);
+    // Successful tracking updates are intentionally silent. At interactive
+    // rates, acknowledgements would compete with newer targets on the radio.
 }
 
 void SerialConsole::_cmdStop() {
@@ -900,6 +977,14 @@ void SerialConsole::_cmdCalSet(const String& args) {
         return;
     }
 
+    if (base < -CAL_OFFSET_JOINT_LIMIT || base > CAL_OFFSET_JOINT_LIMIT ||
+        shoulder < -CAL_OFFSET_JOINT_LIMIT || shoulder > CAL_OFFSET_JOINT_LIMIT ||
+        elbow < -CAL_OFFSET_JOINT_LIMIT || elbow > CAL_OFFSET_JOINT_LIMIT ||
+        grip < -CAL_OFFSET_GRIP_LIMIT || grip > CAL_OFFSET_GRIP_LIMIT) {
+        _outln("Calibration offset out of range (arm +/-90, grip +/-120)");
+        return;
+    }
+
     // Calibration is performed while the arm is physically aligned at Home.
     // Saving must not write PWM or start a motion; only persist the offsets and
     // rebase the controller's tracked nominal angles for future smooth moves.
@@ -928,6 +1013,62 @@ void SerialConsole::_cmdCalReset() {
     _arm.getCalStore().resetOffsets();
     _ctrl.assumeHome();
     _outln("OK \xE2\x80\x94 calibration reset (all offsets = 0)");
+}
+
+void SerialConsole::_cmdCalPreview(const String& args) {
+    String a = args;
+    a.trim();
+    int sp1 = a.indexOf(' ');
+    int sp2 = sp1 < 0 ? -1 : a.indexOf(' ', sp1 + 1);
+    if (sp1 < 0 || sp2 < 0) {
+        _outln("Usage: cal_preview <joint> <offset> <home|open|closed>");
+        return;
+    }
+
+    String jointName = a.substring(0, sp1);
+    String offsetText = a.substring(sp1 + 1, sp2);
+    String pose = a.substring(sp2 + 1);
+    jointName.trim();
+    offsetText.trim();
+    pose.trim();
+
+    int channel = _resolveJoint(jointName);
+    float candidate;
+    if (channel < 0 || !_parseFloat(offsetText, candidate)) {
+        _outln("Invalid calibration preview");
+        return;
+    }
+
+    const bool isGrip = channel == SERVO_CH_GRIP;
+    const float limit = isGrip ? CAL_OFFSET_GRIP_LIMIT : CAL_OFFSET_JOINT_LIMIT;
+    if (candidate < -limit || candidate > limit) {
+        _outln("Calibration preview offset out of range");
+        return;
+    }
+
+    float reference = 0.0f;
+    if (isGrip) {
+        if (pose == "open") reference = GRIP_OPEN_ANGLE;
+        else if (pose == "closed") reference = GRIP_CLOSED_ANGLE;
+        else {
+            _outln("Grip preview pose must be open or closed");
+            return;
+        }
+    } else if (pose != "home") {
+        _outln("Arm preview pose must be home");
+        return;
+    }
+
+    // The stored offset is already applied inside MiraArm. Subtract it from
+    // the nominal command so the physical preview reflects the candidate.
+    const float stored = _arm.getCalStore().getOffset((uint8_t)channel);
+    const float nominal = reference + candidate - stored;
+    _interruptMotion();
+    _ctrl.setJointAngle((uint8_t)channel, nominal);
+
+    String msg = "OK \xE2\x80\x94 calibration preview " + jointName +
+                 " offset=" + String(candidate, 1) + " pose=" + pose;
+    _outln(msg);
 }
 
 void SerialConsole::_cmdSeqClear() {

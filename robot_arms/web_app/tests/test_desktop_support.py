@@ -20,6 +20,19 @@ class AppPathsTests(unittest.TestCase):
 
                 self.assertEqual(app_paths.user_data_dir(), Path(directory))
 
+    def test_only_one_mira_process_can_hold_the_instance_lock(self):
+        from instance_lock import InstanceLock
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mira.lock"
+            first = InstanceLock(path)
+            second = InstanceLock(path)
+            self.assertTrue(first.acquire())
+            self.assertFalse(second.acquire())
+            first.release()
+            self.assertTrue(second.acquire())
+            second.release()
+
 
 class DirectRobotStartupTests(unittest.TestCase):
     def setUp(self):

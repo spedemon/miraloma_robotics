@@ -1,17 +1,60 @@
 {
-  "schema": 1,
+  "schema": 2,
+  "known_images": [
+    {
+      "role": "robot",
+      "version": "0.5.0",
+      "elf_sha256": "46893ffebaa5e8cb74c2dac5e5995131294ee66da8aa95fefcf9bb67570fdaf9"
+    },
+    {
+      "role": "robot",
+      "version": "0.5.1",
+      "elf_sha256": "dcfed5fef34e342ca6c95e56457e5ff4cf1f31c3bbbec66f54635d83417ec185"
+    },
+    {
+      "role": "robot",
+      "version": "0.5.2",
+      "elf_sha256": "b8aa6ca6a0ed8eb4fc4c558e889aec5ff7fcdb9d51a470dceb32dac3d23ad898"
+    },
+    {
+      "role": "robot",
+      "version": "0.5.2",
+      "elf_sha256": "631b654a8569a792f32d9999a49f42ecd0297143b1fa62650092f52a8bd1e046"
+    },
+    {
+      "role": "robot",
+      "version": "0.5.3",
+      "elf_sha256": "5e73218c5b7437480e28ccafedab187d835e9cfefa92d418a2d6cb9f6a2a20e4"
+    },
+    {
+      "role": "robot",
+      "version": "0.5.3",
+      "elf_sha256": "45114bb0363cfc54d4732f9cc00a4e803da618affffa8b8f5cad40c053e33617"
+    },
+    {
+      "role": "robot",
+      "version": "0.6.0",
+      "elf_sha256": "90bddf46b0eae64b8fbd8ff4f91a5a4bd2d0c8c8eba7053166352451b5da649d"
+    },
+    {
+      "role": "wireless_controller",
+      "version": "0.2.0",
+      "elf_sha256": "08d53bc453afce4595a18eb8690fe5962d81dc30b6bf21c54b5374bd56b4a3cc"
+    }
+  ],
   "robot": {
-    "version": "0.5.1",
-    "protocol": 1,
+    "version": "0.6.0",
+    "protocol": 2,
     "chip": "esp32c3",
     "offset": "0x10000",
-    "asset": "mira-robot-0.5.1.bin",
-    "sha256": "bddb73b6efa1644941e7121cc2f028cbfb70cdc982f39d801df22ec513b415f9",
-    "size": 1115568,
+    "asset": "mira-robot-0.6.0.bin",
+    "sha256": "12e4318285c96ec69f36c10aff75dfc777fcdcf75b697643d8dd9163dd7f9ab2",
+    "size": 1349680,
+    "elf_sha256": "90bddf46b0eae64b8fbd8ff4f91a5a4bd2d0c8c8eba7053166352451b5da649d",
     "provisioning_offset": "0x0",
-    "provisioning_asset": "mira-robot-0.5.1-factory.bin",
-    "provisioning_sha256": "af45706422e889099cac6a0ac614731fe031a0bbf875760927cb11c335d0c1c6",
-    "provisioning_size": 1181104
+    "provisioning_asset": "mira-robot-0.6.0-factory.bin",
+    "provisioning_sha256": "211d8f336f970753698c4a03ce7de0aced68d46de9ea77ae4121ae752b4505e8",
+    "provisioning_size": 1415216
   },
   "wireless_controller": {
     "version": "0.2.0",
@@ -21,6 +64,7 @@
     "asset": "mira-wireless-controller-0.2.0.bin",
     "sha256": "0eb6a1fc6679bba186ca27fffdb59234280b2fd3dd15b0541a899d95ae0cb0c7",
     "size": 1025600,
+    "elf_sha256": "08d53bc453afce4595a18eb8690fe5962d81dc30b6bf21c54b5374bd56b4a3cc",
     "provisioning_offset": "0x0",
     "provisioning_asset": "mira-wireless-controller-0.2.0-factory.bin",
     "provisioning_sha256": "93e6614cc29c08f0fa0c2a80e6ce5cb7ef88a5c28b45ab159ec8b3d17a0fecd6",

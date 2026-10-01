@@ -90,7 +90,7 @@
                     <div class="card">
                         <div class="card-title"><span class="title-with-mark"><svg class="project-icon" aria-hidden="true"><use href="/static/icons.svg#robots"></use></svg> Move the Arm</span><button class="card-help" type="button" onclick="openHelp('move')" aria-label="Help with moving the robot"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#help"></use></svg></button></div>
 
-                        <!-- Mode & Motion toggle selectors -->
+                        <!-- Control mode selector -->
                         <div class="toggle-row">
                             <div class="toggle-group">
                                 <span class="toggle-group-label">Mode</span>
@@ -99,50 +99,65 @@
                                 <button class="toggle-btn" id="mode-cartesian"
                                     onclick="setControlMode('cartesian')">XYZ Mode</button>
                             </div>
-                            <div class="toggle-group">
-                                <span class="toggle-group-label">Motion</span>
-                                <button class="toggle-btn active" id="motion-smooth"
-                                    onclick="setMotionType('smooth')">Glide</button>
-                                <button class="toggle-btn" id="motion-instant"
-                                    onclick="setMotionType('instant')">Snap</button>
-                            </div>
                         </div>
 
-                        <!-- Cartesian sliders (X, Y, Z, Claw) -->
-                        <div class="slider-group" id="sliders-cartesian" style="display: none;">
-                            <div class="slider-row">
-                                <span class="slider-label x">X</span>
-                                <div class="slider-track">
-                                    <input type="range" id="slider-x" class="slider-x" min="-126" max="126" step="0.5"
-                                        value="0">
-                                    <div class="slider-ticks" data-min="-126" data-max="126" data-tick="10"
-                                        data-label="20"></div>
+                        <!-- Cartesian workspace navigator (X, Y, Z, Claw) -->
+                        <div class="xyz-workspace" id="sliders-cartesian" style="display: none;">
+                            <div class="xyz-workspace-heading">
+                                <div>
+                                    <div class="xyz-workspace-title">Reachable XYZ workspace</div>
+                                    <div class="xyz-workspace-hint">Click or drag anywhere to move the robot. Unreachable clicks use the nearest reachable point; the third coordinate stays fixed.</div>
                                 </div>
-                                <span class="slider-value"><span id="value-x">0.0</span><span class="slider-unit">
-                                        mm</span></span>
+                                <div class="xyz-validity valid" id="xyz-validity" role="status" aria-live="polite">Reachable position</div>
                             </div>
-                            <div class="slider-row">
-                                <span class="slider-label y">Y</span>
-                                <div class="slider-track">
-                                    <input type="range" id="slider-y" class="slider-y" min="-126" max="126" step="0.5"
-                                        value="0">
-                                    <div class="slider-ticks" data-min="-126" data-max="126" data-tick="10"
-                                        data-label="20"></div>
+
+                            <div class="xyz-view-grid">
+                                <div class="xyz-view-panel xyz-volume-panel">
+                                    <div class="xyz-view-title">
+                                        <span>3D overview</span>
+                                        <div class="xyz-volume-controls" aria-label="3D view controls">
+                                            <button type="button" id="xyz-volume-zoom-out" onclick="adjustXYZVolumeZoom(-0.15)" aria-label="Zoom 3D view out">−</button>
+                                            <span id="xyz-volume-zoom" aria-live="polite">145%</span>
+                                            <button type="button" id="xyz-volume-zoom-in" onclick="adjustXYZVolumeZoom(0.15)" aria-label="Zoom 3D view in">+</button>
+                                            <button type="button" id="xyz-volume-reset" onclick="resetXYZVolumeView()" aria-label="Reset 3D view">Reset</button>
+                                        </div>
+                                    </div>
+                                    <canvas id="xyz-volume-canvas" class="xyz-canvas xyz-volume-canvas"
+                                        aria-label="Interactive three-dimensional overview showing the reachable space, target, and estimated articulated robot pose. Drag to rotate and use the mouse wheel to zoom."></canvas>
+                                    <div class="xyz-legend" aria-hidden="true">
+                                        <span><i class="xyz-legend-reachable"></i>Reachable</span>
+                                        <span><i class="xyz-legend-current"></i>Robot (estimated)</span>
+                                        <span><i class="xyz-legend-target"></i>Target</span>
+                                    </div>
                                 </div>
-                                <span class="slider-value"><span id="value-y">0.0</span><span class="slider-unit">
-                                        mm</span></span>
-                            </div>
-                            <div class="slider-row">
-                                <span class="slider-label z">Z</span>
-                                <div class="slider-track">
-                                    <input type="range" id="slider-z" class="slider-z" min="0" max="148" step="0.5"
-                                        value="148">
-                                    <div class="slider-ticks" data-min="0" data-max="148" data-tick="10"
-                                        data-label="50"></div>
+
+                                <div class="xyz-projection-grid">
+                                    <div class="xyz-view-panel">
+                                        <div class="xyz-view-title"><span>Top · X/Y</span><span id="xyz-slice-xy">Z = 148.0 mm</span></div>
+                                        <canvas id="xyz-plane-xy" class="xyz-canvas xyz-plane-canvas"
+                                            aria-label="Top view. Drag to change X and Y while Z stays fixed."></canvas>
+                                    </div>
+                                    <div class="xyz-view-panel">
+                                        <div class="xyz-view-title"><span>Side · X/Z</span><span id="xyz-slice-xz">Y = 0.0 mm</span></div>
+                                        <canvas id="xyz-plane-xz" class="xyz-canvas xyz-plane-canvas"
+                                            aria-label="Side view. Drag to change X and Z while Y stays fixed."></canvas>
+                                    </div>
+                                    <div class="xyz-view-panel">
+                                        <div class="xyz-view-title"><span>Front · Y/Z</span><span id="xyz-slice-yz">X = 0.0 mm</span></div>
+                                        <canvas id="xyz-plane-yz" class="xyz-canvas xyz-plane-canvas"
+                                            aria-label="Front view. Drag to change Y and Z while X stays fixed."></canvas>
+                                    </div>
                                 </div>
-                                <span class="slider-value"><span id="value-z">148.0</span><span class="slider-unit">
-                                        mm</span></span>
                             </div>
+
+                            <div class="xyz-coordinate-controls">
+                                <label class="xyz-coordinate x"><span>X</span><input type="number" id="slider-x" min="-126" max="126" step="0.5" value="0" inputmode="decimal"><small>mm</small></label>
+                                <label class="xyz-coordinate y"><span>Y</span><input type="number" id="slider-y" min="-126" max="126" step="0.5" value="0" inputmode="decimal"><small>mm</small></label>
+                                <label class="xyz-coordinate z"><span>Z</span><input type="number" id="slider-z" min="0" max="148" step="0.5" value="148" inputmode="decimal"><small>mm</small></label>
+                                <button class="btn btn-primary xyz-move-btn" id="xyz-move-btn" type="button" onclick="sendCartesianMove()">Move robot</button>
+                            </div>
+                            <div class="xyz-invalid-reason" id="xyz-invalid-reason" role="status" aria-live="polite" hidden></div>
+
                             <div class="slider-row">
                                 <span class="slider-label grip">Claw</span>
                                 <div class="slider-track grip-track">
@@ -217,8 +232,8 @@
                     <div class="card calibration-card" id="calibration-card" style="display: none;">
                         <div class="card-title"><span class="title-with-mark"><svg class="project-icon" aria-hidden="true"><use href="/static/icons.svg#calibrate"></use></svg> Servo Calibration</span><button class="card-help" type="button" onclick="openHelp('calibrate')" aria-label="Help with calibration"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#help"></use></svg></button></div>
                         <p class="calibration-hint">
-                            Calibration fixes small differences between servo motors. Align the arm at Home, then adjust the Grip offset and use both claw test buttons.
-                            Click <strong>Apply</strong> to save the offsets permanently to the robot.
+                            Calibration fixes small differences between servo motors and how the robot was assembled. Align the arm at Home, then adjust the Grip offset and test both claw positions. Click <strong>Apply</strong> to save the offsets to the robot.<br>
+                            If the arm cannot stand straight with its claw closed, a joint cannot use its full range, or the claw cannot open, the servo’s white nylon arm is installed at the wrong angle. <a href="https://github.com/spedemon/miraloma_robotics/tree/develop/robot_arms#if-calibration-cannot-make-the-robot-straight-or-preserve-full-motion" target="_blank" rel="noopener">Follow the servo-arm repositioning instructions ↗</a>
                         </p>
 
                         <div class="slider-group" id="calibration-sliders">
@@ -270,8 +285,8 @@
                             <div class="claw-test-panel">
                                 <div><strong>Check the claw</strong><span>Adjust the Grip offset, then test both end positions.</span></div>
                                 <div class="claw-test-actions">
-                                    <button class="btn btn-claw-test" type="button" onclick="calGripTest('open')"><svg class="button-icon" aria-hidden="true"><use href="/static/icons.svg#claw-open"></use></svg>Test open</button>
-                                    <button class="btn btn-claw-test" type="button" onclick="calGripTest('closed')"><svg class="button-icon" aria-hidden="true"><use href="/static/icons.svg#claw-closed"></use></svg>Test closed</button>
+                                    <button class="btn btn-claw-test" id="cal-test-open" data-position="open" type="button" aria-pressed="false" onclick="calGripTest('open')"><svg class="button-icon" aria-hidden="true"><use href="/static/icons.svg#claw-open"></use></svg>Test open</button>
+                                    <button class="btn btn-claw-test active" id="cal-test-closed" data-position="closed" type="button" aria-pressed="true" onclick="calGripTest('closed')"><svg class="button-icon" aria-hidden="true"><use href="/static/icons.svg#claw-closed"></use></svg>Test closed</button>
                                 </div>
                             </div>
                         </div>
@@ -462,8 +477,9 @@
                     <ol>
                         <li>Choose one robot under <strong>Robots Detected</strong>.</li>
                         <li>Click <strong>Home</strong>. The arm should point straight up with its claw closed.</li>
-                        <li>Keep <strong>Joint Mode</strong> and <strong>Glide</strong> selected.</li>
+                        <li>Keep <strong>Joint Mode</strong> selected.</li>
                         <li>Move one slider slowly. Each track labels the physical direction: Base turns left/right, Shoulder and Elbow move down/up, and Claw moves open/closed.</li>
+                        <li>When Joint Mode feels familiar, try <strong>XYZ Mode</strong>. Click or drag inside a green area in the Top, Side, or Front view to move immediately. You can also enter coordinates and click <strong>Move robot</strong>. Red targets explain why a position is not reachable.</li>
                     </ol>
                     <div class="help-callout warning">Keep fingers, hair, and clothing clear. Click the red <strong>Stop all</strong> button if anything looks wrong.</div>
                 </section>
@@ -594,8 +610,14 @@
         </div>
     </div>
 
-    <!-- Socket.IO (from CDN, bundled with Flask-SocketIO) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <!-- Android supplies a local Socket.IO-compatible bridge; desktop uses Flask-SocketIO. -->
+    <script>
+        if (window.MiraAndroid) {
+            document.write('<script src="/static/mobile_bridge.js"><\/script>');
+        } else {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"><\/script>');
+        }
+    </script>
     <script src="/static/app.js"></script>
 </body>
 
